@@ -10,7 +10,7 @@
  * Ported from the prototype (nitishkumar110/sync-and-study).
  * =========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap');
+/* Fonts (Syne, DM Sans, DM Mono) are loaded via <link> tags in __root.tsx */
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
