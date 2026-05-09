@@ -13,12 +13,22 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null);
 
+// TEMP: bypass auth so all pages are viewable without a backend.
+// Remove this mock and restore the real bootstrap when the API is wired up.
+const DEV_BYPASS_AUTH = true;
+const MOCK_USER: AuthUser = {
+  id: "dev-user",
+  email: "dev@syncandstudy.local",
+  name: "Dev User",
+} as AuthUser;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<AuthUser | null>(DEV_BYPASS_AUTH ? MOCK_USER : null);
+  const [loading, setLoading] = useState(!DEV_BYPASS_AUTH);
 
   // Bootstrap: if we have a token, try to fetch /auth/me.
   useEffect(() => {
+    if (DEV_BYPASS_AUTH) return;
     let alive = true;
     const t = tokenStore.get();
     if (!t) { setLoading(false); return; }
