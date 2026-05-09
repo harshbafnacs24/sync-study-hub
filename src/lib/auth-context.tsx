@@ -20,6 +20,7 @@ const MOCK_USER: AuthUser = {
   id: "dev-user",
   email: "dev@syncandstudy.local",
   name: "Dev User",
+  createdAt: new Date().toISOString(),
 } as AuthUser;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
