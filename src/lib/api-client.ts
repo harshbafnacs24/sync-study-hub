@@ -1,4 +1,6 @@
 import type { AuthResponse, Profile, ProfilePatch, AuthUser } from "./types";
+import { DEV_OFFLINE_MODE } from "./dev-mode";
+import { storage } from "./store/storage";
 
 /**
  * Base URL of the Sync & Study Express + MongoDB backend.
