@@ -1,13 +1,13 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Home, Users, Video, CalendarDays, UserPlus, User } from "lucide-react";
+import { LayoutGrid, Timer, ListChecks, Users, Sparkles, User } from "lucide-react";
 
 const items = [
-  { to: "/home" as const,     label: "Home",     Icon: Home },
-  { to: "/match" as const,    label: "Match",    Icon: Users },
-  { to: "/room" as const,     label: "Room",     Icon: Video },
-  { to: "/schedule" as const, label: "Schedule", Icon: CalendarDays },
-  { to: "/friends" as const,  label: "Friends",  Icon: UserPlus },
-  { to: "/profile" as const,  label: "Profile",  Icon: User },
+  { to: "/home" as const,    label: "Home",   Icon: LayoutGrid },
+  { to: "/focus" as const,   label: "Focus",  Icon: Timer },
+  { to: "/tasks" as const,   label: "Tasks",  Icon: ListChecks },
+  { to: "/rooms" as const,   label: "Rooms",  Icon: Users },
+  { to: "/sage" as const,    label: "Sage",   Icon: Sparkles },
+  { to: "/profile" as const, label: "Profile",Icon: User },
 ];
 
 export function BottomNav() {
