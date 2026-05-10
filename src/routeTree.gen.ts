@@ -13,15 +13,15 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
-import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
-import { Route as AuthenticatedSageRouteImport } from './routes/_authenticated/sage'
-import { Route as AuthenticatedRoomsRouteImport } from './routes/_authenticated/rooms'
-import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
-import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
 import { Route as AuthenticatedFocusRouteImport } from './routes/_authenticated/focus'
+import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
+import { Route as AuthenticatedRoomsRouteImport } from './routes/_authenticated/rooms'
+import { Route as AuthenticatedSageRouteImport } from './routes/_authenticated/sage'
+import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -42,96 +42,49 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
-  id: '/tasks',
-  path: '/tasks',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedSageRoute = AuthenticatedSageRouteImport.update({
-  id: '/sage',
-  path: '/sage',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedRoomsRoute = AuthenticatedRoomsRouteImport.update({
-  id: '/rooms',
-  path: '/rooms',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedNotificationsRoute =
-  AuthenticatedNotificationsRouteImport.update({
-    id: '/notifications',
-    path: '/notifications',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedHomeRoute = AuthenticatedHomeRouteImport.update({
-  id: '/home',
-  path: '/home',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedFocusRoute = AuthenticatedFocusRouteImport.update({
-  id: '/focus',
-  path: '/focus',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
-  id: '/analytics',
-  path: '/analytics',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
+
+const mkChild = (imp: any, id: string) => imp.update({ id, path: id, getParentRoute: () => AuthenticatedRoute } as any)
+
+const AuthenticatedHomeRoute = mkChild(AuthenticatedHomeRouteImport, '/home')
+const AuthenticatedFocusRoute = mkChild(AuthenticatedFocusRouteImport, '/focus')
+const AuthenticatedTasksRoute = mkChild(AuthenticatedTasksRouteImport, '/tasks')
+const AuthenticatedRoomsRoute = mkChild(AuthenticatedRoomsRouteImport, '/rooms')
+const AuthenticatedSageRoute = mkChild(AuthenticatedSageRouteImport, '/sage')
+const AuthenticatedProfileRoute = mkChild(AuthenticatedProfileRouteImport, '/profile')
+const AuthenticatedNotificationsRoute = mkChild(AuthenticatedNotificationsRouteImport, '/notifications')
+const AuthenticatedAnalyticsRoute = mkChild(AuthenticatedAnalyticsRouteImport, '/analytics')
+const AuthenticatedSettingsRoute = mkChild(AuthenticatedSettingsRouteImport, '/settings')
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
-  '/analytics': typeof AuthenticatedAnalyticsRoute
-  '/focus': typeof AuthenticatedFocusRoute
   '/home': typeof AuthenticatedHomeRoute
-  '/notifications': typeof AuthenticatedNotificationsRoute
-  '/profile': typeof AuthenticatedProfileRoute
+  '/focus': typeof AuthenticatedFocusRoute
+  '/tasks': typeof AuthenticatedTasksRoute
   '/rooms': typeof AuthenticatedRoomsRoute
   '/sage': typeof AuthenticatedSageRoute
-  '/settings': typeof AuthenticatedSettingsRoute
-  '/tasks': typeof AuthenticatedTasksRoute
-}
-export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/login': typeof LoginRoute
-  '/signup': typeof SignupRoute
-  '/analytics': typeof AuthenticatedAnalyticsRoute
-  '/focus': typeof AuthenticatedFocusRoute
-  '/home': typeof AuthenticatedHomeRoute
-  '/notifications': typeof AuthenticatedNotificationsRoute
   '/profile': typeof AuthenticatedProfileRoute
-  '/rooms': typeof AuthenticatedRoomsRoute
-  '/sage': typeof AuthenticatedSageRoute
+  '/notifications': typeof AuthenticatedNotificationsRoute
+  '/analytics': typeof AuthenticatedAnalyticsRoute
   '/settings': typeof AuthenticatedSettingsRoute
-  '/tasks': typeof AuthenticatedTasksRoute
 }
+export interface FileRoutesByTo extends FileRoutesByFullPath {}
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
-  '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
-  '/_authenticated/focus': typeof AuthenticatedFocusRoute
   '/_authenticated/home': typeof AuthenticatedHomeRoute
-  '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
-  '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/_authenticated/focus': typeof AuthenticatedFocusRoute
+  '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/rooms': typeof AuthenticatedRoomsRoute
   '/_authenticated/sage': typeof AuthenticatedSageRoute
+  '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
+  '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
-  '/_authenticated/tasks': typeof AuthenticatedTasksRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -139,44 +92,44 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/signup'
-    | '/analytics'
-    | '/focus'
     | '/home'
-    | '/notifications'
-    | '/profile'
+    | '/focus'
+    | '/tasks'
     | '/rooms'
     | '/sage'
+    | '/profile'
+    | '/notifications'
+    | '/analytics'
     | '/settings'
-    | '/tasks'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
     | '/signup'
-    | '/analytics'
-    | '/focus'
     | '/home'
-    | '/notifications'
-    | '/profile'
+    | '/focus'
+    | '/tasks'
     | '/rooms'
     | '/sage'
+    | '/profile'
+    | '/notifications'
+    | '/analytics'
     | '/settings'
-    | '/tasks'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/login'
     | '/signup'
-    | '/_authenticated/analytics'
-    | '/_authenticated/focus'
     | '/_authenticated/home'
-    | '/_authenticated/notifications'
-    | '/_authenticated/profile'
+    | '/_authenticated/focus'
+    | '/_authenticated/tasks'
     | '/_authenticated/rooms'
     | '/_authenticated/sage'
+    | '/_authenticated/profile'
+    | '/_authenticated/notifications'
+    | '/_authenticated/analytics'
     | '/_authenticated/settings'
-    | '/_authenticated/tasks'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -188,127 +141,47 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/signup': {
-      id: '/signup'
-      path: '/signup'
-      fullPath: '/signup'
-      preLoaderRoute: typeof SignupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/tasks': {
-      id: '/_authenticated/tasks'
-      path: '/tasks'
-      fullPath: '/tasks'
-      preLoaderRoute: typeof AuthenticatedTasksRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/settings': {
-      id: '/_authenticated/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/sage': {
-      id: '/_authenticated/sage'
-      path: '/sage'
-      fullPath: '/sage'
-      preLoaderRoute: typeof AuthenticatedSageRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/rooms': {
-      id: '/_authenticated/rooms'
-      path: '/rooms'
-      fullPath: '/rooms'
-      preLoaderRoute: typeof AuthenticatedRoomsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/profile': {
-      id: '/_authenticated/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof AuthenticatedProfileRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/notifications': {
-      id: '/_authenticated/notifications'
-      path: '/notifications'
-      fullPath: '/notifications'
-      preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/home': {
-      id: '/_authenticated/home'
-      path: '/home'
-      fullPath: '/home'
-      preLoaderRoute: typeof AuthenticatedHomeRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/focus': {
-      id: '/_authenticated/focus'
-      path: '/focus'
-      fullPath: '/focus'
-      preLoaderRoute: typeof AuthenticatedFocusRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/analytics': {
-      id: '/_authenticated/analytics'
-      path: '/analytics'
-      fullPath: '/analytics'
-      preLoaderRoute: typeof AuthenticatedAnalyticsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
+    '/signup': { id: '/signup'; path: '/signup'; fullPath: '/signup'; preLoaderRoute: typeof SignupRouteImport; parentRoute: typeof rootRouteImport }
+    '/login': { id: '/login'; path: '/login'; fullPath: '/login'; preLoaderRoute: typeof LoginRouteImport; parentRoute: typeof rootRouteImport }
+    '/_authenticated': { id: '/_authenticated'; path: ''; fullPath: '/'; preLoaderRoute: typeof AuthenticatedRouteImport; parentRoute: typeof rootRouteImport }
+    '/': { id: '/'; path: '/'; fullPath: '/'; preLoaderRoute: typeof IndexRouteImport; parentRoute: typeof rootRouteImport }
+    '/_authenticated/home': { id: '/_authenticated/home'; path: '/home'; fullPath: '/home'; preLoaderRoute: typeof AuthenticatedHomeRouteImport; parentRoute: typeof AuthenticatedRoute }
+    '/_authenticated/focus': { id: '/_authenticated/focus'; path: '/focus'; fullPath: '/focus'; preLoaderRoute: typeof AuthenticatedFocusRouteImport; parentRoute: typeof AuthenticatedRoute }
+    '/_authenticated/tasks': { id: '/_authenticated/tasks'; path: '/tasks'; fullPath: '/tasks'; preLoaderRoute: typeof AuthenticatedTasksRouteImport; parentRoute: typeof AuthenticatedRoute }
+    '/_authenticated/rooms': { id: '/_authenticated/rooms'; path: '/rooms'; fullPath: '/rooms'; preLoaderRoute: typeof AuthenticatedRoomsRouteImport; parentRoute: typeof AuthenticatedRoute }
+    '/_authenticated/sage': { id: '/_authenticated/sage'; path: '/sage'; fullPath: '/sage'; preLoaderRoute: typeof AuthenticatedSageRouteImport; parentRoute: typeof AuthenticatedRoute }
+    '/_authenticated/profile': { id: '/_authenticated/profile'; path: '/profile'; fullPath: '/profile'; preLoaderRoute: typeof AuthenticatedProfileRouteImport; parentRoute: typeof AuthenticatedRoute }
+    '/_authenticated/notifications': { id: '/_authenticated/notifications'; path: '/notifications'; fullPath: '/notifications'; preLoaderRoute: typeof AuthenticatedNotificationsRouteImport; parentRoute: typeof AuthenticatedRoute }
+    '/_authenticated/analytics': { id: '/_authenticated/analytics'; path: '/analytics'; fullPath: '/analytics'; preLoaderRoute: typeof AuthenticatedAnalyticsRouteImport; parentRoute: typeof AuthenticatedRoute }
+    '/_authenticated/settings': { id: '/_authenticated/settings'; path: '/settings'; fullPath: '/settings'; preLoaderRoute: typeof AuthenticatedSettingsRouteImport; parentRoute: typeof AuthenticatedRoute }
   }
 }
 
 interface AuthenticatedRouteChildren {
-  AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
-  AuthenticatedFocusRoute: typeof AuthenticatedFocusRoute
   AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
-  AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
-  AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedFocusRoute: typeof AuthenticatedFocusRoute
+  AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedRoomsRoute: typeof AuthenticatedRoomsRoute
   AuthenticatedSageRoute: typeof AuthenticatedSageRoute
+  AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
+  AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
-  AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
-  AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
-  AuthenticatedFocusRoute: AuthenticatedFocusRoute,
-  AuthenticatedHomeRoute: AuthenticatedHomeRoute,
-  AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
-  AuthenticatedProfileRoute: AuthenticatedProfileRoute,
-  AuthenticatedRoomsRoute: AuthenticatedRoomsRoute,
-  AuthenticatedSageRoute: AuthenticatedSageRoute,
-  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
-  AuthenticatedTasksRoute: AuthenticatedTasksRoute,
+  AuthenticatedHomeRoute,
+  AuthenticatedFocusRoute,
+  AuthenticatedTasksRoute,
+  AuthenticatedRoomsRoute,
+  AuthenticatedSageRoute,
+  AuthenticatedProfileRoute,
+  AuthenticatedNotificationsRoute,
+  AuthenticatedAnalyticsRoute,
+  AuthenticatedSettingsRoute,
 }
 
-const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
-  AuthenticatedRouteChildren,
-)
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(AuthenticatedRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -319,13 +192,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
