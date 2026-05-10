@@ -5,6 +5,9 @@ import { env } from "./config/env.js";
 import { connectDb } from "./config/db.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { profileRouter } from "./modules/profile/profile.routes.js";
+import { tasksRouter } from "./modules/tasks/tasks.routes.js";
+import { sessionsRouter } from "./modules/sessions/sessions.routes.js";
+import { analyticsRouter } from "./modules/analytics/analytics.routes.js";
 
 async function main() {
   await connectDb();
@@ -24,6 +27,15 @@ async function main() {
   );
 
   app.get("/health", (_req, res) => res.json({ ok: true }));
+
+  // v1 API
+  app.use("/api/v1/auth", authRouter);
+  app.use("/api/v1/profile", profileRouter);
+  app.use("/api/v1/tasks", tasksRouter);
+  app.use("/api/v1/sessions", sessionsRouter);
+  app.use("/api/v1/analytics", analyticsRouter);
+
+  // Legacy unversioned aliases (so the existing frontend keeps working).
   app.use("/api/auth", authRouter);
   app.use("/api/profile", profileRouter);
 
