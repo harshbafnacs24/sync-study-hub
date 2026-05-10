@@ -1,4 +1,6 @@
 import type { AuthResponse, Profile, ProfilePatch, AuthUser } from "./types";
+import { DEV_OFFLINE_MODE } from "./dev-mode";
+import { storage } from "./store/storage";
 
 /**
  * Base URL of the Sync & Study Express + MongoDB backend.
@@ -85,14 +87,39 @@ export const api = {
 
   me: () => request<{ user: AuthUser }>("/api/auth/me", { auth: true }),
 
-  getMyProfile: () => request<{ profile: Profile }>("/api/profile/me", { auth: true }),
+  getMyProfile: async (): Promise<{ profile: Profile }> => {
+    if (DEV_OFFLINE_MODE) {
+      const stored = storage.get<Profile | null>("profile", null);
+      if (stored) return { profile: stored };
+      const fresh: Profile = {
+        userId: "dev-user",
+        name: "Dev User",
+        avatar: null, bio: null, school: null, year: null,
+        subjects: [], goals: null,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        updatedAt: new Date().toISOString(),
+      };
+      storage.set("profile", fresh);
+      return { profile: fresh };
+    }
+    return request<{ profile: Profile }>("/api/profile/me", { auth: true });
+  },
 
-  updateMyProfile: (patch: ProfilePatch) =>
-    request<{ profile: Profile }>("/api/profile/me", {
+  updateMyProfile: async (patch: ProfilePatch): Promise<{ profile: Profile }> => {
+    if (DEV_OFFLINE_MODE) {
+      const current = storage.get<Profile | null>("profile", null) ?? {
+        userId: "dev-user", name: "Dev User", subjects: [],
+      } as Profile;
+      const next: Profile = { ...current, ...patch, subjects: patch.subjects ?? current.subjects ?? [], updatedAt: new Date().toISOString() };
+      storage.set("profile", next);
+      return { profile: next };
+    }
+    return request<{ profile: Profile }>("/api/profile/me", {
       method: "PATCH",
       auth: true,
       body: JSON.stringify(patch),
-    }),
+    });
+  },
 };
 
 export { ApiError };
