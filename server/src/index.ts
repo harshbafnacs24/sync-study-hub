@@ -1,3 +1,4 @@
+import http from "http";
 import express from "express";
 import cors from "cors";
 import { ZodError } from "zod";
@@ -8,6 +9,11 @@ import { profileRouter } from "./modules/profile/profile.routes.js";
 import { tasksRouter } from "./modules/tasks/tasks.routes.js";
 import { sessionsRouter } from "./modules/sessions/sessions.routes.js";
 import { analyticsRouter } from "./modules/analytics/analytics.routes.js";
+import { conversationsRouter } from "./modules/messages/messages.routes.js";
+import { communitiesRouter } from "./modules/communities/communities.routes.js";
+import { notificationsRouter } from "./modules/notifications/notifications.routes.js";
+import { sageRouter } from "./modules/sage/sage.routes.js";
+import { attachSocket } from "./realtime/socket.js";
 
 async function main() {
   await connectDb();
@@ -34,12 +40,15 @@ async function main() {
   app.use("/api/v1/tasks", tasksRouter);
   app.use("/api/v1/sessions", sessionsRouter);
   app.use("/api/v1/analytics", analyticsRouter);
+  app.use("/api/v1/conversations", conversationsRouter);
+  app.use("/api/v1/communities", communitiesRouter);
+  app.use("/api/v1/notifications", notificationsRouter);
+  app.use("/api/v1/sage", sageRouter);
 
-  // Legacy unversioned aliases (so the existing frontend keeps working).
+  // Legacy unversioned aliases.
   app.use("/api/auth", authRouter);
   app.use("/api/profile", profileRouter);
 
-  // Error handler — keep last.
   app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     if (err instanceof ZodError) {
       return res.status(400).json({ error: "Validation failed", details: err.flatten() });
@@ -49,9 +58,13 @@ async function main() {
     res.status(status).json({ error: err?.message ?? "Internal server error" });
   });
 
-  app.listen(env.port, () => {
+  const httpServer = http.createServer(app);
+  attachSocket(httpServer);
+
+  httpServer.listen(env.port, () => {
     console.log(`[server] listening on http://localhost:${env.port}`);
     console.log(`[server] CORS origins: ${env.corsOrigins.join(", ")}`);
+    console.log(`[server] Sage provider: ${process.env.GEMINI_API_KEY ? "gemini" : "mock"}`);
   });
 }
 
