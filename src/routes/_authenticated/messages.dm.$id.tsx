@@ -116,7 +116,7 @@ function DMPage() {
       <button
         className="ss-btn ss-btn-ghost"
         style={{ margin: "0 16px 6px", borderTop: "1px solid var(--color-border)", padding: "8px 12px", fontSize: "0.72rem", display: "inline-flex", alignItems: "center", gap: 6, justifyContent: "center", color: "var(--color-primary)" }}
-        onClick={() => onSend("Want to start a focus room together?")}
+        onClick={() => nav({ to: "/sage", search: { prompt: `Draft a 60-min joint study plan for me and ${peer.name.split(" ")[0]}` } as any })}
       >
         <Sparkles size={12} /> Ask Sage to draft a study plan with {peer.name.split(" ")[0]}
       </button>
