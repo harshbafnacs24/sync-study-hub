@@ -1,5 +1,6 @@
 import { storage, newId } from "./storage";
 import { SEED_COMMUNITIES, SEED_CHANNELS } from "./seed";
+import { socketBus, SocketEvents } from "../socket";
 import type { Channel, ChannelMessage, Community } from "../types";
 
 const K_COMM = "comm.list";
@@ -105,6 +106,7 @@ export const communitiesStore = {
     };
     all[channelId] = [...(all[channelId] ?? []), msg];
     storage.set(K_MSGS, all);
+    socketBus.emit(SocketEvents.ChannelMessage, { channelId, message: msg });
     return msg;
   },
 };

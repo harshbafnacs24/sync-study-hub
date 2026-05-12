@@ -1,5 +1,6 @@
 import { storage, newId } from "./storage";
 import { SEED_PEERS } from "./seed";
+import { socketBus, SocketEvents } from "../socket";
 import type { Conversation, DirectMessage, Peer } from "../types";
 
 const K_PEERS = "msg.peers";
@@ -69,15 +70,19 @@ export const messagesStore = {
   },
 
   send(conversationId: string, text: string): DirectMessage {
+    return messagesStore.sendAs(conversationId, "me", text, { read: true });
+  },
+
+  sendAs(conversationId: string, senderId: string, text: string, opts: { read?: boolean } = {}): DirectMessage {
     ensureSeed();
     const all = storage.get<Record<string, DirectMessage[]>>(K_MSGS, {});
     const msg: DirectMessage = {
       id: newId(),
       conversationId,
-      senderId: "me",
+      senderId,
       text,
       createdAt: new Date().toISOString(),
-      read: true,
+      read: opts.read ?? false,
     };
     all[conversationId] = [...(all[conversationId] ?? []), msg];
     storage.set(K_MSGS, all);
@@ -85,9 +90,17 @@ export const messagesStore = {
     const convs = storage.get<Conversation[]>(K_CONVS, []);
     const idx = convs.findIndex((c) => c.id === conversationId);
     if (idx >= 0) {
-      convs[idx] = { ...convs[idx], lastMessageAt: msg.createdAt, lastPreview: text, unread: 0 };
+      const isMine = senderId === "me";
+      convs[idx] = {
+        ...convs[idx],
+        lastMessageAt: msg.createdAt,
+        lastPreview: text,
+        unread: isMine ? 0 : convs[idx].unread + 1,
+      };
       storage.set(K_CONVS, convs);
     }
+    socketBus.emit(SocketEvents.MessageNew, { conversationId, message: msg });
+    socketBus.emit(SocketEvents.ConversationUpdated, { conversationId });
     return msg;
   },
 
