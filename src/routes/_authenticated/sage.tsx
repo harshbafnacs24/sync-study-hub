@@ -6,6 +6,9 @@ import { streamSageReply, type SageStreamHandle } from "../../lib/sage/mock-stre
 
 export const Route = createFileRoute("/_authenticated/sage")({
   head: () => ({ meta: [{ title: "Sage — Sync & Study" }] }),
+  validateSearch: (s: Record<string, unknown>) => ({
+    prompt: typeof s.prompt === "string" ? s.prompt : undefined,
+  }),
   component: SagePage,
 });
 
@@ -19,7 +22,8 @@ const PROMPTS = [
 ];
 
 function SagePage() {
-  const [input, setInput] = useState("");
+  const { prompt } = Route.useSearch();
+  const [input, setInput] = useState(prompt ?? "");
   const [turns, setTurns] = useState<Turn[]>([]);
   const [streaming, setStreaming] = useState(false);
   const handleRef = useRef<SageStreamHandle | null>(null);

@@ -1,7 +1,9 @@
-import { createFileRoute, Link, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, Pin, Sparkles } from "lucide-react";
-import { useConversation, useDMs, useSendDM, useMarkConversationRead, useTogglePin } from "../../lib/hooks/use-messaging";
+import {
+  useConversation, useDMs, useSendDM, useMarkConversationRead, useTogglePin, useLiveDM,
+} from "../../lib/hooks/use-messaging";
 import { messagesStore } from "../../lib/store/messages";
 import { Avatar, timeAgo } from "../../components/messaging/Avatar";
 import { MessageBubble } from "../../components/messaging/MessageBubble";
@@ -12,8 +14,17 @@ export const Route = createFileRoute("/_authenticated/messages/dm/$id")({
   component: DMPage,
 });
 
+const PEER_REPLIES = [
+  "got it — adding to my plan.",
+  "let's sync after my next focus block.",
+  "agreed. I'll share notes once I'm done.",
+  "perfect, dropping a link in #resources.",
+  "yes — same energy. Let's grind.",
+];
+
 function DMPage() {
   const { id } = useParams({ from: "/_authenticated/messages/dm/$id" });
+  const nav = useNavigate();
   const conv = useConversation(id);
   const peer = useMemo(() => (conv.data ? messagesStore.peer(conv.data.peerId) : undefined), [conv.data]);
   const messages = useDMs(id);
@@ -22,6 +33,7 @@ function DMPage() {
   const togglePin = useTogglePin();
   const [typing, setTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  useLiveDM(id);
 
   useEffect(() => { markRead.mutate(id); }, [id]);
 
@@ -31,15 +43,17 @@ function DMPage() {
 
   const onSend = (text: string) => {
     send.mutate({ conversationId: id, text });
-    // Simulate peer typing + reply for demo realism
-    setTimeout(() => setTyping(true), 600);
-    setTimeout(() => {
+    if (!peer?.online) return;
+    // Mock peer typing + reply for an alive feel
+    const typingTimer = window.setTimeout(() => setTyping(true), 700);
+    const replyTimer = window.setTimeout(() => {
       setTyping(false);
-      // store a fake peer reply directly
       if (peer) {
-        messagesStore.send; // noop reference
+        const reply = PEER_REPLIES[Math.floor(Math.random() * PEER_REPLIES.length)];
+        messagesStore.sendAs(id, peer.id, reply, { read: true });
       }
-    }, 2200);
+    }, 2400);
+    return () => { window.clearTimeout(typingTimer); window.clearTimeout(replyTimer); };
   };
 
   if (!conv.data || !peer) {
@@ -102,7 +116,7 @@ function DMPage() {
       <button
         className="ss-btn ss-btn-ghost"
         style={{ margin: "0 16px 6px", borderTop: "1px solid var(--color-border)", padding: "8px 12px", fontSize: "0.72rem", display: "inline-flex", alignItems: "center", gap: 6, justifyContent: "center", color: "var(--color-primary)" }}
-        onClick={() => onSend("Want to start a focus room together?")}
+        onClick={() => nav({ to: "/sage", search: { prompt: `Draft a 60-min joint study plan for me and ${peer.name.split(" ")[0]}` } as any })}
       >
         <Sparkles size={12} /> Ask Sage to draft a study plan with {peer.name.split(" ")[0]}
       </button>

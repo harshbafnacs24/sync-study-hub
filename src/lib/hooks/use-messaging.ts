@@ -1,7 +1,50 @@
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { messagesStore } from "../store/messages";
 import { communitiesStore } from "../store/communities";
 import { notificationsStore } from "../store/notifications";
+import { socketBus, SocketEvents } from "../socket";
+
+/* ---------- Live subscriptions (cross-tab via BroadcastChannel) ---------- */
+
+export function useLiveInbox() {
+  const qc = useQueryClient();
+  useEffect(() => {
+    const offMsg = socketBus.on(SocketEvents.MessageNew, () => {
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+    });
+    const offConv = socketBus.on(SocketEvents.ConversationUpdated, () => {
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+    });
+    return () => { offMsg(); offConv(); };
+  }, [qc]);
+}
+
+export function useLiveDM(conversationId: string) {
+  const qc = useQueryClient();
+  useEffect(() => {
+    const off = socketBus.on(SocketEvents.MessageNew, (p: { conversationId: string }) => {
+      if (p?.conversationId === conversationId) {
+        qc.invalidateQueries({ queryKey: ["dms", conversationId] });
+      }
+    });
+    return off;
+  }, [qc, conversationId]);
+}
+
+export function useLiveChannel(channelId: string | undefined) {
+  const qc = useQueryClient();
+  useEffect(() => {
+    if (!channelId) return;
+    const off = socketBus.on(SocketEvents.ChannelMessage, (p: { channelId: string }) => {
+      if (p?.channelId === channelId) {
+        qc.invalidateQueries({ queryKey: ["channel-messages", channelId] });
+      }
+    });
+    return off;
+  }, [qc, channelId]);
+}
+
 
 /* ---------- DMs ---------- */
 

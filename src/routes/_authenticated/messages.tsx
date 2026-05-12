@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Search, Compass, Pin } from "lucide-react";
+import { Search, Compass, Pin, Bell } from "lucide-react";
 import { PageHeader, EmptyState } from "../../components/ui-kit/Card";
-import { useConversations, useCommunities } from "../../lib/hooks/use-messaging";
+import {
+  useConversations, useCommunities, useUnreadNotifications, useLiveInbox,
+} from "../../lib/hooks/use-messaging";
 import { messagesStore } from "../../lib/store/messages";
 import { Avatar, UnreadBadge, timeAgo } from "../../components/messaging/Avatar";
 
@@ -18,10 +20,40 @@ function MessagesPage() {
   const [q, setQ] = useState("");
   const conversations = useConversations();
   const communities = useCommunities();
+  const { data: unread = 0 } = useUnreadNotifications();
+  useLiveInbox();
 
   return (
     <>
-      <PageHeader eyebrow="Inbox" title="Messages" sub="Direct chats and joined communities" />
+      <PageHeader
+        eyebrow="Inbox"
+        title="Messages"
+        sub="Direct chats and joined communities"
+        right={
+          <Link
+            to="/notifications"
+            className="ss-btn ss-btn-ghost"
+            style={{ padding: 8, position: "relative" }}
+            aria-label="Notifications"
+          >
+            <Bell size={16} />
+            {unread > 0 && (
+              <span
+                className="ss-mono"
+                style={{
+                  position: "absolute", top: 2, right: 2,
+                  background: "var(--color-primary)", color: "var(--color-primary-foreground)",
+                  borderRadius: 999, fontSize: "0.55rem", fontWeight: 700,
+                  minWidth: 14, height: 14, padding: "0 4px",
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                }}
+              >
+                {unread > 9 ? "9+" : unread}
+              </span>
+            )}
+          </Link>
+        }
+      />
       <div className="ss-body" style={{ padding: 0 }}>
         <div style={{ padding: "12px 16px 8px" }}>
           <div style={{ position: "relative" }}>
