@@ -67,7 +67,7 @@ function CommunityDetailPage() {
             <button
               className="ss-btn ss-btn-outline"
               style={{ padding: "10px 14px", fontSize: "0.85rem", color: "var(--color-primary)", borderColor: "oklch(0.96 0.21 110 / 0.35)" }}
-              onClick={() => alert("Sage will summarize this community's recent activity (mock)")}
+              onClick={() => nav({ to: "/sage", search: { prompt: `Summarize recent activity in the ${c.name} community` } as any })}
               title="Ask Sage for a community summary"
             >
               <Sparkles size={14} />
