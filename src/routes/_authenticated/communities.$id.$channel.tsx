@@ -1,7 +1,9 @@
-import { createFileRoute, Link, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef } from "react";
 import { ChevronLeft, Hash, Sparkles, Users } from "lucide-react";
-import { useCommunity, useChannelMessages, usePostChannel } from "../../lib/hooks/use-messaging";
+import {
+  useCommunity, useChannelMessages, usePostChannel, useToggleJoin, useLiveChannel,
+} from "../../lib/hooks/use-messaging";
 import { communitiesStore } from "../../lib/store/communities";
 import { messagesStore } from "../../lib/store/messages";
 import { MessageBubble } from "../../components/messaging/MessageBubble";
@@ -15,11 +17,14 @@ export const Route = createFileRoute("/_authenticated/communities/$id/$channel")
 
 function ChannelPage() {
   const { id, channel } = useParams({ from: "/_authenticated/communities/$id/$channel" });
+  const nav = useNavigate();
   const community = useCommunity(id);
   const ch = useMemo(() => communitiesStore.channelByName(id, channel), [id, channel]);
   const messages = useChannelMessages(ch?.id);
   const post = usePostChannel();
+  const join = useToggleJoin();
   const scrollRef = useRef<HTMLDivElement>(null);
+  useLiveChannel(ch?.id);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -33,6 +38,8 @@ function ChannelPage() {
       </div>
     );
   }
+
+  const joined = community.data.joined;
 
   return (
     <>
@@ -72,15 +79,33 @@ function ChannelPage() {
       <button
         className="ss-btn ss-btn-ghost"
         style={{ margin: "0 16px 6px", borderTop: "1px solid var(--color-border)", padding: "8px 12px", fontSize: "0.72rem", display: "inline-flex", alignItems: "center", gap: 6, justifyContent: "center", color: "var(--color-primary)" }}
-        onClick={() => alert("Sage will summarize the last 50 messages (mock)")}
+        onClick={() => nav({ to: "/sage", search: { prompt: `Catch me up on the last 50 messages in #${ch.name} (${community.data!.name})` } as any })}
       >
         <Sparkles size={12} /> Catch me up on this channel
       </button>
 
-      <MessageComposer
-        placeholder={`Message #${ch.name}`}
-        onSend={(text) => post.mutate({ channelId: ch.id, text })}
-      />
+      {joined ? (
+        <MessageComposer
+          placeholder={`Message #${ch.name}`}
+          onSend={(text) => post.mutate({ channelId: ch.id, text })}
+        />
+      ) : (
+        <div style={{
+          padding: "14px 16px", borderTop: "1px solid var(--color-border)",
+          background: "var(--bg-2)", display: "flex", alignItems: "center", gap: 10, flexShrink: 0,
+        }}>
+          <span style={{ flex: 1, fontSize: "0.78rem", color: "var(--color-muted-foreground)" }}>
+            Join {community.data.name} to post in this channel.
+          </span>
+          <button
+            className="ss-btn ss-btn-primary"
+            style={{ padding: "8px 14px", fontSize: "0.78rem" }}
+            onClick={() => join.mutate(community.data!.id)}
+          >
+            Join
+          </button>
+        </div>
+      )}
     </>
   );
 }
