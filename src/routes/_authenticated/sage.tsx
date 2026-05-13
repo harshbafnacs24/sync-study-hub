@@ -1,8 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
-import { Sparkles, Send, Database, ListChecks, Flame } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Sparkles, Send, Database, ListChecks, Flame, Plus, MessageSquare, Trash2, AlertTriangle, History,
+} from "lucide-react";
 import { PageHeader } from "../../components/ui-kit/Card";
-import { streamSageReply, type SageStreamHandle } from "../../lib/sage/mock-stream";
+import { streamSage, type SageStreamHandle } from "../../lib/sage/client";
+import { buildSageContext, type SageContext } from "../../lib/sage/context";
+import { sageStore, type SageThread, type SageTurn } from "../../lib/store/sage";
 
 export const Route = createFileRoute("/_authenticated/sage")({
   head: () => ({ meta: [{ title: "Sage — Sync & Study" }] }),
@@ -12,60 +16,176 @@ export const Route = createFileRoute("/_authenticated/sage")({
   component: SagePage,
 });
 
-interface Turn { id: string; role: "user" | "sage"; text: string }
-
 const PROMPTS = [
-  "Plan my study day around my open tasks",
+  "Plan my next 3 hours around my open tasks",
   "Quiz me on the subject I focused on most this week",
-  "Summarize what I worked on yesterday",
-  "Suggest a 90-minute focus block schedule",
+  "What did I work on yesterday?",
+  "What's the smallest next step I should take right now?",
 ];
 
 function SagePage() {
   const { prompt } = Route.useSearch();
+  const [threads, setThreads] = useState<SageThread[]>(() => sageStore.list());
+  const [activeId, setActiveId] = useState<string | null>(threads[0]?.id ?? null);
+  const [turns, setTurns] = useState<SageTurn[]>(() =>
+    activeId ? sageStore.get(activeId)?.turns ?? [] : [],
+  );
   const [input, setInput] = useState(prompt ?? "");
-  const [turns, setTurns] = useState<Turn[]>([]);
   const [streaming, setStreaming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
   const handleRef = useRef<SageStreamHandle | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const ctx = useMemo<SageContext>(() => buildSageContext(), [activeId, turns.length]);
 
   useEffect(() => () => handleRef.current?.cancel(), []);
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [turns]);
 
-  const ask = (text: string) => {
-    if (!text.trim() || streaming) return;
+  // Auto-fire if a prompt was passed in the search param (deep-link from DM/Channel/Community)
+  const firedPromptRef = useRef(false);
+  useEffect(() => {
+    if (prompt && !firedPromptRef.current) {
+      firedPromptRef.current = true;
+      ask(prompt);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prompt]);
+
+  const refreshThreads = () => setThreads(sageStore.list());
+
+  const openThread = (id: string) => {
+    handleRef.current?.cancel();
+    setActiveId(id);
+    setTurns(sageStore.get(id)?.turns ?? []);
+    setError(null);
+    setShowHistory(false);
+  };
+
+  const newThread = () => {
+    handleRef.current?.cancel();
+    setActiveId(null);
+    setTurns([]);
+    setError(null);
     setInput("");
-    const userTurn: Turn = { id: `u_${Date.now()}`, role: "user", text };
-    const sageId = `s_${Date.now()}`;
-    setTurns((t) => [...t, userTurn, { id: sageId, role: "sage", text: "" }]);
+    setShowHistory(false);
+  };
+
+  const removeThread = (id: string) => {
+    sageStore.remove(id);
+    if (id === activeId) newThread();
+    refreshThreads();
+  };
+
+  const ask = (text: string) => {
+    const value = text.trim();
+    if (!value || streaming) return;
+    setInput("");
+    setError(null);
+
+    let threadId = activeId;
+    if (!threadId) {
+      const t = sageStore.create(value);
+      threadId = t.id;
+      setActiveId(threadId);
+      refreshThreads();
+    }
+
+    const userTurn = sageStore.appendTurn(threadId, { role: "user", text: value });
+    const sageTurn = sageStore.appendTurn(threadId, { role: "sage", text: "" });
+
+    const allTurns = sageStore.get(threadId)?.turns ?? [];
+    setTurns(allTurns);
+    refreshThreads();
     setStreaming(true);
-    handleRef.current = streamSageReply(text, (chunk) => {
-      setTurns((t) => t.map((x) => (x.id === sageId ? { ...x, text: x.text + chunk } : x)));
+
+    let acc = "";
+    handleRef.current = streamSage(
+      {
+        messages: allTurns
+          .filter((t) => t.id !== sageTurn.id) // exclude empty placeholder
+          .map((t) => ({ role: t.role, text: t.text })),
+        context: ctx,
+      },
+      {
+        onToken: (chunk) => {
+          acc += chunk;
+          setTurns((cur) => cur.map((t) => (t.id === sageTurn.id ? { ...t, text: acc } : t)));
+          sageStore.updateTurnText(threadId!, sageTurn.id, acc);
+        },
+        onError: (msg) => {
+          setError(msg);
+        },
+      },
+    );
+    handleRef.current.done.then(() => {
+      setStreaming(false);
+      refreshThreads();
     });
-    handleRef.current.done.then(() => setStreaming(false));
+
+    void userTurn;
   };
 
   const empty = turns.length === 0;
 
   return (
     <>
-      <PageHeader eyebrow="AI Companion" title="Sage" sub="Grounded in your tasks, focus history, and goals" />
-      <div className="ss-body" style={{ padding: 0, display: "flex", flexDirection: "column" }}>
+      <PageHeader
+        eyebrow="AI Companion"
+        title="Sage"
+        sub="Grounded in your tasks, focus history, and goals"
+        right={
+          <div style={{ display: "flex", gap: 4 }}>
+            <button
+              onClick={() => setShowHistory((v) => !v)}
+              className="ss-btn ss-btn-ghost"
+              style={{ padding: 8 }}
+              aria-label="History"
+            >
+              <History size={16} />
+            </button>
+            <button
+              onClick={newThread}
+              className="ss-btn ss-btn-ghost"
+              style={{ padding: 8, color: "var(--color-primary)" }}
+              aria-label="New conversation"
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+        }
+      />
+      <div className="ss-body" style={{ padding: 0, display: "flex", flexDirection: "column", position: "relative" }}>
+        {showHistory && (
+          <HistoryDrawer
+            threads={threads}
+            activeId={activeId}
+            onOpen={openThread}
+            onRemove={removeThread}
+            onClose={() => setShowHistory(false)}
+            onNew={newThread}
+          />
+        )}
+
         <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
-          {empty ? (
-            <Welcome onPick={ask} />
-          ) : (
-            turns.map((t) => <Turn key={t.id} t={t} />)
+          {empty ? <Welcome onPick={ask} /> : turns.map((t) => <Turn key={t.id} t={t} streaming={streaming} />)}
+          {error && (
+            <div className="ss-card" style={{ display: "flex", gap: 10, alignItems: "flex-start", borderColor: "oklch(0.66 0.24 25 / 0.4)", background: "oklch(0.66 0.24 25 / 0.08)" }}>
+              <AlertTriangle size={14} style={{ color: "var(--color-destructive)", marginTop: 2, flexShrink: 0 }} />
+              <div style={{ fontSize: "0.78rem", color: "var(--color-foreground)" }}>
+                <div className="ss-mono" style={{ fontSize: "0.62rem", letterSpacing: "0.06em", color: "var(--color-destructive)", textTransform: "uppercase" }}>Sage error</div>
+                <div style={{ marginTop: 4 }}>{error}</div>
+              </div>
+            </div>
           )}
         </div>
 
         <div style={{ borderTop: "1px solid var(--color-border)", padding: "10px 14px", background: "var(--bg-2)", flexShrink: 0 }}>
           <div style={{ display: "flex", gap: 6, marginBottom: 8, overflowX: "auto", scrollbarWidth: "none" }}>
-            <ContextChip icon={<ListChecks size={11} />} label="Tasks" />
-            <ContextChip icon={<Flame size={11} />} label="Streak" />
-            <ContextChip icon={<Database size={11} />} label="Sessions" />
+            <ContextChip icon={<ListChecks size={11} />} label={`${ctx.openTasks.length} open`} />
+            <ContextChip icon={<Flame size={11} />} label={`${ctx.streakDays}d streak`} />
+            <ContextChip icon={<Database size={11} />} label={`${ctx.weeklyFocusMinutes}m / wk`} />
           </div>
           <form onSubmit={(e) => { e.preventDefault(); ask(input); }} style={{ display: "flex", gap: 8 }}>
             <input
@@ -74,6 +194,7 @@ function SagePage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={streaming}
+              style={{ flex: 1 }}
             />
             <button type="submit" className="ss-btn ss-btn-primary" disabled={streaming || !input.trim()} style={{ padding: "0 14px" }}>
               <Send size={16} />
@@ -120,25 +241,36 @@ function Welcome({ onPick }: { onPick: (s: string) => void }) {
   );
 }
 
-function Turn({ t }: { t: Turn }) {
+function Turn({ t, streaming }: { t: SageTurn; streaming: boolean }) {
   if (t.role === "user") {
     return (
-      <div style={{ alignSelf: "flex-end", maxWidth: "85%", background: "var(--color-primary)", color: "var(--color-primary-foreground)", padding: "9px 13px", borderRadius: 12, borderTopRightRadius: 4, fontSize: "0.88rem", lineHeight: 1.45 }}>
+      <div style={{ alignSelf: "flex-end", maxWidth: "85%", background: "var(--color-primary)", color: "var(--color-primary-foreground)", padding: "9px 13px", borderRadius: 12, borderTopRightRadius: 4, fontSize: "0.88rem", lineHeight: 1.45, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
         {t.text}
       </div>
     );
   }
+  const empty = t.text === "";
   return (
     <div style={{ display: "flex", gap: 10, alignItems: "flex-start", maxWidth: "92%" }}>
       <div style={{ width: 26, height: 26, borderRadius: 8, background: "oklch(0.96 0.21 110 / 0.12)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--color-primary)", flexShrink: 0, marginTop: 2 }}>
         <Sparkles size={12} />
       </div>
-      <div style={{ fontSize: "0.88rem", lineHeight: 1.6, whiteSpace: "pre-wrap", color: "var(--color-foreground)" }}>
-        {t.text}
-        {t.text === "" && <span className="ss-mono" style={{ color: "var(--color-muted-foreground)", fontSize: "0.75rem" }}>thinking…</span>}
+      <div style={{ fontSize: "0.88rem", lineHeight: 1.6, whiteSpace: "pre-wrap", color: "var(--color-foreground)", wordBreak: "break-word" }}>
+        {empty && streaming ? (
+          <span className="ss-mono" style={{ color: "var(--color-muted-foreground)", fontSize: "0.72rem", display: "inline-flex", gap: 4, alignItems: "center" }}>
+            thinking
+            <Dot d={0} /><Dot d={150} /><Dot d={300} />
+          </span>
+        ) : (
+          t.text
+        )}
       </div>
     </div>
   );
+}
+
+function Dot({ d }: { d: number }) {
+  return <span style={{ width: 3, height: 3, borderRadius: 999, background: "var(--color-muted-foreground)", animation: `ssBlink 1s ${d}ms infinite ease-in-out` }} />;
 }
 
 function ContextChip({ icon, label }: { icon: React.ReactNode; label: string }) {
@@ -146,5 +278,68 @@ function ContextChip({ icon, label }: { icon: React.ReactNode; label: string }) 
     <span className="ss-mono" style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", border: "1px solid var(--color-border)", borderRadius: 999, fontSize: "0.6rem", letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-muted-foreground)", background: "var(--bg-3)", flexShrink: 0 }}>
       {icon}{label}
     </span>
+  );
+}
+
+function HistoryDrawer({
+  threads, activeId, onOpen, onRemove, onClose, onNew,
+}: {
+  threads: SageThread[];
+  activeId: string | null;
+  onOpen: (id: string) => void;
+  onRemove: (id: string) => void;
+  onClose: () => void;
+  onNew: () => void;
+}) {
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: "absolute", inset: 0, background: "oklch(0 0 0 / 0.55)", zIndex: 5, display: "flex", justifyContent: "flex-end" }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ width: "82%", maxWidth: 320, height: "100%", background: "var(--bg-2)", borderLeft: "1px solid var(--color-border)", display: "flex", flexDirection: "column" }}
+      >
+        <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--color-border)", display: "flex", alignItems: "center", gap: 8 }}>
+          <span className="ss-mono" style={{ fontSize: "0.62rem", letterSpacing: "0.08em", color: "var(--color-muted-foreground)", textTransform: "uppercase", flex: 1 }}>History</span>
+          <button onClick={onNew} className="ss-btn ss-btn-ghost" style={{ padding: 6, color: "var(--color-primary)" }} aria-label="New">
+            <Plus size={14} />
+          </button>
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", padding: 8 }}>
+          {threads.length === 0 ? (
+            <div style={{ padding: 16, fontSize: "0.78rem", color: "var(--color-muted-foreground)" }}>No conversations yet.</div>
+          ) : (
+            threads.map((t) => (
+              <div
+                key={t.id}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8,
+                  background: t.id === activeId ? "var(--bg-3)" : "transparent",
+                  cursor: "pointer", marginBottom: 2,
+                }}
+                onClick={() => onOpen(t.id)}
+              >
+                <MessageSquare size={13} style={{ color: t.id === activeId ? "var(--color-primary)" : "var(--color-muted-foreground)", flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: "0.82rem", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</div>
+                  <div className="ss-mono" style={{ fontSize: "0.6rem", color: "var(--color-muted-foreground)", marginTop: 1 }}>
+                    {t.turns.length} turns
+                  </div>
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onRemove(t.id); }}
+                  className="ss-btn ss-btn-ghost"
+                  style={{ padding: 4 }}
+                  aria-label="Delete"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
