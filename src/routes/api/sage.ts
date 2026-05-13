@@ -89,7 +89,7 @@ export const Route = createFileRoute("/api/sage")({
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) {
           return new Response(
-            sseFrame(JSON.stringify({ message: "GEMINI_API_KEY is not configured" }), "error"),
+            sseFrameText(JSON.stringify({ message: "GEMINI_API_KEY is not configured" }), "error"),
             { status: 200, headers: sseHeaders() },
           );
         }
@@ -99,7 +99,7 @@ export const Route = createFileRoute("/api/sage")({
           body = (await request.json()) as typeof body;
         } catch {
           return new Response(
-            sseFrame(JSON.stringify({ message: "Invalid JSON body" }), "error"),
+            sseFrameText(JSON.stringify({ message: "Invalid JSON body" }), "error"),
             { status: 200, headers: sseHeaders() },
           );
         }
@@ -107,7 +107,7 @@ export const Route = createFileRoute("/api/sage")({
         const messages = (body.messages ?? []).filter((m) => m && typeof m.text === "string" && m.text.trim().length > 0);
         if (messages.length === 0) {
           return new Response(
-            sseFrame(JSON.stringify({ message: "No messages provided" }), "error"),
+            sseFrameText(JSON.stringify({ message: "No messages provided" }), "error"),
             { status: 200, headers: sseHeaders() },
           );
         }
@@ -140,7 +140,7 @@ export const Route = createFileRoute("/api/sage")({
         if (!upstream.ok || !upstream.body) {
           const errText = await upstream.text().catch(() => "Upstream error");
           return new Response(
-            sseFrame(JSON.stringify({ message: `Gemini ${upstream.status}: ${errText.slice(0, 400)}` }), "error"),
+            sseFrameText(JSON.stringify({ message: `Gemini ${upstream.status}: ${errText.slice(0, 400)}` }), "error"),
             { status: 200, headers: sseHeaders() },
           );
         }
@@ -156,7 +156,7 @@ export const Route = createFileRoute("/api/sage")({
             try {
               const { value, done } = await reader.read();
               if (done) {
-                controller.enqueue(sseFrame("[DONE]", "done"));
+                controller.enqueue(sseFrameBytes("[DONE]", "done"));
                 controller.close();
                 return;
               }
@@ -177,20 +177,18 @@ export const Route = createFileRoute("/api/sage")({
                     promptFeedback?: { blockReason?: string };
                   };
                   if (json.promptFeedback?.blockReason) {
-                    controller.enqueue(
-                      sseFrame(JSON.stringify({ message: `Blocked: ${json.promptFeedback.blockReason}` }), "error"),
+                    controller.enqueue(sseFrameBytes(JSON.stringify({ message: `Blocked: ${json.promptFeedback.blockReason}` }), "error"),
                     );
                     continue;
                   }
                   const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
-                  if (text) controller.enqueue(sseFrame(text));
+                  if (text) controller.enqueue(sseFrameBytes(text));
                 } catch {
                   // Ignore malformed chunks rather than blowing up the stream
                 }
               }
             } catch (err) {
-              controller.enqueue(
-                sseFrame(JSON.stringify({ message: (err as Error).message ?? "Stream error" }), "error"),
+              controller.enqueue(sseFrameBytes(JSON.stringify({ message: (err as Error).message ?? "Stream error" }), "error"),
               );
               controller.close();
             }
