@@ -71,12 +71,15 @@ function buildContextBlock(ctx: SageContext | undefined): string {
   return lines.join("\n");
 }
 
-function sseFrame(data: string, event?: string): Uint8Array {
+function sseFrameText(data: string, event?: string): string {
   const parts: string[] = [];
   if (event) parts.push(`event: ${event}`);
   for (const line of data.split("\n")) parts.push(`data: ${line}`);
   parts.push("", "");
-  return new TextEncoder().encode(parts.join("\n"));
+  return parts.join("\n");
+}
+function sseFrameBytes(data: string, event?: string): Uint8Array {
+  return new TextEncoder().encode(sseFrameText(data, event));
 }
 
 export const Route = createFileRoute("/api/sage")({

@@ -13,6 +13,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiSageRouteImport } from './routes/api/sage'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedSageRouteImport } from './routes/_authenticated/sage'
@@ -46,6 +47,11 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSageRoute = ApiSageRouteImport.update({
+  id: '/api/sage',
+  path: '/api/sage',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
@@ -145,6 +151,7 @@ export interface FileRoutesByFullPath {
   '/sage': typeof AuthenticatedSageRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/tasks': typeof AuthenticatedTasksRoute
+  '/api/sage': typeof ApiSageRoute
   '/communities/$id': typeof AuthenticatedCommunitiesIdRouteWithChildren
   '/communities/new': typeof AuthenticatedCommunitiesNewRoute
   '/communities/$id/$channel': typeof AuthenticatedCommunitiesIdChannelRoute
@@ -165,6 +172,7 @@ export interface FileRoutesByTo {
   '/sage': typeof AuthenticatedSageRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/tasks': typeof AuthenticatedTasksRoute
+  '/api/sage': typeof ApiSageRoute
   '/communities/$id': typeof AuthenticatedCommunitiesIdRouteWithChildren
   '/communities/new': typeof AuthenticatedCommunitiesNewRoute
   '/communities/$id/$channel': typeof AuthenticatedCommunitiesIdChannelRoute
@@ -187,6 +195,7 @@ export interface FileRoutesById {
   '/_authenticated/sage': typeof AuthenticatedSageRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
+  '/api/sage': typeof ApiSageRoute
   '/_authenticated/communities/$id': typeof AuthenticatedCommunitiesIdRouteWithChildren
   '/_authenticated/communities/new': typeof AuthenticatedCommunitiesNewRoute
   '/_authenticated/communities/$id/$channel': typeof AuthenticatedCommunitiesIdChannelRoute
@@ -209,6 +218,7 @@ export interface FileRouteTypes {
     | '/sage'
     | '/settings'
     | '/tasks'
+    | '/api/sage'
     | '/communities/$id'
     | '/communities/new'
     | '/communities/$id/$channel'
@@ -229,6 +239,7 @@ export interface FileRouteTypes {
     | '/sage'
     | '/settings'
     | '/tasks'
+    | '/api/sage'
     | '/communities/$id'
     | '/communities/new'
     | '/communities/$id/$channel'
@@ -250,6 +261,7 @@ export interface FileRouteTypes {
     | '/_authenticated/sage'
     | '/_authenticated/settings'
     | '/_authenticated/tasks'
+    | '/api/sage'
     | '/_authenticated/communities/$id'
     | '/_authenticated/communities/new'
     | '/_authenticated/communities/$id/$channel'
@@ -261,6 +273,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
+  ApiSageRoute: typeof ApiSageRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -291,6 +304,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/sage': {
+      id: '/api/sage'
+      path: '/api/sage'
+      fullPath: '/api/sage'
+      preLoaderRoute: typeof ApiSageRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/tasks': {
@@ -483,17 +503,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
+  ApiSageRoute: ApiSageRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
