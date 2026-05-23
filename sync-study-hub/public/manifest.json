@@ -1,0 +1,24 @@
+{
+  "name": "Sync & Study Hub",
+  "short_name": "SyncStudy",
+  "description": "Collaborative study sessions, Pomodoro timer, and AI-assisted learning.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0C0C0C",
+  "theme_color": "#0C0C0C",
+  "orientation": "portrait-primary",
+  "categories": ["education", "productivity"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ],
+  "shortcuts": [
+    { "name": "Focus Timer", "url": "/focus", "description": "Start a Pomodoro session" },
+    { "name": "Study Rooms", "url": "/rooms", "description": "Join or create a study room" },
+    { "name": "Ask Sage", "url": "/sage", "description": "Open the AI study assistant" }
+  ]
+}
