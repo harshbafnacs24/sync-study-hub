@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Sync &amp; Study</string>
+    <string name="title_activity_main">Sync &amp; Study</string>
+    <string name="package_name">com.syncstudy.hub</string>
+    <string name="custom_url_scheme">com.syncstudy.hub</string>
+</resources>

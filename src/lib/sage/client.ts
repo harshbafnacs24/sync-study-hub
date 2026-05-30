@@ -1,13 +1,5 @@
-/**
- * Sage streaming client.
- *
- * Calls the /api/sage server route and surfaces incoming SSE frames to the
- * caller via `onToken` / `onError`. Returns a handle with `cancel()` and a
- * `done` promise. Replaces the old mock streamer one-for-one.
- *
- * Cross-platform: uses standard fetch + ReadableStream. On native shells
- * (Capacitor) the same code works against the same hosted API origin.
- */
+import { API_BASE_URL, tokenStore } from "../api-client";
+
 export interface SageStreamHandle {
   cancel: () => void;
   done: Promise<void>;
@@ -27,60 +19,55 @@ export function streamSage(
 
   const done = (async () => {
     try {
-      const res = await fetch("/api/sage", {
+      const token = tokenStore.get();
+      const res = await fetch(`${API_BASE_URL}/api/v1/sage/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          message: payload.messages.filter(m => m.role === "user").at(-1)?.text ?? "",
+          context: typeof payload.context === "string" ? payload.context : JSON.stringify(payload.context ?? ""),
+        }),
         signal: controller.signal,
       });
+
       if (!res.ok || !res.body) {
-        handlers.onError?.(`Sage server returned ${res.status}`);
+        const errText = await res.text().catch(() => `status ${res.status}`);
+        handlers.onError?.(`Sage error: ${errText}`);
         return;
       }
+
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+
       while (!cancelled) {
         const { value, done: streamDone } = await reader.read();
         if (streamDone) break;
         buffer += decoder.decode(value, { stream: true });
         const events = buffer.split("\n\n");
         buffer = events.pop() ?? "";
-        for (const evt of events) parseEvent(evt, handlers);
+        for (const evt of events) {
+          const line = evt.replace(/^data:\s*/, "").trim();
+          if (!line || line === "[DONE]") continue;
+          try {
+            const parsed = JSON.parse(line);
+            if (parsed.token) handlers.onToken(parsed.token);
+            if (parsed.error) handlers.onError?.(parsed.error);
+          } catch { /* ignore malformed frames */ }
+        }
       }
-    } catch (err) {
-      if (!cancelled) handlers.onError?.((err as Error).message ?? "Stream failed");
+    } catch (e: any) {
+      if (e?.name !== "AbortError") {
+        handlers.onError?.(e?.message ?? "Sage connection failed");
+      }
     }
   })();
 
   return {
-    cancel() {
-      cancelled = true;
-      controller.abort();
-    },
+    cancel: () => { cancelled = true; controller.abort(); },
     done,
   };
-}
-
-function parseEvent(raw: string, handlers: { onToken: (t: string) => void; onError?: (m: string) => void }) {
-  let event: string | undefined;
-  const dataLines: string[] = [];
-  for (const line of raw.split("\n")) {
-    if (line.startsWith("event:")) event = line.slice(6).trim();
-    else if (line.startsWith("data:")) dataLines.push(line.slice(5).replace(/^\s/, ""));
-  }
-  if (dataLines.length === 0) return;
-  const data = dataLines.join("\n");
-  if (event === "done") return;
-  if (event === "error") {
-    try {
-      const parsed = JSON.parse(data) as { message?: string };
-      handlers.onError?.(parsed.message ?? "Sage error");
-    } catch {
-      handlers.onError?.(data);
-    }
-    return;
-  }
-  // Default event: a raw text fragment from the model
-  handlers.onToken(data);
 }

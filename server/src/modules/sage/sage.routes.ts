@@ -5,13 +5,18 @@ import { asyncHandler, validate } from "../../middleware/validate.js";
 import { geminiProvider } from "../../ai/providers/gemini.js";
 import { mockProvider } from "../../ai/providers/mock.js";
 import { buildContext } from "../../ai/context-builder.js";
+import type { AiProvider } from "../../ai/provider.js";
 
 export const sageRouter = Router();
 sageRouter.use(requireAuth);
 
-const provider = process.env.GEMINI_API_KEY
-  ? geminiProvider(process.env.GEMINI_API_KEY)
-  : mockProvider();
+// ── Lazy provider — re-reads env var on every request so Railway env changes
+//    are picked up without a redeploy.
+function getProvider(): AiProvider {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return mockProvider();
+  return geminiProvider(key);
+}
 
 // Naive in-memory rate limit: 30 calls per user per minute.
 const buckets = new Map<string, { count: number; resetAt: number }>();
@@ -30,8 +35,15 @@ const chatSchema = z.object({
 
 sageRouter.post("/chat", validate(chatSchema), asyncHandler(async (req: AuthedRequest, res) => {
   if (!rateLimit(req.userId!)) return res.status(429).json({ error: "Rate limit exceeded" });
+
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) {
+    return res.status(503).json({ error: "GEMINI_API_KEY is not configured on the server" });
+  }
+
   const { message, context } = req.body as z.infer<typeof chatSchema>;
   const sys = await buildContext(req.userId!, context);
+  const provider = getProvider();
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -53,21 +65,21 @@ const summarySchema = z.object({ communityId: z.string(), recent: z.array(z.stri
 sageRouter.post("/community-summary", validate(summarySchema), asyncHandler(async (req: AuthedRequest, res) => {
   if (!rateLimit(req.userId!)) return res.status(429).json({ error: "Rate limit exceeded" });
   const { recent } = req.body as z.infer<typeof summarySchema>;
-  const sys = await buildContext(req.userId!, "Task: Summarize the recent activity of this study community in 4 short bullets, surfacing decisions, resources, and unresolved questions.");
-  const text = await provider.chat([sys, { role: "user", content: `Recent messages:\n${recent.join("\n")}` }]);
+  const sys = await buildContext(req.userId!, "Summarize recent community activity in 4 short bullets.");
+  const text = await getProvider().chat([sys, { role: "user", content: `Recent messages:\n${recent.join("\n")}` }]);
   res.json({ summary: text });
 }));
 
 sageRouter.post("/study-recommendations", asyncHandler(async (req: AuthedRequest, res) => {
   if (!rateLimit(req.userId!)) return res.status(429).json({ error: "Rate limit exceeded" });
-  const sys = await buildContext(req.userId!, "Task: Recommend 3 specific study actions for the next 24h, grounded in tasks + recent focus history.");
-  const text = await provider.chat([sys, { role: "user", content: "What should I work on next?" }]);
+  const sys = await buildContext(req.userId!, "Recommend 3 specific study actions for the next 24h.");
+  const text = await getProvider().chat([sys, { role: "user", content: "What should I work on next?" }]);
   res.json({ recommendations: text });
 }));
 
 sageRouter.post("/session-assistance", asyncHandler(async (req: AuthedRequest, res) => {
   if (!rateLimit(req.userId!)) return res.status(429).json({ error: "Rate limit exceeded" });
-  const sys = await buildContext(req.userId!, "Task: Coach the user through their next focus session — suggest a goal, duration, and check-in prompts.");
-  const text = await provider.chat([sys, { role: "user", content: "Help me set up my next focus session." }]);
+  const sys = await buildContext(req.userId!, "Coach the user through their next focus session.");
+  const text = await getProvider().chat([sys, { role: "user", content: "Help me set up my next focus session." }]);
   res.json({ guidance: text });
 }));

@@ -3,7 +3,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 const config: CapacitorConfig = {
   appId: "com.syncstudy.hub",
   appName: "Sync & Study",
-  webDir: ".output/public",
+  webDir: "dist/client",
   bundledWebRuntime: false,
 
   server: {
@@ -46,9 +46,9 @@ const config: CapacitorConfig = {
     GoogleAuth: {
       // Replace with your actual Web Client ID from Google Cloud Console
       // (the Web client, NOT Android client)
-      clientId: "REPLACE_WITH_WEB_CLIENT_ID.apps.googleusercontent.com",
+      clientId: "1047501284630-1uug1onf9jvl1nvas5llab2a1do2qi57.apps.googleusercontent.com",
       scopes: ["profile", "email"],
-      serverClientId: "REPLACE_WITH_WEB_CLIENT_ID.apps.googleusercontent.com",
+      serverClientId: "1047501284630-1uug1onf9jvl1nvas5llab2a1do2qi57.apps.googleusercontent.com",
       forceCodeForRefreshToken: true,
     },
   },

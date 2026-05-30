@@ -15,7 +15,7 @@ const AuthContext = createContext<AuthState | null>(null);
 
 // TEMP: bypass auth so all pages are viewable without a backend.
 // Remove this mock and restore the real bootstrap when the API is wired up.
-const DEV_BYPASS_AUTH = true;
+const DEV_BYPASS_AUTH = false;
 const MOCK_USER: AuthUser = {
   id: "dev-user",
   email: "dev@syncandstudy.local",
