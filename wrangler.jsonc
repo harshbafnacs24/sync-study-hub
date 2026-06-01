@@ -3,9 +3,5 @@
   "name": "sync-study-hub",
   "compatibility_date": "2025-09-24",
   "compatibility_flags": ["nodejs_compat"],
-  "main": "src/server.ts",
-  "define": {
-    "import.meta.env.VITE_API_BASE_URL": "\"https://sync-study-hub-production.up.railway.app\"",
-    "import.meta.env.VITE_GOOGLE_CLIENT_ID": "\"1047501284630-1uug1onf9jvl1nvas5llab2a1do2qi57.apps.googleusercontent.com\""
-  }
+  "main": "src/server.ts"
 }
