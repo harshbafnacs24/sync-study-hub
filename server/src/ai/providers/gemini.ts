@@ -24,7 +24,7 @@ function buildBody(messages: AiMessage[], opts?: { temperature?: number; maxToke
   };
 }
 
-export function geminiProvider(apiKey: string, model = "gemini-1.5-flash"): AiProvider {
+export function geminiProvider(apiKey: string, model = "gemini-2.0-flash"): AiProvider {
   return {
     name: "gemini",
     async chat(messages, opts) {
