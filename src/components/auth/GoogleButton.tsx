@@ -30,7 +30,7 @@ export function GoogleButton({ onSignIn }: { onSignIn: () => Promise<void> }) {
   if (!GOOGLE_CLIENT_ID) {
     return (
       <p className="ss-mono" style={{
-        fontSize: "0.65rem", color: "var(--color-muted-foreground)",
+        fontSize: "0.65rem", color: "#888",
         textAlign: "center", letterSpacing: "0.06em", padding: "12px 0"
       }}>
         // VITE_GOOGLE_CLIENT_ID not configured

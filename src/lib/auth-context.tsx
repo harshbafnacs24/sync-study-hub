@@ -103,16 +103,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loginGoogle = async () => {
-    if (isNative()) {
-      const { GoogleAuth } = await import("@codetrix-studio/capacitor-google-auth");
-      const result = await GoogleAuth.signIn();
-      const idToken = result?.authentication?.idToken;
-      if (!idToken) throw new Error("Google sign-in failed");
-      await handleAuth(api.google(idToken));
-    } else {
-      const idToken = await getGoogleIdToken();
-      await handleAuth(api.google(idToken));
-    }
+    // Always use the highly-compatible Web OAuth popup flow.
+    // This bypasses any native Android SHA-1 signature or keystore configuration issues!
+    const idToken = await getGoogleIdToken();
+    await handleAuth(api.google(idToken));
   };
 
   const value: AuthState = {
