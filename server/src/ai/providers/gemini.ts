@@ -4,13 +4,19 @@ const ENDPOINT = "https://generativelanguage.googleapis.com/v1/models";
 
 function buildBody(messages: AiMessage[], opts?: { temperature?: number; maxTokens?: number }) {
   const sys = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
-  const contents = messages.filter((m) => m.role !== "system").map((m) => ({
-    role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: m.content }],
-  }));
+  const nonSys = messages.filter((m) => m.role !== "system");
+  const contents = nonSys.map((m, idx) => {
+    let contentText = m.content;
+    if (idx === 0 && sys) {
+      contentText = `System Instructions:\n${sys}\n\nUser Message:\n${m.content}`;
+    }
+    return {
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: contentText }],
+    };
+  });
   return {
     contents,
-    systemInstruction: sys ? { parts: [{ text: sys }] } : undefined,
     generationConfig: {
       temperature: opts?.temperature ?? 0.7,
       maxOutputTokens: opts?.maxTokens ?? 1024,
