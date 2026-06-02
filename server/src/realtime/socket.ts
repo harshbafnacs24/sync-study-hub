@@ -5,6 +5,7 @@
 import type { Server as HttpServer } from "http";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
+import { Server } from "socket.io";
 
 type AnySocket = any;
 
@@ -13,16 +14,6 @@ export interface SocketContext {
 }
 
 export function attachSocket(httpServer: HttpServer) {
-  // Lazy-load socket.io so the dep is optional during initial scaffolding.
-  let Server: any;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    Server = require("socket.io").Server;
-  } catch {
-    console.warn("[realtime] socket.io not installed — skipping. `npm i socket.io` in /server to enable.");
-    return null;
-  }
-
   const io = new Server(httpServer, {
     cors: { origin: env.corsOrigins, credentials: false },
   });
