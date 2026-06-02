@@ -52,6 +52,14 @@ class LocalBus {
 
 export const socketBus = new LocalBus();
 
+export function connectSocket(token: string) {
+  console.log("[socket] connectSocket called with token (local bus active)");
+}
+
+export function disconnectSocket() {
+  console.log("[socket] disconnectSocket called");
+}
+
 export const SocketEvents = {
   MessageNew: "message:new",
   MessageRead: "message:read",
