@@ -1,6 +1,6 @@
 import type { AiMessage, AiProvider } from "../provider.js";
 
-const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
+const ENDPOINT = "https://generativelanguage.googleapis.com/v1/models";
 
 function buildBody(messages: AiMessage[], opts?: { temperature?: number; maxTokens?: number }) {
   const sys = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
