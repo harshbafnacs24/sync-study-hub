@@ -343,12 +343,12 @@ function LoginPage() {
               boxShadow: "0 0 24px rgba(232, 255, 71, 0.04)"
             }}>
               <span className="ss-display" style={{ 
-                fontSize: "2.1rem", 
+                fontSize: "1.7rem", 
                 fontWeight: 900, 
                 color: "var(--color-primary)", 
-                letterSpacing: "-0.04em",
+                letterSpacing: "-0.02em",
                 fontFamily: "var(--font-display)"
-              }}>S</span>
+              }}>S&amp;S</span>
             </div>
             {/* Glowing corner dot */}
             <div style={{ 
