@@ -41,9 +41,9 @@ function SignupPage() {
     }
   }
 
-  async function onGoogle(idToken: string) {
+  async function onGoogle() {
     try {
-      await loginGoogle(idToken);
+      await loginGoogle();
       navigate({ to: "/home" });
     } catch (err: any) {
       toast.error(err?.message ?? "Google sign-in failed");
@@ -88,7 +88,7 @@ function SignupPage() {
           <div style={{ flex: 1, height: 1, background: "var(--color-border)" }} />
         </div>
 
-        <GoogleButton onCredential={onGoogle} />
+        <GoogleButton onSignIn={onGoogle} />
 
         <p style={{ marginTop: "auto", textAlign: "center", fontSize: "0.85rem", color: "var(--color-muted-foreground)" }}>
           Already have an account?{" "}
