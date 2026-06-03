@@ -26,10 +26,10 @@ import { Route as AuthenticatedFocusRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedCommunitiesRouteImport } from './routes/_authenticated/communities'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthGoogleCallbackRouteImport } from './routes/auth.google.callback'
-import { Route as AuthenticatedCommunitiesNewRouteImport } from './routes/_authenticated/communities.new'
-import { Route as AuthenticatedCommunitiesIdRouteImport } from './routes/_authenticated/communities.$id'
+import { Route as AuthenticatedCommunitiesNewRouteImport } from './routes/_authenticated/communities_.new'
+import { Route as AuthenticatedCommunitiesIdRouteImport } from './routes/_authenticated/communities_.$id'
 import { Route as AuthenticatedMessagesDmIdRouteImport } from './routes/_authenticated/messages.dm.$id'
-import { Route as AuthenticatedCommunitiesIdChannelRouteImport } from './routes/_authenticated/communities.$id.$channel'
+import { Route as AuthenticatedCommunitiesIdChannelRouteImport } from './routes/_authenticated/communities_.$id.$channel'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -119,15 +119,15 @@ const AuthGoogleCallbackRoute = AuthGoogleCallbackRouteImport.update({
 } as any)
 const AuthenticatedCommunitiesNewRoute =
   AuthenticatedCommunitiesNewRouteImport.update({
-    id: '/new',
-    path: '/new',
-    getParentRoute: () => AuthenticatedCommunitiesRoute,
+    id: '/communities_/new',
+    path: '/communities/new',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedCommunitiesIdRoute =
   AuthenticatedCommunitiesIdRouteImport.update({
-    id: '/$id',
-    path: '/$id',
-    getParentRoute: () => AuthenticatedCommunitiesRoute,
+    id: '/communities_/$id',
+    path: '/communities/$id',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedMessagesDmIdRoute =
   AuthenticatedMessagesDmIdRouteImport.update({
@@ -147,7 +147,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
-  '/communities': typeof AuthenticatedCommunitiesRouteWithChildren
+  '/communities': typeof AuthenticatedCommunitiesRoute
   '/focus': typeof AuthenticatedFocusRoute
   '/home': typeof AuthenticatedHomeRoute
   '/messages': typeof AuthenticatedMessagesRouteWithChildren
@@ -169,7 +169,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
-  '/communities': typeof AuthenticatedCommunitiesRouteWithChildren
+  '/communities': typeof AuthenticatedCommunitiesRoute
   '/focus': typeof AuthenticatedFocusRoute
   '/home': typeof AuthenticatedHomeRoute
   '/messages': typeof AuthenticatedMessagesRouteWithChildren
@@ -193,7 +193,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
-  '/_authenticated/communities': typeof AuthenticatedCommunitiesRouteWithChildren
+  '/_authenticated/communities': typeof AuthenticatedCommunitiesRoute
   '/_authenticated/focus': typeof AuthenticatedFocusRoute
   '/_authenticated/home': typeof AuthenticatedHomeRoute
   '/_authenticated/messages': typeof AuthenticatedMessagesRouteWithChildren
@@ -204,10 +204,10 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/api/sage': typeof ApiSageRoute
-  '/_authenticated/communities/$id': typeof AuthenticatedCommunitiesIdRouteWithChildren
-  '/_authenticated/communities/new': typeof AuthenticatedCommunitiesNewRoute
+  '/_authenticated/communities_/$id': typeof AuthenticatedCommunitiesIdRouteWithChildren
+  '/_authenticated/communities_/new': typeof AuthenticatedCommunitiesNewRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
-  '/_authenticated/communities/$id/$channel': typeof AuthenticatedCommunitiesIdChannelRoute
+  '/_authenticated/communities_/$id/$channel': typeof AuthenticatedCommunitiesIdChannelRoute
   '/_authenticated/messages/dm/$id': typeof AuthenticatedMessagesDmIdRoute
 }
 export interface FileRouteTypes {
@@ -273,10 +273,10 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/tasks'
     | '/api/sage'
-    | '/_authenticated/communities/$id'
-    | '/_authenticated/communities/new'
+    | '/_authenticated/communities_/$id'
+    | '/_authenticated/communities_/new'
     | '/auth/google/callback'
-    | '/_authenticated/communities/$id/$channel'
+    | '/_authenticated/communities_/$id/$channel'
     | '/_authenticated/messages/dm/$id'
   fileRoutesById: FileRoutesById
 }
@@ -410,19 +410,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthGoogleCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/communities/new': {
-      id: '/_authenticated/communities/new'
-      path: '/new'
+    '/_authenticated/communities_/new': {
+      id: '/_authenticated/communities_/new'
+      path: '/communities/new'
       fullPath: '/communities/new'
       preLoaderRoute: typeof AuthenticatedCommunitiesNewRouteImport
-      parentRoute: typeof AuthenticatedCommunitiesRoute
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/communities/$id': {
-      id: '/_authenticated/communities/$id'
-      path: '/$id'
+    '/_authenticated/communities_/$id': {
+      id: '/_authenticated/communities_/$id'
+      path: '/communities/$id'
       fullPath: '/communities/$id'
       preLoaderRoute: typeof AuthenticatedCommunitiesIdRouteImport
-      parentRoute: typeof AuthenticatedCommunitiesRoute
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/messages/dm/$id': {
       id: '/_authenticated/messages/dm/$id'
@@ -431,8 +431,8 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMessagesDmIdRouteImport
       parentRoute: typeof AuthenticatedMessagesRoute
     }
-    '/_authenticated/communities/$id/$channel': {
-      id: '/_authenticated/communities/$id/$channel'
+    '/_authenticated/communities_/$id/$channel': {
+      id: '/_authenticated/communities_/$id/$channel'
       path: '/$channel'
       fullPath: '/communities/$id/$channel'
       preLoaderRoute: typeof AuthenticatedCommunitiesIdChannelRouteImport
@@ -440,6 +440,19 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface AuthenticatedMessagesRouteChildren {
+  AuthenticatedMessagesDmIdRoute: typeof AuthenticatedMessagesDmIdRoute
+}
+
+const AuthenticatedMessagesRouteChildren: AuthenticatedMessagesRouteChildren = {
+  AuthenticatedMessagesDmIdRoute: AuthenticatedMessagesDmIdRoute,
+}
+
+const AuthenticatedMessagesRouteWithChildren =
+  AuthenticatedMessagesRoute._addFileChildren(
+    AuthenticatedMessagesRouteChildren,
+  )
 
 interface AuthenticatedCommunitiesIdRouteChildren {
   AuthenticatedCommunitiesIdChannelRoute: typeof AuthenticatedCommunitiesIdChannelRoute
@@ -456,39 +469,9 @@ const AuthenticatedCommunitiesIdRouteWithChildren =
     AuthenticatedCommunitiesIdRouteChildren,
   )
 
-interface AuthenticatedCommunitiesRouteChildren {
-  AuthenticatedCommunitiesIdRoute: typeof AuthenticatedCommunitiesIdRouteWithChildren
-  AuthenticatedCommunitiesNewRoute: typeof AuthenticatedCommunitiesNewRoute
-}
-
-const AuthenticatedCommunitiesRouteChildren: AuthenticatedCommunitiesRouteChildren =
-  {
-    AuthenticatedCommunitiesIdRoute:
-      AuthenticatedCommunitiesIdRouteWithChildren,
-    AuthenticatedCommunitiesNewRoute: AuthenticatedCommunitiesNewRoute,
-  }
-
-const AuthenticatedCommunitiesRouteWithChildren =
-  AuthenticatedCommunitiesRoute._addFileChildren(
-    AuthenticatedCommunitiesRouteChildren,
-  )
-
-interface AuthenticatedMessagesRouteChildren {
-  AuthenticatedMessagesDmIdRoute: typeof AuthenticatedMessagesDmIdRoute
-}
-
-const AuthenticatedMessagesRouteChildren: AuthenticatedMessagesRouteChildren = {
-  AuthenticatedMessagesDmIdRoute: AuthenticatedMessagesDmIdRoute,
-}
-
-const AuthenticatedMessagesRouteWithChildren =
-  AuthenticatedMessagesRoute._addFileChildren(
-    AuthenticatedMessagesRouteChildren,
-  )
-
 interface AuthenticatedRouteChildren {
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
-  AuthenticatedCommunitiesRoute: typeof AuthenticatedCommunitiesRouteWithChildren
+  AuthenticatedCommunitiesRoute: typeof AuthenticatedCommunitiesRoute
   AuthenticatedFocusRoute: typeof AuthenticatedFocusRoute
   AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
   AuthenticatedMessagesRoute: typeof AuthenticatedMessagesRouteWithChildren
@@ -498,11 +481,13 @@ interface AuthenticatedRouteChildren {
   AuthenticatedSageRoute: typeof AuthenticatedSageRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
+  AuthenticatedCommunitiesIdRoute: typeof AuthenticatedCommunitiesIdRouteWithChildren
+  AuthenticatedCommunitiesNewRoute: typeof AuthenticatedCommunitiesNewRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
-  AuthenticatedCommunitiesRoute: AuthenticatedCommunitiesRouteWithChildren,
+  AuthenticatedCommunitiesRoute: AuthenticatedCommunitiesRoute,
   AuthenticatedFocusRoute: AuthenticatedFocusRoute,
   AuthenticatedHomeRoute: AuthenticatedHomeRoute,
   AuthenticatedMessagesRoute: AuthenticatedMessagesRouteWithChildren,
@@ -512,6 +497,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSageRoute: AuthenticatedSageRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
+  AuthenticatedCommunitiesIdRoute: AuthenticatedCommunitiesIdRouteWithChildren,
+  AuthenticatedCommunitiesNewRoute: AuthenticatedCommunitiesNewRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
