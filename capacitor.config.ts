@@ -7,10 +7,9 @@ const config: CapacitorConfig = {
   bundledWebRuntime: false,
 
   server: {
-    // Point to your live Railway backend when running as APK
-    // The app itself is served from the bundled web assets
+    url: "https://sync-study-hub.harshbafna-cs24.workers.dev",
     androidScheme: "https",
-    allowNavigation: ["*.railway.app", "*.mongodb.net"],
+    allowNavigation: ["*.railway.app", "*.mongodb.net", "*.workers.dev"],
   },
 
   android: {

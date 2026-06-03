@@ -25,6 +25,7 @@ import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/h
 import { Route as AuthenticatedFocusRouteImport } from './routes/_authenticated/focus'
 import { Route as AuthenticatedCommunitiesRouteImport } from './routes/_authenticated/communities'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
+import { Route as AuthGoogleCallbackRouteImport } from './routes/auth.google.callback'
 import { Route as AuthenticatedCommunitiesNewRouteImport } from './routes/_authenticated/communities.new'
 import { Route as AuthenticatedCommunitiesIdRouteImport } from './routes/_authenticated/communities.$id'
 import { Route as AuthenticatedMessagesDmIdRouteImport } from './routes/_authenticated/messages.dm.$id'
@@ -111,6 +112,11 @@ const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthGoogleCallbackRoute = AuthGoogleCallbackRouteImport.update({
+  id: '/auth/google/callback',
+  path: '/auth/google/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedCommunitiesNewRoute =
   AuthenticatedCommunitiesNewRouteImport.update({
     id: '/new',
@@ -154,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/api/sage': typeof ApiSageRoute
   '/communities/$id': typeof AuthenticatedCommunitiesIdRouteWithChildren
   '/communities/new': typeof AuthenticatedCommunitiesNewRoute
+  '/auth/google/callback': typeof AuthGoogleCallbackRoute
   '/communities/$id/$channel': typeof AuthenticatedCommunitiesIdChannelRoute
   '/messages/dm/$id': typeof AuthenticatedMessagesDmIdRoute
 }
@@ -175,6 +182,7 @@ export interface FileRoutesByTo {
   '/api/sage': typeof ApiSageRoute
   '/communities/$id': typeof AuthenticatedCommunitiesIdRouteWithChildren
   '/communities/new': typeof AuthenticatedCommunitiesNewRoute
+  '/auth/google/callback': typeof AuthGoogleCallbackRoute
   '/communities/$id/$channel': typeof AuthenticatedCommunitiesIdChannelRoute
   '/messages/dm/$id': typeof AuthenticatedMessagesDmIdRoute
 }
@@ -198,6 +206,7 @@ export interface FileRoutesById {
   '/api/sage': typeof ApiSageRoute
   '/_authenticated/communities/$id': typeof AuthenticatedCommunitiesIdRouteWithChildren
   '/_authenticated/communities/new': typeof AuthenticatedCommunitiesNewRoute
+  '/auth/google/callback': typeof AuthGoogleCallbackRoute
   '/_authenticated/communities/$id/$channel': typeof AuthenticatedCommunitiesIdChannelRoute
   '/_authenticated/messages/dm/$id': typeof AuthenticatedMessagesDmIdRoute
 }
@@ -221,6 +230,7 @@ export interface FileRouteTypes {
     | '/api/sage'
     | '/communities/$id'
     | '/communities/new'
+    | '/auth/google/callback'
     | '/communities/$id/$channel'
     | '/messages/dm/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -242,6 +252,7 @@ export interface FileRouteTypes {
     | '/api/sage'
     | '/communities/$id'
     | '/communities/new'
+    | '/auth/google/callback'
     | '/communities/$id/$channel'
     | '/messages/dm/$id'
   id:
@@ -264,6 +275,7 @@ export interface FileRouteTypes {
     | '/api/sage'
     | '/_authenticated/communities/$id'
     | '/_authenticated/communities/new'
+    | '/auth/google/callback'
     | '/_authenticated/communities/$id/$channel'
     | '/_authenticated/messages/dm/$id'
   fileRoutesById: FileRoutesById
@@ -274,6 +286,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
   ApiSageRoute: typeof ApiSageRoute
+  AuthGoogleCallbackRoute: typeof AuthGoogleCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -390,6 +403,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAnalyticsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/auth/google/callback': {
+      id: '/auth/google/callback'
+      path: '/auth/google/callback'
+      fullPath: '/auth/google/callback'
+      preLoaderRoute: typeof AuthGoogleCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/communities/new': {
       id: '/_authenticated/communities/new'
       path: '/new'
@@ -504,6 +524,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
   ApiSageRoute: ApiSageRoute,
+  AuthGoogleCallbackRoute: AuthGoogleCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

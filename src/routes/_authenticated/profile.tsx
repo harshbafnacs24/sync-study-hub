@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
 import { 
   LogOut, Flame, Clock, CheckSquare, Download, User, 
-  Settings, Info, Layout, ShieldCheck, Heart, Sparkles 
+  Settings, Info, Layout, ShieldCheck, Heart, Sparkles, RefreshCw
 } from "lucide-react";
 import { api, API_BASE_URL } from "../../lib/api-client";
 import { useAuth } from "../../lib/auth-context";
@@ -13,28 +13,27 @@ import { sessionsStore, computeAnalytics } from "../../lib/store/sessions";
 import type { ProfilePatch } from "../../lib/types";
 
 export const Route = createFileRoute("/_authenticated/profile")({
-  head: () => ({ meta: [{ title: "Profile & Passport — Sync & Study" }] }),
+  head: () => ({ meta: [{ title: "Profile & Student Card — Sync & Study" }] }),
   component: ProfilePage,
 });
 
-type TabType = "passport" | "edit" | "preferences" | "about";
-type WallpaperTheme = "neon" | "minimal" | "forest";
+type TabType = "card" | "edit" | "preferences" | "about";
+type WallpaperLayout = "ultra" | "dashboard" | "deep";
 
 function ProfilePage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  // Tab Navigation State
-  const [activeTab, setActiveTab] = useState<TabType>("passport");
+  // Tab Navigation State (Renamed tab from passport to card)
+  const [activeTab, setActiveTab] = useState<TabType>("card");
 
   // Wallpaper Modal State
   const [showWallpaperModal, setShowWallpaperModal] = useState(false);
-  const [selectedTheme, setSelectedTheme] = useState<WallpaperTheme>("neon");
+  const [selectedLayout, setSelectedLayout] = useState<WallpaperLayout>("ultra");
+  const [showClock, setShowClock] = useState(false);
+  const [showProgress, setShowProgress] = useState(true);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  // System health states
-  const [backendStatus, setBackendStatus] = useState<"checking" | "online" | "offline">("checking");
 
   // Load User Profile
   const { data, isLoading } = useQuery({
@@ -80,28 +79,13 @@ function ProfilePage() {
     toast.success("Preferences updated successfully");
   };
 
-  // Check Backend Status
-  useEffect(() => {
-    let alive = true;
-    fetch(`${API_BASE_URL}/health`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (alive && d?.ok) setBackendStatus("online");
-        else if (alive) setBackendStatus("offline");
-      })
-      .catch(() => {
-        if (alive) setBackendStatus("offline");
-      });
-    return () => { alive = false; };
-  }, [activeTab]);
-
   // Profile update mutation
   const mut = useMutation({
     mutationFn: (patch: ProfilePatch) => api.updateMyProfile(patch),
     onSuccess: () => {
       toast.success("Profile saved successfully");
       qc.invalidateQueries({ queryKey: ["my-profile"] });
-      setActiveTab("passport");
+      setActiveTab("card");
     },
     onError: (e: any) => toast.error(e?.message ?? "Save failed"),
   });
@@ -114,183 +98,144 @@ function ProfilePage() {
 
   const subjectsValue = (form.subjects ?? []).join(", ");
 
-  // --- HTML5 Canvas Wallpaper Generator Logic ---
+  // --- Premium Minimalistic Wallpaper Generator Logic ---
   const drawWallpaper = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Set mobile Lockscreen resolution (1080x1920 px)
+    // Set mobile Lockscreen high resolution (1080x1920 px)
     canvas.width = 1080;
     canvas.height = 1920;
 
-    const theme = selectedTheme;
-    const studentName = form.name || user?.name || "STUDENT";
-    const studentSchool = form.school || "SELF EDUCATION";
-    const studentGoals = form.goals || "Stay focused, make progress daily.";
+    // 1. Draw Deep Black Background
+    ctx.fillStyle = "#050505";
+    ctx.fillRect(0, 0, 1080, 1920);
 
-    // 1. Draw Background
-    if (theme === "neon") {
-      // Neon Cyber Dark Grey
-      ctx.fillStyle = "#0C0C0C";
-      ctx.fillRect(0, 0, 1080, 1920);
-
-      // Neon-Yellow Glowing Border
-      ctx.strokeStyle = "#E8FF47";
-      ctx.lineWidth = 16;
-      ctx.strokeRect(40, 40, 1000, 1840);
-
-      // Futuristic Matrix grid lines
-      ctx.fillStyle = "rgba(232, 255, 71, 0.02)";
-      for (let y = 100; y < 1820; y += 40) {
-        ctx.fillRect(80, y, 920, 2);
+    // Subtle Dot Grid (Linear/Raycast aesthetic)
+    ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
+    const dotSpacing = 60;
+    for (let x = 0; x < canvas.width; x += dotSpacing) {
+      for (let y = 0; y < canvas.height; y += dotSpacing) {
+        ctx.beginPath();
+        ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+        ctx.fill();
       }
-    } else if (theme === "forest") {
-      // Mindfulness Forest Green Slate Gradient
-      const grad = ctx.createLinearGradient(0, 0, 0, 1920);
-      grad.addColorStop(0, "#08100C");
-      grad.addColorStop(1, "#1B2A22");
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, 1080, 1920);
-
-      // Subtle forest border
-      ctx.strokeStyle = "rgba(61, 220, 132, 0.2)";
-      ctx.lineWidth = 12;
-      ctx.strokeRect(50, 50, 980, 1820);
-    } else {
-      // Midnight Minimal Deep Black
-      ctx.fillStyle = "#000000";
-      ctx.fillRect(0, 0, 1080, 1920);
-
-      // Minimal white thin border
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
-      ctx.lineWidth = 4;
-      ctx.strokeRect(60, 60, 960, 1800);
     }
 
-    // 2. Draw Top Headers & Clock Accent
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
+    // 2. Draw Optional Date/Time at the Top (iOS style clock)
+    if (showClock) {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+      const dateStr = now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }).toUpperCase();
 
-    // Standard clock text
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
-    const dateStr = now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }).toUpperCase();
+      // Clock
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "300 130px sans-serif";
+      ctx.fillText(timeStr, 540, 240);
 
-    // Clock
-    ctx.fillStyle = theme === "neon" ? "#E8FF47" : "#FFFFFF";
-    ctx.font = "bold 160px sans-serif";
-    ctx.fillText(timeStr, 540, 260);
+      // Date
+      ctx.fillStyle = "#E8FF47"; // Neon yellow accent date
+      ctx.font = "bold 26px monospace";
+      ctx.fillText(dateStr, 540, 330);
+    }
 
-    // Date
-    ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
-    ctx.font = "32px monospace";
-    ctx.fillText(dateStr, 540, 370);
+    // Extract Goals
+    const studentGoals = form.goals || "STAY FOCUSED, DO BETTER.";
+    const goalsList = studentGoals
+      .split(",")
+      .map((s) => s.trim().toUpperCase())
+      .filter(Boolean);
 
-    // Divider line
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(200, 440);
-    ctx.lineTo(880, 440);
-    ctx.stroke();
+    // 3. Draw Layout Variations
+    if (selectedLayout === "ultra") {
+      // --- Layout 1: Ultra-Minimal (Goals List Only) ---
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
 
-    // 3. Draw Passport Box in Center
-    const boxX = 140;
-    const boxY = 560;
-    const boxW = 800;
-    const boxH = 920;
+      // Small Section Eyebrow
+      ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+      ctx.font = "bold 24px monospace";
+      ctx.fillText("CURRENT FOCUS", 540, 720);
 
-    // Glassmorphic passport container
-    ctx.fillStyle = "rgba(20, 20, 20, 0.75)";
-    ctx.beginPath();
-    ctx.roundRect(boxX, boxY, boxW, boxH, 32);
-    ctx.fill();
-    ctx.strokeStyle = theme === "neon" ? "rgba(232, 255, 71, 0.18)" : "rgba(255, 255, 255, 0.08)";
-    ctx.lineWidth = 4;
-    ctx.stroke();
+      // List of Goals
+      let startY = 820;
+      ctx.fillStyle = "#E8FF47"; // Neon yellow accents
+      ctx.font = "bold 56px sans-serif";
+      for (const goal of goalsList) {
+        ctx.fillText(goal, 540, startY);
+        startY += 90;
+      }
+    } 
+    else if (selectedLayout === "dashboard") {
+      // --- Layout 2: Focus Dashboard (Goals + Progress Bar) ---
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      const startX = 140;
 
-    // Passport Header Bar
-    ctx.fillStyle = theme === "neon" ? "rgba(232, 255, 71, 0.04)" : "rgba(255, 255, 255, 0.02)";
-    ctx.beginPath();
-    ctx.roundRect(boxX + 2, boxY + 2, boxW - 4, 120, [30, 30, 0, 0]);
-    ctx.fill();
-    ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
-    ctx.beginPath();
-    ctx.moveTo(boxX + 40, boxY + 120);
-    ctx.lineTo(boxX + boxW - 40, boxY + 120);
-    ctx.stroke();
+      // Small Eyebrow
+      ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+      ctx.font = "bold 24px monospace";
+      ctx.fillText("FOCUS WORKSPACE", startX, 660);
 
-    ctx.textAlign = "left";
-    ctx.fillStyle = theme === "neon" ? "#E8FF47" : "#FFFFFF";
-    ctx.font = "bold 36px sans-serif";
-    ctx.fillText("STUDENT STUDY PASSPORT", boxX + 60, boxY + 60);
+      // List of Goals
+      let startY = 750;
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "bold 52px sans-serif";
+      for (const goal of goalsList) {
+        // Draw bullet dot
+        ctx.fillStyle = "#E8FF47";
+        ctx.beginPath();
+        ctx.arc(startX + 10, startY, 8, 0, Math.PI * 2);
+        ctx.fill();
 
-    ctx.textAlign = "right";
-    ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
-    ctx.font = "24px monospace";
-    ctx.fillText("ID: " + String(user?.id ?? "DEV-MODE").slice(0, 10).toUpperCase(), boxX + boxW - 60, boxY + 60);
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillText(goal, startX + 45, startY);
+        startY += 85;
+      }
 
-    // Student Info Block
-    ctx.textAlign = "left";
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = "bold 64px sans-serif";
-    ctx.fillText(studentName, boxX + 60, boxY + 220);
+      // Bottom Progress / Metric Bar
+      if (showProgress) {
+        const barY = 1520;
+        const barW = 800;
 
-    ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-    ctx.font = "32px sans-serif";
-    ctx.fillText(studentSchool.toUpperCase() + " · " + (form.year || "YEAR 1").toUpperCase(), boxX + 60, boxY + 280);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
+        ctx.beginPath();
+        ctx.roundRect(startX, barY, barW, 8, 4);
+        ctx.fill();
 
-    // Goal block title
-    ctx.fillStyle = theme === "neon" ? "#E8FF47" : "rgba(255, 255, 255, 0.6)";
-    ctx.font = "bold 28px monospace";
-    ctx.fillText("ACTIVE STUDY GOALS", boxX + 60, boxY + 410);
+        // Neon Yellow Progress Fill (represented as 70% intensity)
+        ctx.fillStyle = "#E8FF47";
+        ctx.beginPath();
+        ctx.roundRect(startX, barY, barW * 0.7, 8, 4);
+        ctx.fill();
 
-    // Goal Details (Wrapped text)
-    ctx.fillStyle = "#F0F0F0";
-    ctx.font = "italic 38px sans-serif";
-    wrapText(ctx, `“ ${studentGoals} ”`, boxX + 60, boxY + 490, boxW - 120, 56);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+        ctx.font = "bold 20px monospace";
+        ctx.fillText("FOCUS INTENSITY · 70%", startX, barY - 30);
+      }
+    } 
+    else {
+      // --- Layout 3: Deep Work Mode (Single dominant goal) ---
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
 
-    // Dynamic stats badges inside card
-    const statY = boxY + 760;
-    
-    // Left Stat Badge (Streak)
-    ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
-    ctx.beginPath();
-    ctx.roundRect(boxX + 60, statY, 320, 100, 16);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
-    ctx.stroke();
+      ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+      ctx.font = "bold 24px monospace";
+      ctx.fillText("DEEP WORK", 540, 860);
 
-    ctx.fillStyle = "#E8FF47";
-    ctx.font = "bold 32px sans-serif";
-    ctx.fillText(`🔥 ${analytics.streakDays} DAYS`, boxX + 80, statY + 50);
+      // Single dominant goal
+      const primaryGoal = goalsList[0] || "FOCUS WORK";
+      ctx.fillStyle = "#E8FF47"; // Giant glowing neon text
+      ctx.font = "bold 84px sans-serif";
+      ctx.fillText(primaryGoal, 540, 960);
 
-    // Right Stat Badge (Total minutes)
-    ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
-    ctx.beginPath();
-    ctx.roundRect(boxX + boxW - 380, statY, 320, 100, 16);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = "bold 32px sans-serif";
-    ctx.fillText(`⏱️ ${analytics.weeklyFocusMinutes} MIN`, boxX + boxW - 360, statY + 50);
-
-    // 4. Draw Footer details
-    ctx.textAlign = "center";
-    ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
-    ctx.font = "24px monospace";
-    ctx.fillText("SYNC & STUDY HUB · MOBILE PASS", 540, 1650);
-
-    // Draw Barcode accent
-    ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
-    let startX = 400;
-    const barWidths = [4, 8, 2, 6, 2, 8, 4, 12, 2, 4, 8, 2, 6, 8, 2, 4];
-    for (const w of barWidths) {
-      ctx.fillRect(startX, 1690, w, 50);
-      startX += w + 6;
+      // Sub indicator
+      ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+      ctx.font = "italic 26px sans-serif";
+      ctx.fillText("distraction state: muted", 540, 1060);
     }
   };
 
@@ -300,10 +245,10 @@ function ProfilePage() {
     if (!canvas) return;
     const dataUrl = canvas.toDataURL("image/png");
     const link = document.createElement("a");
-    link.download = `sync-study-${selectedTheme}-wallpaper.png`;
+    link.download = `sync-study-goals-wallpaper.png`;
     link.href = dataUrl;
     link.click();
-    toast.success("Wallpaper downloaded! Check your downloads.");
+    toast.success("Wallpaper downloaded! Set it as your phone background.");
     setShowWallpaperModal(false);
   };
 
@@ -312,34 +257,7 @@ function ProfilePage() {
     if (showWallpaperModal) {
       setTimeout(drawWallpaper, 100);
     }
-  }, [showWallpaperModal, selectedTheme]);
-
-  // Helper text wrapping function for Canvas
-  function wrapText(
-    ctx: CanvasRenderingContext2D, 
-    text: string, 
-    x: number, 
-    y: number, 
-    maxWidth: number, 
-    lineHeight: number
-  ) {
-    const words = text.split(" ");
-    let line = "";
-    let currentY = y;
-    for (let n = 0; n < words.length; n++) {
-      const testLine = line + words[n] + " ";
-      const metrics = ctx.measureText(testLine);
-      const testWidth = metrics.width;
-      if (testWidth > maxWidth && n > 0) {
-        ctx.fillText(line, x, currentY);
-        line = words[n] + " ";
-        currentY += lineHeight;
-      } else {
-        line = testLine;
-      }
-    }
-    ctx.fillText(line, x, currentY);
-  }
+  }, [showWallpaperModal, selectedLayout, showClock, showProgress]);
 
   return (
     <>
@@ -377,7 +295,7 @@ function ProfilePage() {
           borderRadius: 8, 
           border: "1px solid rgba(255,255,255,0.05)" 
         }}>
-          {(["passport", "edit", "preferences", "about"] as TabType[]).map((tab) => (
+          {(["card", "edit", "preferences", "about"] as TabType[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -397,7 +315,7 @@ function ProfilePage() {
                 transition: "all 0.15s ease",
               }}
             >
-              {tab}
+              {tab === "card" ? "Student Card" : tab}
             </button>
           ))}
         </div>
@@ -406,12 +324,12 @@ function ProfilePage() {
       <div className="ss-body" style={{ paddingBottom: 80 }}>
 
         {/* ========================================== */}
-        {/* TABS 1: PASSPORT CARD VIEW                 */}
+        {/* TABS 1: STUDENT CARD VIEW                 */}
         {/* ========================================== */}
-        {activeTab === "passport" && (
+        {activeTab === "card" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             
-            {/* Cyber student card block */}
+            {/* Cyber student card block (Replaced Passport with Student Card) */}
             <div style={{
               background: "rgba(20, 20, 20, 0.8)",
               borderRadius: 18,
@@ -525,10 +443,10 @@ function ProfilePage() {
             }}>
               <div>
                 <span className="ss-mono" style={{ fontSize: "0.6rem", letterSpacing: "0.08em", color: "var(--color-primary)", textTransform: "uppercase" }}>Study Goals</span>
-                <h3 className="ss-display" style={{ fontWeight: 800, fontSize: "1.05rem", marginTop: 2, color: "#F0F0F0" }}>Current Aspiration</h3>
+                <h3 className="ss-display" style={{ fontWeight: 800, fontSize: "1.05rem", marginTop: 2, color: "#F0F0F0" }}>Current Focus Goals</h3>
               </div>
               <p style={{ fontSize: "0.85rem", color: "#aaa", fontStyle: "italic", borderLeft: "2px solid var(--color-primary)", paddingLeft: 12, margin: "6px 0" }}>
-                “ {form.goals || "What are you working towards? Set your goals in the Edit tab."} ”
+                {form.goals || "What are you working towards? Set your goals in the Edit tab."}
               </p>
               
               <button 
@@ -547,7 +465,7 @@ function ProfilePage() {
                   fontSize: "0.82rem" 
                 }}
               >
-                <Download size={14} /> Create Phone Wallpaper
+                <Download size={14} /> Goal Wallpaper Generator
               </button>
             </div>
           </div>
@@ -590,8 +508,8 @@ function ProfilePage() {
             <Field label="Bio">
               <textarea className="ss-textarea" value={form.bio ?? ""} onChange={(e) => setForm({ ...form, bio: e.target.value })} placeholder="A line about you" />
             </Field>
-            <Field label="Study goals">
-              <textarea className="ss-textarea" value={form.goals ?? ""} onChange={(e) => setForm({ ...form, goals: e.target.value })} placeholder="What are you working towards?" />
+            <Field label="Study goals (comma separated for wallpaper lists)">
+              <textarea className="ss-textarea" value={form.goals ?? ""} onChange={(e) => setForm({ ...form, goals: e.target.value })} placeholder="e.g. AI/ML, System Design, Leetcode" />
             </Field>
             <Field label="Timezone">
               <input className="ss-input" value={form.timezone ?? ""} onChange={(e) => setForm({ ...form, timezone: e.target.value })} />
@@ -673,76 +591,42 @@ function ProfilePage() {
         )}
 
         {/* ========================================== */}
-        {/* TABS 4: ABOUT & DEPLOYMENT CHECKER         */}
+        {/* TABS 4: ABOUT PAGE REDESIGNED              */}
         {/* ========================================== */}
         {activeTab === "about" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             
-            {/* Version block */}
+            {/* Mission Statement */}
             <div className="ss-card" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <div className="ss-mono" style={{ fontSize: "0.68rem", color: "var(--color-primary)", textTransform: "uppercase" }}>System Version</div>
-              <h3 className="ss-display" style={{ fontWeight: 800, fontSize: "1.2rem", color: "#FFF" }}>Sync & Study Hub v1.2.0</h3>
-              <p style={{ fontSize: "0.8rem", color: "#888", lineHeight: 1.5, marginTop: 4 }}>
-                Collaborative pomodoro sessions, real-time community messaging, and AI study assistance built for focused students.
+              <div className="ss-mono" style={{ fontSize: "0.68rem", color: "var(--color-primary)", textTransform: "uppercase" }}>Our Offering</div>
+              <h3 className="ss-display" style={{ fontWeight: 800, fontSize: "1.2rem", color: "#FFF" }}>Learn, Focus, and Grow Together</h3>
+              <p style={{ fontSize: "0.85rem", color: "#ccc", lineHeight: 1.6, marginTop: 6 }}>
+                Sync & Study Hub is designed to solve the isolation and distraction of modern remote learning. By combining scientific productivity workflows with real-time peer groups and AI coaching, we help students build focus habits that stick.
               </p>
             </div>
 
-            {/* Live System Health Tracker */}
-            <div>
-              <span className="ss-mono" style={{ fontSize: "0.6rem", letterSpacing: "0.08em", color: "#666", textTransform: "uppercase" }}>Development Checks</span>
-              <h3 className="ss-display" style={{ fontWeight: 800, fontSize: "1.1rem", marginTop: 2, marginBottom: 12 }}>Connection Health</h3>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }} className="ss-card">
-                
-                {/* Cloudflare Edge Status */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <Layout size={16} style={{ color: "#E8FF47" }} />
-                    <span className="ss-mono" style={{ fontSize: "0.78rem", color: "#FFF" }}>Cloudflare Workers</span>
+            {/* Core Features list for students */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <h3 className="ss-display" style={{ fontWeight: 800, fontSize: "1.1rem" }}>How Sync & Study Helps You</h3>
+              
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {[
+                  { title: "⏰ Group Pomodoro Blocks", desc: "Start customized study timers and invite classmates to study synchronously, keeping everyone accountable." },
+                  { title: "💬 Real-Time Study Communities", desc: "Create interest-based servers and subject channels. Share files, notes, and ask for help instantly." },
+                  { title: "🤖 Sage AI Study Companion", desc: "Interact with an AI coach backed by Google Gemini to analyze your goals, create schedules, and suggest focus strategies." },
+                  { title: "📊 Personal Insights Dashboard", desc: "Track your active daily streaks, weekly study hours, and task progress using visual metrics." }
+                ].map((item, idx) => (
+                  <div key={idx} className="ss-card" style={{ padding: "14px 18px", borderLeft: "3px solid var(--color-primary)" }}>
+                    <div className="ss-display" style={{ fontWeight: 700, fontSize: "0.9rem", color: "#FFF" }}>{item.title}</div>
+                    <p style={{ fontSize: "0.78rem", color: "#aaa", marginTop: 4, lineHeight: 1.5 }}>{item.desc}</p>
                   </div>
-                  <span style={{ 
-                    fontSize: "0.68rem", padding: "2px 8px", borderRadius: 10, 
-                    background: "rgba(61, 220, 132, 0.1)", color: "#3ddc84", fontWeight: "bold" 
-                  }}>
-                    LIVE / EDGE
-                  </span>
-                </div>
-
-                {/* Railway Server Status */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <ShieldCheck size={16} style={{ color: "#4a9eff" }} />
-                    <span className="ss-mono" style={{ fontSize: "0.78rem", color: "#FFF" }}>Railway Backend API</span>
-                  </div>
-                  <span style={{ 
-                    fontSize: "0.68rem", padding: "2px 8px", borderRadius: 10, 
-                    background: backendStatus === "online" ? "rgba(61, 220, 132, 0.1)" : "rgba(255, 69, 69, 0.1)", 
-                    color: backendStatus === "online" ? "#3ddc84" : "#ff6b6b", fontWeight: "bold" 
-                  }}>
-                    {backendStatus === "checking" ? "CHECKING..." : backendStatus.toUpperCase()}
-                  </span>
-                </div>
-
-                {/* MongoDB Atlas Status */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <ShieldCheck size={16} style={{ color: "#3ddc84" }} />
-                    <span className="ss-mono" style={{ fontSize: "0.78rem", color: "#FFF" }}>MongoDB Atlas</span>
-                  </div>
-                  <span style={{ 
-                    fontSize: "0.68rem", padding: "2px 8px", borderRadius: 10, 
-                    background: backendStatus === "online" ? "rgba(61, 220, 132, 0.1)" : "rgba(255, 69, 69, 0.1)", 
-                    color: backendStatus === "online" ? "#3ddc84" : "#ff6b6b", fontWeight: "bold" 
-                  }}>
-                    {backendStatus === "checking" ? "CHECKING..." : backendStatus === "online" ? "CONNECTED" : "OFFLINE"}
-                  </span>
-                </div>
+                ))}
               </div>
             </div>
 
             {/* Footer Credits */}
             <div style={{ textAlign: "center", fontSize: "0.75rem", color: "#444", marginTop: 8 }}>
-              Sync & Study Hub is made with <Heart size={10} style={{ color: "#ff6b6b", display: "inline-block", margin: "0 2px" }} /> for students.
+              Sync & Study Hub is made with <Heart size={10} style={{ color: "#ff6b6b", display: "inline-block", margin: "0 2px" }} /> for student productivity.
             </div>
           </div>
         )}
@@ -754,30 +638,30 @@ function ProfilePage() {
       {showWallpaperModal && (
         <div style={{
           position: "fixed", inset: 0, zIndex: 300,
-          background: "rgba(0,0,0,0.9)", display: "flex", 
+          background: "rgba(0,0,0,0.95)", display: "flex", 
           flexDirection: "column", alignItems: "center", justifyContent: "center",
           padding: 20
         }}>
           {/* Header */}
-          <div style={{ width: "100%", maxWidth: 360, display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-            <h3 className="ss-display" style={{ fontWeight: 800, fontSize: "1.1rem", color: "#FFF" }}>Lockscreen Creator</h3>
+          <div style={{ width: "100%", maxWidth: 340, display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <h3 className="ss-display" style={{ fontWeight: 800, fontSize: "1.1rem", color: "#FFF" }}>Goal Wallpaper</h3>
             <button 
               onClick={() => setShowWallpaperModal(false)}
-              style={{ background: "none", border: "none", color: "#888", fontSize: "0.85rem", cursor: "pointer", textDecoration: "underline" }}
+              style={{ background: "none", border: "none", color: "#ff6b6b", fontSize: "0.82rem", cursor: "pointer" }}
             >
-              Cancel
+              Close
             </button>
           </div>
 
           {/* Canvas Preview Box */}
           <div style={{ 
-            width: "100%", maxWidth: 340, 
+            width: "100%", maxWidth: 300, 
             aspectRatio: "9/16",
-            border: "1px solid rgba(255,255,255,0.1)",
+            border: "1px solid rgba(232, 255, 71, 0.15)",
             borderRadius: 14,
             overflow: "hidden",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
-            background: "#0C0C0C"
+            boxShadow: "0 10px 40px rgba(0,0,0,0.8)",
+            background: "#050505"
           }}>
             <canvas 
               ref={canvasRef} 
@@ -785,46 +669,93 @@ function ProfilePage() {
             />
           </div>
 
-          {/* Theme selector controls */}
+          {/* Control Options (Linear / Nothing OS Aesthetic) */}
           <div style={{ 
-            width: "100%", maxWidth: 340, 
-            display: "flex", flexDirection: "column", gap: 10,
+            width: "100%", maxWidth: 320, 
+            display: "flex", flexDirection: "column", gap: 12,
             marginTop: 18 
           }}>
-            <span className="ss-mono" style={{ fontSize: "0.62rem", color: "#666", textTransform: "uppercase", letterSpacing: "0.08em", textAlign: "center" }}>
-              Select Wallpaper Theme
-            </span>
-            <div style={{ display: "flex", gap: 6 }}>
-              {(["neon", "minimal", "forest"] as WallpaperTheme[]).map((theme) => (
-                <button
-                  key={theme}
-                  onClick={() => setSelectedTheme(theme)}
-                  style={{
-                    flex: 1,
-                    padding: "8px 0",
-                    fontSize: "0.78rem",
-                    borderRadius: 8,
-                    cursor: "pointer",
-                    border: selectedTheme === theme ? "1px solid var(--color-primary)" : "1px solid rgba(255,255,255,0.06)",
-                    background: selectedTheme === theme ? "rgba(232,255,71,0.06)" : "#141414",
-                    color: selectedTheme === theme ? "var(--color-primary)" : "#888",
-                    textTransform: "capitalize",
-                    transition: "all 0.15s ease"
-                  }}
-                >
-                  {theme}
-                </button>
-              ))}
+            
+            {/* Layout selectors */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <span className="ss-mono" style={{ fontSize: "0.6rem", color: "#555", textTransform: "uppercase" }}>Layout Style</span>
+              <div style={{ display: "flex", gap: 4 }}>
+                {[
+                  { id: "ultra", label: "Minimal" },
+                  { id: "dashboard", label: "Dashboard" },
+                  { id: "deep", label: "Deep Work" }
+                ].map((lay) => (
+                  <button
+                    key={lay.id}
+                    onClick={() => setSelectedLayout(lay.id as WallpaperLayout)}
+                    style={{
+                      flex: 1,
+                      padding: "8px 0",
+                      fontSize: "0.7rem",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      border: "none",
+                      background: selectedLayout === lay.id ? "rgba(232,255,71,0.08)" : "rgba(255,255,255,0.02)",
+                      color: selectedLayout === lay.id ? "var(--color-primary)" : "#666",
+                      fontWeight: selectedLayout === lay.id ? "bold" : "normal",
+                      transition: "all 0.1s ease"
+                    }}
+                  >
+                    {lay.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* Export trigger */}
-            <button 
-              onClick={handleDownload}
-              className="ss-btn ss-btn-primary" 
-              style={{ width: "100%", justifyContent: "center", gap: 8, padding: 12, marginTop: 4 }}
-            >
-              <Download size={16} /> Download PNG Wallpaper
-            </button>
+            {/* Toggle checkboxes */}
+            <div style={{ display: "flex", gap: 14, justifyContent: "space-between", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 10 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: "0.72rem", color: "#aaa" }}>
+                <input 
+                  type="checkbox" 
+                  checked={showClock} 
+                  onChange={e => setShowClock(e.target.checked)}
+                  style={{ accentColor: "var(--color-primary)" }}
+                />
+                Show Lock Clock
+              </label>
+
+              {selectedLayout === "dashboard" && (
+                <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: "0.72rem", color: "#aaa" }}>
+                  <input 
+                    type="checkbox" 
+                    checked={showProgress} 
+                    onChange={e => setShowProgress(e.target.checked)}
+                    style={{ accentColor: "var(--color-primary)" }}
+                  />
+                  Show Focus Bar
+                </label>
+              )}
+            </div>
+
+            {/* Export and Regenerate buttons */}
+            <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+              <button 
+                onClick={() => {
+                  // Cycle Layout style (Regenerate Layout action)
+                  const layouts: WallpaperLayout[] = ["ultra", "dashboard", "deep"];
+                  const currentIdx = layouts.indexOf(selectedLayout);
+                  const nextIdx = (currentIdx + 1) % layouts.length;
+                  setSelectedLayout(layouts[nextIdx]);
+                  toast.success(`Swapped to ${layouts[nextIdx].toUpperCase()} layout!`);
+                }}
+                className="ss-btn ss-btn-outline" 
+                style={{ flex: 1, justifyContent: "center", gap: 6, padding: 10, fontSize: "0.8rem" }}
+              >
+                <RefreshCw size={13} /> Layout
+              </button>
+              <button 
+                onClick={handleDownload}
+                className="ss-btn ss-btn-primary" 
+                style={{ flex: 2, justifyContent: "center", gap: 6, padding: 10, fontSize: "0.8rem" }}
+              >
+                <Download size={13} /> Save Lockscreen
+              </button>
+            </div>
           </div>
         </div>
       )}
