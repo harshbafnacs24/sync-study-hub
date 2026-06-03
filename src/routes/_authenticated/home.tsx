@@ -73,6 +73,12 @@ function Dashboard() {
   const a = analytics.data;
 
   return (
+    <PageTransition>
+      <PageHeader
+        eyebrow="Dashboard"
+        title={`Hey, ${firstName}`}
+        sub={`${today} · ${a?.todaySessions ?? 0} sessions today`}
+        right={
           <Link
             to="/notifications"
             className="ss-btn ss-btn-outline"
@@ -194,9 +200,9 @@ function Dashboard() {
           </Card>
         </Link>
       </div>
-    </>
-  </PageTransition>
-);
+    </PageTransition>
+  );
+}
 
 function fmtTime(sec: number) {
   const m = Math.floor(sec / 60).toString().padStart(2, "0");
