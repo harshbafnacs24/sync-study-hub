@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { tasksStore, type Task, type TaskPriority } from "../store/tasks";
 import { sessionsStore, computeAnalytics } from "../store/sessions";
+import { api } from "../api-client";
 
 export function useTasks() {
   return useQuery({ queryKey: ["tasks"], queryFn: async () => tasksStore.list(), staleTime: 0 });
@@ -48,4 +49,8 @@ export function useAnalytics() {
 
 export function useActiveSession() {
   return useQuery({ queryKey: ["session", "active"], queryFn: async () => sessionsStore.active(), staleTime: 0 });
+}
+
+export function useProfile() {
+  return useQuery({ queryKey: ["my-profile"], queryFn: () => api.getMyProfile(), staleTime: 30000 });
 }

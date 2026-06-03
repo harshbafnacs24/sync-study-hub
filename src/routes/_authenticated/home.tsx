@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { PageTransition } from "../../components/shell/PageTransition";
 import { Bell, Plus, Play, Sparkles, ChevronRight } from "lucide-react";
 import { Card, PageHeader, SectionHeader, StatTile, EmptyState, PriorityBadge } from "../../components/ui-kit/Card";
-import { useTasks, useAnalytics, useActiveSession, useToggleTask, useCreateTask } from "../../lib/hooks/use-data";
+import { useTasks, useAnalytics, useActiveSession, useToggleTask, useCreateTask, useProfile } from "../../lib/hooks/use-data";
 import { useAuth } from "../../lib/auth-context";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -62,7 +62,8 @@ function Dashboard() {
   const active = useActiveSession();
   const toggle = useToggleTask();
 
-  const displayName = user?.name || (user?.email?.split("@")[0] ?? "there");
+  const profile = useProfile();
+  const displayName = profile.data?.profile?.name || user?.name || (user?.email?.split("@")[0] ?? "there");
   const today = new Date().toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
 
   const upcoming = (tasks.data ?? [])
