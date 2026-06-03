@@ -115,7 +115,7 @@
   height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: var(--color-background);
+  background: radial-gradient(circle at top center, oklch(0.21 0.02 110) 0%, var(--color-background) 50%, oklch(0.12 0 0) 100%);
   position: relative;
   overflow: hidden;
 }

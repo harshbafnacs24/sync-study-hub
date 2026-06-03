@@ -62,7 +62,7 @@ function Dashboard() {
   const active = useActiveSession();
   const toggle = useToggleTask();
 
-  const firstName = (user?.name ?? user?.email ?? "there").split(" ")[0].split("@")[0];
+  const displayName = user?.name || (user?.email?.split("@")[0] ?? "there");
   const today = new Date().toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
 
   const upcoming = (tasks.data ?? [])
@@ -76,7 +76,7 @@ function Dashboard() {
     <PageTransition>
       <PageHeader
         eyebrow="Dashboard"
-        title={`Hey, ${firstName}`}
+        title={`Hey, ${displayName}`}
         sub={`${today} · ${a?.todaySessions ?? 0} sessions today`}
         right={
           <Link
