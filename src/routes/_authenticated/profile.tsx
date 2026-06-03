@@ -11,6 +11,7 @@ import { useAuth } from "../../lib/auth-context";
 import { tasksStore } from "../../lib/store/tasks";
 import { sessionsStore, computeAnalytics } from "../../lib/store/sessions";
 import type { ProfilePatch } from "../../lib/types";
+import { PageTransition } from "../../components/shell/PageTransition";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   head: () => ({ meta: [{ title: "Profile & Student Card — Sync & Study" }] }),
@@ -269,7 +270,7 @@ function ProfilePage() {
   }, [showWallpaperModal, selectedLayout, showClock, showProgress]);
 
   return (
-    <>
+    <PageTransition>
       {/* Redesigned Premium Top Banner */}
       <div className="ss-ph" style={{ paddingBottom: 14 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -792,7 +793,7 @@ function ProfilePage() {
           </div>
         </div>
       )}
-    </>
+    </PageTransition>
   );
 }
 

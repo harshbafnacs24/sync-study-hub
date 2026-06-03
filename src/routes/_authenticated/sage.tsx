@@ -4,6 +4,7 @@ import {
   Sparkles, Send, Database, ListChecks, Flame, Plus, MessageSquare, Trash2, AlertTriangle, History,
 } from "lucide-react";
 import { PageHeader } from "../../components/ui-kit/Card";
+import { PageTransition } from "../../components/shell/PageTransition";
 import { streamSage, type SageStreamHandle } from "../../lib/sage/client";
 import { buildSageContext, type SageContext } from "../../lib/sage/context";
 import { sageStore, type SageThread, type SageTurn } from "../../lib/store/sage";
@@ -130,7 +131,7 @@ function SagePage() {
   const empty = turns.length === 0;
 
   return (
-    <>
+    <PageTransition>
       <PageHeader
         eyebrow="AI Companion"
         title="Sage"
@@ -202,7 +203,7 @@ function SagePage() {
           </form>
         </div>
       </div>
-    </>
+    </PageTransition>
   );
 }
 

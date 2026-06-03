@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { PageTransition } from "../../components/shell/PageTransition";
 import { Bell, Plus, Play, Sparkles, ChevronRight } from "lucide-react";
 import { Card, PageHeader, SectionHeader, StatTile, EmptyState, PriorityBadge } from "../../components/ui-kit/Card";
 import { useTasks, useAnalytics, useActiveSession, useToggleTask, useCreateTask } from "../../lib/hooks/use-data";
@@ -72,12 +73,6 @@ function Dashboard() {
   const a = analytics.data;
 
   return (
-    <>
-      <PageHeader
-        eyebrow="Dashboard"
-        title={`Hey, ${firstName}`}
-        sub={`${today} · ${a?.todaySessions ?? 0} sessions today`}
-        right={
           <Link
             to="/notifications"
             className="ss-btn ss-btn-outline"
@@ -200,8 +195,8 @@ function Dashboard() {
         </Link>
       </div>
     </>
-  );
-}
+  </PageTransition>
+);
 
 function fmtTime(sec: number) {
   const m = Math.floor(sec / 60).toString().padStart(2, "0");

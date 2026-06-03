@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { PageTransition } from "../../components/shell/PageTransition";
 import { useState } from "react";
 import { Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
@@ -33,7 +34,7 @@ function TasksPage() {
   );
 
   return (
-    <>
+    <PageTransition>
       <PageHeader
         eyebrow="Workspace"
         title="Tasks"
@@ -131,7 +132,7 @@ function TasksPage() {
           submitting={create.isPending}
         />
       )}
-    </>
+    </PageTransition>
   );
 }
 

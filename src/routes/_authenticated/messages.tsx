@@ -6,6 +6,7 @@ import {
   useConversations, useCommunities, useUnreadNotifications, useLiveInbox,
 } from "../../lib/hooks/use-messaging";
 import { messagesStore } from "../../lib/store/messages";
+import { PageTransition } from "../../components/shell/PageTransition";
 import { Avatar, UnreadBadge, timeAgo } from "../../components/messaging/Avatar";
 
 export const Route = createFileRoute("/_authenticated/messages")({
@@ -24,7 +25,7 @@ function MessagesPage() {
   useLiveInbox();
 
   return (
-    <>
+    <PageTransition>
       <PageHeader
         eyebrow="Inbox"
         title="Messages"
@@ -81,7 +82,7 @@ function MessagesPage() {
           )}
         </div>
       </div>
-    </>
+    </PageTransition>
   );
 }
 

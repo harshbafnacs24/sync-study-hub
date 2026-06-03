@@ -5,6 +5,7 @@ import { PageHeader, EmptyState } from "../../components/ui-kit/Card";
 import { useNotifications, useMarkNotificationsRead } from "../../lib/hooks/use-messaging";
 import { timeAgo } from "../../components/messaging/Avatar";
 import type { NotificationKind } from "../../lib/types";
+import { PageTransition } from "../../components/shell/PageTransition";
 
 export const Route = createFileRoute("/_authenticated/notifications")({
   head: () => ({ meta: [{ title: "Notifications — Sync & Study" }] }),
@@ -26,7 +27,7 @@ function NotificationsPage() {
   useEffect(() => () => { markAll.mutate(); }, []);
 
   return (
-    <>
+    <PageTransition>
       <PageHeader
         eyebrow="Inbox"
         title="Notifications"
@@ -68,6 +69,6 @@ function NotificationsPage() {
           </div>
         )}
       </div>
-    </>
+    </PageTransition>
   );
 }

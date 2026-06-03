@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
+import { PageTransition } from "../../components/shell/PageTransition";
 import { Play, Pause, X, RotateCcw, Target, Music, ChevronDown, CheckCircle2, Clock, Flame, TrendingUp, SkipForward } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "../../components/ui-kit/Card";
@@ -141,7 +142,8 @@ function FocusPage() {
   const linkedTask = openTasks.find(t => t.id === linkedTaskId);
 
   return (
-    <>
+  <PageTransition>
+  
       <PageHeader
         eyebrow="Deep work"
         title="Focus"
@@ -370,6 +372,6 @@ function FocusPage() {
         </div>
 
       </div>
-    </>
+    </PageTransition>
   );
 }
