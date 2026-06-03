@@ -142,12 +142,21 @@ function ProfilePage() {
       ctx.fillText(dateStr, 540, 330);
     }
 
-    // Extract Goals
-    const studentGoals = form.goals || "STAY FOCUSED, DO BETTER.";
-    const goalsList = studentGoals
+    // Extract Explicit Goals from Profile
+    const profileGoals = (form.goals || "")
       .split(",")
       .map((s) => s.trim().toUpperCase())
       .filter(Boolean);
+
+    // Extract Active Tasks as study goals (limit to top 4 to avoid clutter)
+    const taskGoals = allTasks
+      .filter((t) => t.status !== "done")
+      .map((t) => (t.subject ? `${t.subject}: ${t.title}` : t.title).toUpperCase())
+      .slice(0, 4);
+
+    // Combine custom profile goals and active tasks, eliminating any duplicates
+    const combinedGoals = Array.from(new Set([...profileGoals, ...taskGoals]));
+    const goalsList = combinedGoals.length > 0 ? combinedGoals : ["STAY FOCUSED", "DO BETTER."];
 
     // 3. Draw Layout Variations
     if (selectedLayout === "ultra") {
@@ -442,17 +451,41 @@ function ProfilePage() {
               background: "linear-gradient(135deg, rgba(20,20,20,0.8), rgba(30,30,30,0.5))"
             }}>
               <div>
-                <span className="ss-mono" style={{ fontSize: "0.6rem", letterSpacing: "0.08em", color: "var(--color-primary)", textTransform: "uppercase" }}>Study Goals</span>
+                <span className="ss-mono" style={{ fontSize: "0.6rem", letterSpacing: "0.08em", color: "var(--color-primary)", textTransform: "uppercase" }}>Study Goals & Tasks</span>
                 <h3 className="ss-display" style={{ fontWeight: 800, fontSize: "1.05rem", marginTop: 2, color: "#F0F0F0" }}>Current Focus Goals</h3>
               </div>
-              <p style={{ fontSize: "0.85rem", color: "#aaa", fontStyle: "italic", borderLeft: "2px solid var(--color-primary)", paddingLeft: 12, margin: "6px 0" }}>
-                {form.goals || "What are you working towards? Set your goals in the Edit tab."}
-              </p>
+              
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, margin: "4px 0" }}>
+                {form.goals && (
+                  <div style={{ borderLeft: "2.5px solid var(--color-primary)", paddingLeft: 12 }}>
+                    <div style={{ fontSize: "0.62rem", color: "#666", textTransform: "uppercase", fontFamily: "var(--font-mono)", fontWeight: "bold", letterSpacing: "0.05em" }}>Profile Goals</div>
+                    <p style={{ fontSize: "0.82rem", color: "#ccc", margin: "2px 0 0 0" }}>{form.goals}</p>
+                  </div>
+                )}
+                
+                {allTasks.filter(t => t.status !== "done").length > 0 && (
+                  <div style={{ borderLeft: "2.5px solid #4a9eff", paddingLeft: 12 }}>
+                    <div style={{ fontSize: "0.62rem", color: "#666", textTransform: "uppercase", fontFamily: "var(--font-mono)", fontWeight: "bold", letterSpacing: "0.05em" }}>Active Home Tasks</div>
+                    <ul style={{ margin: "4px 0 0 0", paddingLeft: 14, fontSize: "0.82rem", color: "#ccc", listStyleType: "square" }}>
+                      {allTasks.filter(t => t.status !== "done").slice(0, 3).map(t => (
+                        <li key={t.id} style={{ marginBottom: 2 }}>{t.title}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {!form.goals && allTasks.filter(t => t.status !== "done").length === 0 && (
+                  <p style={{ fontSize: "0.82rem", color: "#888", fontStyle: "italic", margin: 0 }}>
+                    No focus goals set. Add goals in the Edit tab or create tasks on the Homepage to generate your wallpaper.
+                  </p>
+                )}
+              </div>
               
               <button 
                 onClick={() => {
-                  if (!form.goals) {
-                    toast.error("Please add your study goals in the Edit tab first!");
+                  const activeTasksCount = allTasks.filter(t => t.status !== "done").length;
+                  if (!form.goals && activeTasksCount === 0) {
+                    toast.error("Please add study goals in the Edit tab or create tasks on the Homepage first!");
                     return;
                   }
                   setShowWallpaperModal(true);

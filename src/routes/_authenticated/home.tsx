@@ -1,13 +1,58 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Bell, Plus, Play, Sparkles, ChevronRight } from "lucide-react";
 import { Card, PageHeader, SectionHeader, StatTile, EmptyState, PriorityBadge } from "../../components/ui-kit/Card";
-import { useTasks, useAnalytics, useActiveSession, useToggleTask } from "../../lib/hooks/use-data";
+import { useTasks, useAnalytics, useActiveSession, useToggleTask, useCreateTask } from "../../lib/hooks/use-data";
 import { useAuth } from "../../lib/auth-context";
+import { useState } from "react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/home")({
   head: () => ({ meta: [{ title: "Dashboard — Sync & Study" }] }),
   component: Dashboard,
 });
+
+function QuickAddTask() {
+  const [title, setTitle] = useState("");
+  const create = useCreateTask();
+
+  const handleAdd = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    create.mutate(
+      { title: title.trim(), priority: "medium" },
+      {
+        onSuccess: () => {
+          setTitle("");
+          toast.success("Task added & linked to profile wallpaper!");
+        },
+        onError: () => {
+          toast.error("Failed to add task");
+        },
+      }
+    );
+  };
+
+  return (
+    <form onSubmit={handleAdd} style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+      <input
+        className="ss-input"
+        type="text"
+        placeholder="Quick add new study focus task..."
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        style={{ flex: 1, padding: "8px 12px", fontSize: "0.85rem" }}
+      />
+      <button
+        className="ss-btn ss-btn-primary"
+        type="submit"
+        disabled={create.isPending || !title.trim()}
+        style={{ padding: "8px 12px", fontSize: "0.8rem", whiteSpace: "nowrap" }}
+      >
+        <Plus size={14} /> Add
+      </button>
+    </form>
+  );
+}
 
 function Dashboard() {
   const { user } = useAuth();
@@ -94,6 +139,7 @@ function Dashboard() {
             </Link>
           }
         />
+        <QuickAddTask />
         {upcoming.length === 0 ? (
           <EmptyState
             title="No tasks yet"
