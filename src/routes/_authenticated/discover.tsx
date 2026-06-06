@@ -10,6 +10,7 @@ import {
   useAcceptConnectionRequest,
   useRemoveConnection,
   useConnectionStatus,
+  useDiscoverUsers,
 } from "../../lib/hooks/use-network";
 import { networkStore } from "../../lib/store/network";
 import { useAuth } from "../../lib/auth-context";
