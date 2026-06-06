@@ -8,6 +8,7 @@ import {
 import { messagesStore } from "../../lib/store/messages";
 import { PageTransition } from "../../components/shell/PageTransition";
 import { Avatar, UnreadBadge, timeAgo } from "../../components/messaging/Avatar";
+import { useNetworkUser } from "../../lib/hooks/use-network";
 
 export const Route = createFileRoute("/_authenticated/messages")({
   head: () => ({ meta: [{ title: "Messages — Sync & Study" }] }),
@@ -106,55 +107,59 @@ function TabBtn({ active, onClick, label, count }: { active: boolean; onClick: (
   );
 }
 
+function DMRow({ conv, query }: { conv: any; query: string }) {
+  const { data: peer, isLoading } = useNetworkUser(conv.peerId);
+  if (isLoading || !peer) return null;
+
+  if (query && !peer.name.toLowerCase().includes(query.toLowerCase())) {
+    return null;
+  }
+
+  return (
+    <Link
+      to="/messages/dm/$id"
+      params={{ id: conv.id }}
+      style={{ display: "block", textDecoration: "none", color: "inherit" }}
+    >
+      <div style={{ display: "flex", gap: 12, padding: "10px 12px", borderRadius: 8, alignItems: "center" }}>
+        <Avatar peer={peer} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+              {conv.pinned && <Pin size={11} style={{ color: "var(--color-primary)", flexShrink: 0 }} />}
+              <span className="ss-display" style={{ fontWeight: 700, fontSize: "0.92rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {peer.name}
+              </span>
+            </div>
+            <span className="ss-mono" style={{ fontSize: "0.62rem", color: "var(--color-muted-foreground)", flexShrink: 0 }}>{timeAgo(conv.lastMessageAt)}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 2 }}>
+            <span style={{
+              fontSize: "0.78rem",
+              color: conv.unread > 0 ? "var(--color-foreground)" : "var(--color-muted-foreground)",
+              fontWeight: conv.unread > 0 ? 600 : 400,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>{conv.lastPreview || "Say hi"}</span>
+            <UnreadBadge count={conv.unread} />
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 function DMList({ query }: { query: string }) {
   const { data: convs = [] } = useConversations();
-  const filtered = convs.filter((c) => {
-    if (!query) return true;
-    const peer = messagesStore.peer(c.peerId);
-    return peer?.name.toLowerCase().includes(query.toLowerCase());
-  });
 
-  if (filtered.length === 0) {
+  if (convs.length === 0) {
     return <div style={{ padding: 16 }}><EmptyState title="No conversations" description="Direct messages with study partners will appear here." /></div>;
   }
+
   return (
-    <div>
-      {filtered.map((c) => {
-        const peer = messagesStore.peer(c.peerId);
-        if (!peer) return null;
-        return (
-          <Link
-            key={c.id}
-            to="/messages/dm/$id"
-            params={{ id: c.id }}
-            style={{ display: "block", textDecoration: "none", color: "inherit" }}
-          >
-            <div style={{ display: "flex", gap: 12, padding: "10px 12px", borderRadius: 8, alignItems: "center" }}>
-              <Avatar peer={peer} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                    {c.pinned && <Pin size={11} style={{ color: "var(--color-primary)", flexShrink: 0 }} />}
-                    <span className="ss-display" style={{ fontWeight: 700, fontSize: "0.92rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {peer.name}
-                    </span>
-                  </div>
-                  <span className="ss-mono" style={{ fontSize: "0.62rem", color: "var(--color-muted-foreground)", flexShrink: 0 }}>{timeAgo(c.lastMessageAt)}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 2 }}>
-                  <span style={{
-                    fontSize: "0.78rem",
-                    color: c.unread > 0 ? "var(--color-foreground)" : "var(--color-muted-foreground)",
-                    fontWeight: c.unread > 0 ? 600 : 400,
-                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                  }}>{c.lastPreview || "Say hi"}</span>
-                  <UnreadBadge count={c.unread} />
-                </div>
-              </div>
-            </div>
-          </Link>
-        );
-      })}
+    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      {convs.map((c) => (
+        <DMRow key={c.id} conv={c} query={query} />
+      ))}
     </div>
   );
 }

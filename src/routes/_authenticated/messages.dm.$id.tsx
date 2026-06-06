@@ -4,6 +4,7 @@ import { ChevronLeft, Pin, Sparkles } from "lucide-react";
 import {
   useConversation, useDMs, useSendDM, useMarkConversationRead, useTogglePin, useLiveDM,
 } from "../../lib/hooks/use-messaging";
+import { useNetworkUser } from "../../lib/hooks/use-network";
 import { messagesStore } from "../../lib/store/messages";
 import { Avatar, timeAgo } from "../../components/messaging/Avatar";
 import { MessageBubble } from "../../components/messaging/MessageBubble";
@@ -26,7 +27,7 @@ function DMPage() {
   const { id } = useParams({ from: "/_authenticated/messages/dm/$id" });
   const nav = useNavigate();
   const conv = useConversation(id);
-  const peer = useMemo(() => (conv.data ? messagesStore.peer(conv.data.peerId) : undefined), [conv.data]);
+  const { data: peer, isLoading: isPeerLoading } = useNetworkUser(conv.data?.peerId ?? "");
   const messages = useDMs(id);
   const send = useSendDM();
   const markRead = useMarkConversationRead();
