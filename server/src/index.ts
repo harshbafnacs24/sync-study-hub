@@ -13,8 +13,6 @@ import { conversationsRouter } from "./modules/messages/messages.routes.js";
 import { communitiesRouter } from "./modules/communities/communities.routes.js";
 import { notificationsRouter } from "./modules/notifications/notifications.routes.js";
 import { sageRouter } from "./modules/sage/sage.routes.js";
-import { usersRouter } from "./modules/users/users.routes.js";
-import { roomsRouter } from "./modules/rooms/rooms.routes.js";
 import { attachSocket } from "./realtime/socket.js";
 
 async function main() {
@@ -46,8 +44,6 @@ async function main() {
   app.use("/api/v1/communities", communitiesRouter);
   app.use("/api/v1/notifications", notificationsRouter);
   app.use("/api/v1/sage", sageRouter);
-  app.use("/api/v1/users", usersRouter);
-  app.use("/api/v1/rooms", roomsRouter);
 
   // Legacy unversioned aliases.
   app.use("/api/auth", authRouter);
