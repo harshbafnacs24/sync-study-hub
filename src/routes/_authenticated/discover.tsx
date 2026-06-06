@@ -158,23 +158,26 @@ function ProfileCard({ user }: { user: any }) {
   );
 }
 
+/* ─── Resolved Network User Card ─────────────────────────────────────────── */
+
+function ResolvedNetworkUserCard({ userId }: { userId: string }) {
+  const { data: user, isLoading } = useNetworkUser(userId);
+  if (isLoading || !user) return null;
+  return <ProfileCard user={user} />;
+}
+
 /* ─── Pending Request Card ───────────────────────────────────────────────── */
 
 function PendingRequestCard({ conn, onAcceptSuccess }: { conn: any; onAcceptSuccess: () => void }) {
   const accept = useAcceptConnectionRequest();
   const remove = useRemoveConnection();
   const { user: currentUser } = useAuth();
-  const { data: fromUser } = useSearchUsers(conn.fromUserId);
-  const { data: toUser } = useSearchUsers(conn.toUserId);
-
-  const isIncoming = conn.toUserId === currentUser?.id;
   
-  // Try to find the user in search results or fall back to mock placeholder
-  const resolvedFrom = fromUser?.find(u => u.id === conn.fromUserId);
-  const resolvedTo = toUser?.find(u => u.id === conn.toUserId);
-  const targetUser = isIncoming ? resolvedFrom : resolvedTo;
+  const isIncoming = conn.toUserId === currentUser?.id;
+  const targetUserId = isIncoming ? conn.fromUserId : conn.toUserId;
+  const { data: targetUser, isLoading } = useNetworkUser(targetUserId);
 
-  if (!targetUser) return null;
+  if (isLoading || !targetUser) return null;
 
   return (
     <div style={{
@@ -249,13 +252,11 @@ function DiscoverPage() {
   const accepted = (connections.data ?? []).filter((c: any) => c.status === "accepted");
   const pending  = (connections.data ?? []).filter((c: any) => c.status === "pending");
 
-  // Since we resolve user objects dynamically, let's fetch accepted connections
-  const { data: discoverList } = useDiscoverUsers();
-
-  const connectedUsers = accepted.map((c: any) => {
-    const uid = c.fromUserId === currentUser?.id ? c.toUserId : c.fromUserId;
-    return discoverList?.find(u => u.id === uid);
-  }).filter(Boolean);
+  // Since we resolve user objects dynamically, we map through accepted connections
+  // and render a sub-component that fetches the specific user details
+  const connectedIds = accepted.map((c: any) =>
+    c.fromUserId === currentUser?.id ? c.toUserId : c.fromUserId
+  );
 
   return (
     <PageTransition>
@@ -399,7 +400,7 @@ function DiscoverPage() {
               <div className="ss-mono" style={{ fontSize: "0.6rem", letterSpacing: "0.08em", color: "#666", textTransform: "uppercase", marginBottom: 10 }}>
                 Connections ({accepted.length})
               </div>
-              {connectedUsers.length === 0 ? (
+              {connectedIds.length === 0 ? (
                 <div style={{
                   padding: 32, textAlign: "center", border: "1px dashed rgba(255,255,255,0.06)", borderRadius: 12
                 }}>
@@ -411,7 +412,7 @@ function DiscoverPage() {
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {connectedUsers.map((u) => u && <ProfileCard key={u.id} user={u} />)}
+                  {connectedIds.map((uid) => <ResolvedNetworkUserCard key={uid} userId={uid} />)}
                 </div>
               )}
             </div>
