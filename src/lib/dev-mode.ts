@@ -5,4 +5,4 @@
  * Tied to DEV_BYPASS_AUTH so when you flip auth back on you also start
  * hitting the real API.
  */
-export const DEV_OFFLINE_MODE = true;
+export const DEV_OFFLINE_MODE = false;
