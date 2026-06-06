@@ -10,6 +10,8 @@ import { Avatar, timeAgo } from "../../components/messaging/Avatar";
 import { MessageBubble } from "../../components/messaging/MessageBubble";
 import { MessageComposer } from "../../components/messaging/MessageComposer";
 
+import { useAuth } from "../../lib/auth-context";
+
 export const Route = createFileRoute("/_authenticated/messages/dm/$id")({
   head: () => ({ meta: [{ title: "Conversation — Sync & Study" }] }),
   component: DMPage,
@@ -26,6 +28,7 @@ const PEER_REPLIES = [
 function DMPage() {
   const { id } = useParams({ from: "/_authenticated/messages/dm/$id" });
   const nav = useNavigate();
+  const { user: currentUser } = useAuth();
   const conv = useConversation(id);
   const { data: peer, isLoading: isPeerLoading } = useNetworkUser(conv.data?.peerId ?? "");
   const messages = useDMs(id);
@@ -91,7 +94,7 @@ function DMPage() {
 
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: 8 }}>
         {(messages.data ?? []).map((m, i, arr) => {
-          const mine = m.senderId === "me";
+          const mine = String(m.senderId) === String(currentUser?.id);
           const showMeta = i === arr.length - 1 || arr[i + 1]?.senderId !== m.senderId;
           return (
             <MessageBubble

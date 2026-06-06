@@ -62,12 +62,28 @@ export const messagesStore = {
   },
 };
 
+function getLoggedInUserId(): string {
+  try {
+    const token = localStorage.getItem("sas.auth_token");
+    if (!token) return "";
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload).sub || "";
+  } catch {
+    return "";
+  }
+}
+
 function mapConversation(c: any): Conversation {
+  const currentUserId = getLoggedInUserId();
   return {
     id: String(c._id),
-    peerId: String(c.participants.find((p: any) => p !== "me")), // Frontend resolves peer info dynamically using networkStore or queries
-    pinned: Array.isArray(c.pinnedBy) && c.pinnedBy.includes("me"), // backend logic uses userId
-    unread: typeof c.unread === "object" && c.unread ? (c.unread["me"] ?? 0) : 0,
+    peerId: String(c.participants.find((p: any) => String(p) !== currentUserId)), 
+    pinned: Array.isArray(c.pinnedBy) && c.pinnedBy.some((p: any) => String(p) === currentUserId), 
+    unread: typeof c.unread === "object" && c.unread ? (c.unread[currentUserId] ?? 0) : 0,
     lastMessageAt: c.lastMessageAt ?? new Date().toISOString(),
     lastPreview: c.lastPreview ?? "",
   };
