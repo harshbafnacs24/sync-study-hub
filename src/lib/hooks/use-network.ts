@@ -1,0 +1,132 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { networkStore } from "../store/network";
+import { useAuth } from "../auth-context";
+
+export function useDiscoverUsers(skip = 0, limit = 20) {
+  return useQuery({
+    queryKey: ["network", "discover", skip, limit],
+    queryFn: () => networkStore.allUsers(),
+    staleTime: 30000,
+  });
+}
+
+export function useSearchUsers(query: string) {
+  return useQuery({
+    queryKey: ["network", "search", query],
+    queryFn: () => networkStore.searchUsers(query),
+    enabled: true,
+    staleTime: 10000,
+  });
+}
+
+export function useForYouUsers() {
+  return useQuery({
+    queryKey: ["network", "for-you"],
+    queryFn: () => networkStore.forYouUsers(),
+    staleTime: 60000,
+  });
+}
+
+export function useNetworkUser(userId: string) {
+  return useQuery({
+    queryKey: ["network", "user", userId],
+    queryFn: () => networkStore.getUser(userId),
+    enabled: !!userId,
+  });
+}
+
+export function useConnections() {
+  return useQuery({
+    queryKey: ["network", "connections"],
+    queryFn: () => networkStore.connections(),
+  });
+}
+
+export function useConnectionStatus(targetUserId: string) {
+  const { user } = useAuth();
+  const { data: conns = [] } = useConnections();
+
+  if (!user || user.id === targetUserId) return { status: "self", connectionId: null };
+
+  const conn = conns.find(
+    (c) =>
+      (c.fromUserId === user.id && c.toUserId === targetUserId) ||
+      (c.fromUserId === targetUserId && c.toUserId === user.id)
+  );
+
+  if (!conn) return { status: "none", connectionId: null };
+
+  if (conn.status === "accepted") return { status: "connected", connectionId: conn.id };
+
+  if (conn.status === "pending") {
+    if (conn.fromUserId === user.id) {
+      return { status: "outgoing_pending", connectionId: conn.id };
+    } else {
+      return { status: "incoming_pending", connectionId: conn.id };
+    }
+  }
+
+  return { status: "none", connectionId: null };
+}
+
+export function useSendConnectionRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (toUserId: string) => networkStore.sendRequest(toUserId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["network", "connections"] });
+    },
+  });
+}
+
+export function useAcceptConnectionRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (connectionId: string) => networkStore.acceptRequest(connectionId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["network", "connections"] });
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
+}
+
+export function useRemoveConnection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (connectionId: string) => networkStore.removeConnection(connectionId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["network", "connections"] });
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
+}
+
+export function useBlockUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => networkStore.blockUser(userId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["network", "connections"] });
+      qc.invalidateQueries({ queryKey: ["network", "discover"] });
+      qc.invalidateQueries({ queryKey: ["network", "for-you"] });
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
+}
+
+export function useUnblockUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => networkStore.unblockUser(userId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["network", "discover"] });
+    },
+  });
+}
+
+export function useReportUser() {
+  return useMutation({
+    mutationFn: ({ userId, category, reason }: { userId: string; category: string; reason: string }) =>
+      networkStore.reportUser(userId, reason, category),
+  });
+}

@@ -1,7 +1,3 @@
-/**
- * Socket.IO scaffold. Mounted on the same HTTP server as Express.
- * Auth via JWT bearer in the handshake.
- */
 import type { Server as HttpServer } from "http";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
@@ -13,8 +9,18 @@ export interface SocketContext {
   userId: string;
 }
 
+let io: Server | null = null;
+
+export function getIO(): Server | null {
+  return io;
+}
+
+export function emitToUser(userId: string, event: string, data: any) {
+  io?.to(`user:${userId}`).emit(event, data);
+}
+
 export function attachSocket(httpServer: HttpServer) {
-  const io = new Server(httpServer, {
+  io = new Server(httpServer, {
     cors: { origin: env.corsOrigins, credentials: false },
   });
 
@@ -34,7 +40,7 @@ export function attachSocket(httpServer: HttpServer) {
   io.on("connection", (socket: AnySocket) => {
     const userId: string = socket.data.userId;
     socket.join(`user:${userId}`);
-    io.emit("presence:online", { userId });
+    io!.emit("presence:online", { userId });
 
     socket.on("conversation:join", (id: string) => socket.join(`conv:${id}`));
     socket.on("conversation:leave", (id: string) => socket.leave(`conv:${id}`));
@@ -45,7 +51,7 @@ export function attachSocket(httpServer: HttpServer) {
     socket.on("typing:stop",  (room: string) => socket.to(room).emit("typing:stop",  { userId, room }));
 
     socket.on("disconnect", () => {
-      io.emit("presence:offline", { userId });
+      io!.emit("presence:offline", { userId });
     });
   });
 

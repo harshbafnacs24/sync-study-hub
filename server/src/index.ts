@@ -13,6 +13,7 @@ import { conversationsRouter } from "./modules/messages/messages.routes.js";
 import { communitiesRouter } from "./modules/communities/communities.routes.js";
 import { notificationsRouter } from "./modules/notifications/notifications.routes.js";
 import { sageRouter } from "./modules/sage/sage.routes.js";
+import { networkRouter } from "./modules/network/network.routes.js";
 import { attachSocket } from "./realtime/socket.js";
 
 async function main() {
@@ -44,10 +45,56 @@ async function main() {
   app.use("/api/v1/communities", communitiesRouter);
   app.use("/api/v1/notifications", notificationsRouter);
   app.use("/api/v1/sage", sageRouter);
+  app.use("/api/v1/network", networkRouter);
 
   // Legacy unversioned aliases.
   app.use("/api/auth", authRouter);
   app.use("/api/profile", profileRouter);
+  app.use("/api/network", networkRouter);
+
+  // Debug seed route for presentation
+  app.get("/api/v1/debug/seed-network", async (req, res, next) => {
+    try {
+      const { User } = await import("./models/User.js");
+      const { Profile } = await import("./models/Profile.js");
+      const bcrypt = await import("bcryptjs");
+
+      const demoUsers = [
+        { email: "aanya@syncstudy.edu", name: "Aanya Mehta", avatar: null, bio: "Computer Science Sophomore | Love talking algorithms & sliding window patterns.", school: "LMN Tech", year: "Sophomore", subjects: ["DSA", "LeetCode", "Java"], goals: "Crack summer internship, finish Striver SDE sheet." },
+        { email: "kabir@syncstudy.edu", name: "Kabir Singh", avatar: null, bio: "Full Stack Builder. Pushing React, Node.js, and scaling systems.", school: "LMN Tech", year: "Junior", subjects: ["Web Dev", "React", "NodeJS"], goals: "Scale side project to 100 users, master System Design." },
+        { email: "riya@syncstudy.edu", name: "Riya Sharma", avatar: null, bio: "AI/ML Enthusiast. Coding Transformers & NLP notebooks in PyTorch.", school: "ABC College", year: "Senior", subjects: ["AI/ML", "PyTorch", "Python"], goals: "Submit research paper, finish fast.ai course." },
+        { email: "arjun@syncstudy.edu", name: "Arjun Verma", avatar: null, bio: "Database nerd & OS designer. Let's study concurrency controls.", school: "XYZ Univ", year: "Freshman", subjects: ["DBMS", "C++", "OS"], goals: "Maintain 9.5 GPA, build a toy database engine." },
+        { email: "meera@syncstudy.edu", name: "Meera Iyer", avatar: null, bio: "Systems engineering & network protocol analyzer. Coffee enthusiast.", school: "XYZ Univ", year: "Senior", subjects: ["OS", "Networks", "Go"], goals: "Prepare for final semester exams, learn Rust." }
+      ];
+
+      const hash = await bcrypt.default.hash("password123", 10);
+      const results = [];
+
+      for (const u of demoUsers) {
+        let userDoc = await User.findOne({ email: u.email });
+        if (!userDoc) {
+          userDoc = await User.create({ email: u.email, passwordHash: hash });
+        }
+        let profDoc = await Profile.findOne({ userId: userDoc._id });
+        if (!profDoc) {
+          profDoc = await Profile.create({
+            userId: userDoc._id,
+            name: u.name,
+            avatar: u.avatar,
+            bio: u.bio,
+            school: u.school,
+            year: u.year,
+            subjects: u.subjects,
+            goals: u.goals
+          });
+        }
+        results.push({ email: u.email, userId: userDoc._id });
+      }
+      res.json({ ok: true, seeded: results });
+    } catch (e) {
+      next(e);
+    }
+  });
 
   app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     if (err instanceof ZodError) {

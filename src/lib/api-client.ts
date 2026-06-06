@@ -88,38 +88,96 @@ export const api = {
   me: () => request<{ user: AuthUser }>("/api/auth/me", { auth: true }),
 
   getMyProfile: async (): Promise<{ profile: Profile }> => {
-    if (DEV_OFFLINE_MODE) {
-      const stored = storage.get<Profile | null>("profile", null);
-      if (stored) return { profile: stored };
-      const fresh: Profile = {
-        userId: "dev-user",
-        name: "Dev User",
-        avatar: null, bio: null, school: null, year: null,
-        subjects: [], goals: null,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        updatedAt: new Date().toISOString(),
-      };
-      storage.set("profile", fresh);
-      return { profile: fresh };
-    }
     return request<{ profile: Profile }>("/api/profile/me", { auth: true });
   },
 
   updateMyProfile: async (patch: ProfilePatch): Promise<{ profile: Profile }> => {
-    if (DEV_OFFLINE_MODE) {
-      const current = storage.get<Profile | null>("profile", null) ?? {
-        userId: "dev-user", name: "Dev User", subjects: [],
-      } as Profile;
-      const next: Profile = { ...current, ...patch, subjects: patch.subjects ?? current.subjects ?? [], updatedAt: new Date().toISOString() };
-      storage.set("profile", next);
-      return { profile: next };
-    }
     return request<{ profile: Profile }>("/api/profile/me", {
       method: "PATCH",
       auth: true,
       body: JSON.stringify(patch),
     });
   },
+
+  // Network discovery
+  searchUsers: (q: string) =>
+    request<{ users: any[] }>(`/api/v1/network/search?q=${encodeURIComponent(q)}`, { auth: true }),
+
+  discoverUsers: (skip = 0, limit = 20) =>
+    request<{ users: any[]; hasMore: boolean; nextSkip: number | null }>(
+      `/api/v1/network/discover?skip=${skip}&limit=${limit}`,
+      { auth: true },
+    ),
+
+  forYouUsers: () =>
+    request<{ users: any[] }>("/api/v1/network/for-you", { auth: true }),
+
+  getNetworkUser: (id: string) =>
+    request<{ user: any }>(`/api/v1/network/user/${id}`, { auth: true }),
+
+  // Block & Report
+  blockUser: (userId: string) =>
+    request<{ ok: boolean }>("/api/v1/network/block", {
+      method: "POST",
+      auth: true,
+      body: JSON.stringify({ userId }),
+    }),
+
+  unblockUser: (userId: string) =>
+    request<{ ok: boolean }>(`/api/v1/network/block/${userId}`, {
+      method: "DELETE",
+      auth: true,
+    }),
+
+  getBlocks: () =>
+    request<{ blockedIds: string[] }>("/api/v1/network/blocks", { auth: true }),
+
+  reportUser: (data: { userId: string; category: string; reason: string; conversationId?: string }) =>
+    request<{ ok: boolean }>("/api/v1/network/report", {
+      method: "POST",
+      auth: true,
+      body: JSON.stringify(data),
+    }),
+
+  // Connections / Requests
+  getConnections: () =>
+    request<{ connections: any[] }>("/api/v1/network/connections", { auth: true }),
+
+  sendConnection: (toUserId: string) =>
+    request<{ connection: any }>("/api/v1/network/connections", {
+      method: "POST",
+      auth: true,
+      body: JSON.stringify({ toUserId }),
+    }),
+
+  updateConnection: (connectionId: string, status: "accepted" | "rejected") =>
+    request<{ connection: any }>(`/api/v1/network/connections/${connectionId}`, {
+      method: "PUT",
+      auth: true,
+      body: JSON.stringify({ status }),
+    }),
+
+  removeConnection: (connectionId: string) =>
+    request<{ ok: boolean }>(`/api/v1/network/connections/${connectionId}`, {
+      method: "DELETE",
+      auth: true,
+    }),
+
+  // Messages - mark read and toggle pin
+  markConversationRead: (conversationId: string) =>
+    request<{ conversation: any }>(`/api/v1/conversations/${conversationId}/read`, {
+      method: "POST",
+      auth: true,
+    }),
+
+  toggleConversationPin: (conversationId: string) =>
+    request<{ conversation: any }>(`/api/v1/conversations/${conversationId}/pin`, {
+      method: "POST",
+      auth: true,
+    }),
+
+  request: <T>(path: string, init?: RequestInit & { auth?: boolean }) =>
+    request<T>(path, init),
 };
 
 export { ApiError };
