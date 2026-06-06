@@ -87,6 +87,16 @@ export function useTogglePin() {
   });
 }
 
+export function useStartConversation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (peerId: string) => messagesStore.startWith(peerId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
+}
+
 /* ---------- Communities ---------- */
 
 export function useCommunities() {

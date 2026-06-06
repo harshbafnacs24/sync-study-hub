@@ -16,6 +16,7 @@ import {
   useConnections,
 } from "../../lib/hooks/use-network";
 import { useAuth } from "../../lib/auth-context";
+import { useStartConversation } from "../../lib/hooks/use-messaging";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/network/$userId")({
@@ -50,6 +51,7 @@ function NetworkUserProfile() {
   const remove  = useRemoveConnection();
   const block   = useBlockUser();
   const report  = useReportUser();
+  const startConv = useStartConversation();
 
   const [showReport, setShowReport] = useState(false);
   const [reportReason, setReportReason] = useState("");
@@ -202,13 +204,23 @@ function NetworkUserProfile() {
             </button>
 
             {connStatus.status === "connected" && (
-              <Link
-                to="/messages"
+              <button
+                disabled={startConv.isPending}
+                onClick={() => {
+                  startConv.mutate(userId, {
+                    onSuccess: (c) => {
+                      navigate({ to: "/messages/dm/$id", params: { id: c.id } });
+                    },
+                    onError: () => {
+                      toast.error("Failed to open chat");
+                    }
+                  });
+                }}
                 className="ss-btn ss-btn-outline"
                 style={{ flex: 1, justifyContent: "center", gap: 6 }}
               >
                 <MessageSquare size={14} /> Message
-              </Link>
+              </button>
             )}
 
             {connStatus.status === "connected" && (
