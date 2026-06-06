@@ -375,6 +375,21 @@ function ProfilePage() {
                   <div style={{ fontSize: "0.78rem", color: "#888" }}>
                     {form.school || "No University Set"} · {form.year || "Year 1"}
                   </div>
+                  {data?.profile?.publicId && (
+                    <div style={{ 
+                      fontSize: "0.68rem", 
+                      color: "var(--color-primary)", 
+                      fontFamily: "var(--font-mono)", 
+                      marginTop: 3,
+                      background: "rgba(232,255,71,0.06)",
+                      padding: "1px 6px",
+                      borderRadius: 4,
+                      display: "inline-block",
+                      border: "1px solid rgba(232,255,71,0.12)"
+                    }}>
+                      STUDY ID: {data.profile.publicId}
+                    </div>
+                  )}
                 </div>
               </div>
 

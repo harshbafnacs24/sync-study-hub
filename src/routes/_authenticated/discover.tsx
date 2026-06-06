@@ -70,7 +70,22 @@ function ProfileCard({ user }: { user: any }) {
         </div>
         {/* Info */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: "0.92rem", color: "#f0f0f0" }}>{user.name}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ fontWeight: 700, fontSize: "0.92rem", color: "#f0f0f0" }}>{user.name}</div>
+            {user.publicId && (
+              <span style={{
+                background: "rgba(232,255,71,0.1)",
+                color: "var(--color-primary)",
+                fontSize: "0.58rem",
+                fontFamily: "var(--font-mono)",
+                padding: "1px 5px",
+                borderRadius: 4,
+                border: "1px solid rgba(232,255,71,0.2)"
+              }}>
+                {user.publicId}
+              </span>
+            )}
+          </div>
           <div style={{ fontSize: "0.7rem", color: "var(--color-primary)", fontFamily: "var(--font-mono)" }}>
             @{user.handle}
           </div>

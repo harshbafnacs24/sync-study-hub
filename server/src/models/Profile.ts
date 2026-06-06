@@ -4,6 +4,7 @@ const profileSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, unique: true, index: true },
     name: { type: String, required: true, trim: true },
+    publicId: { type: String, unique: true, sparse: true, index: true }, // Unique human-readable Study ID
     avatar: { type: String, default: null },
     bio: { type: String, default: null },
     school: { type: String, default: null },

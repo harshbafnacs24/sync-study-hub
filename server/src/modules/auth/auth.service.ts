@@ -14,7 +14,9 @@ function publicUser(u: UserDoc) {
 async function ensureProfile(userId: string, name: string, avatar?: string | null) {
   const existing = await Profile.findOne({ userId });
   if (existing) return existing;
-  return Profile.create({ userId, name, avatar: avatar ?? null, subjects: [] });
+  const suffix = Math.floor(100000 + Math.random() * 900000); // 6-digit public ID
+  const publicId = `STUDY-${suffix}`;
+  return Profile.create({ userId, name, publicId, avatar: avatar ?? null, subjects: [] });
 }
 
 export async function signupWithEmail(email: string, password: string, name: string) {

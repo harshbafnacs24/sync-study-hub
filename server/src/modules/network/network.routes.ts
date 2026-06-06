@@ -49,6 +49,7 @@ networkRouter.get("/search", asyncHandler(async (req: AuthedRequest, res) => {
     userId: { $nin: excludeIds },
     $or: [
       { name: { $regex: q, $options: "i" } },
+      { publicId: { $regex: q, $options: "i" } },
       { subjects: { $regex: q, $options: "i" } },
       { bio: { $regex: q, $options: "i" } },
       { school: { $regex: q, $options: "i" } },
@@ -309,6 +310,7 @@ function mapProfile(p: any) {
     username: (p.name ?? "").replace(/\s+/g, ""),
     handle: (p.name ?? "").toLowerCase().replace(/\s+/g, "_"),
     name: p.name ?? "Unknown",
+    publicId: p.publicId ?? "",
     initials: (p.name ?? "?").split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2),
     avatar: p.avatar ?? null,
     online: false,
