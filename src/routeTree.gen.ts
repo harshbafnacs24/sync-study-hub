@@ -18,14 +18,17 @@ import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedSageRouteImport } from './routes/_authenticated/sage'
 import { Route as AuthenticatedRoomsRouteImport } from './routes/_authenticated/rooms'
+import { Route as AuthenticatedQuickmeetRouteImport } from './routes/_authenticated/quickmeet'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedMessagesRouteImport } from './routes/_authenticated/messages'
 import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
 import { Route as AuthenticatedFocusRouteImport } from './routes/_authenticated/focus'
+import { Route as AuthenticatedDiscoverRouteImport } from './routes/_authenticated/discover'
 import { Route as AuthenticatedCommunitiesRouteImport } from './routes/_authenticated/communities'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthGoogleCallbackRouteImport } from './routes/auth.google.callback'
+import { Route as AuthenticatedNetworkUserIdRouteImport } from './routes/_authenticated/network.$userId'
 import { Route as AuthenticatedCommunitiesNewRouteImport } from './routes/_authenticated/communities_.new'
 import { Route as AuthenticatedCommunitiesIdRouteImport } from './routes/_authenticated/communities_.$id'
 import { Route as AuthenticatedMessagesDmIdRouteImport } from './routes/_authenticated/messages.dm.$id'
@@ -75,6 +78,11 @@ const AuthenticatedRoomsRoute = AuthenticatedRoomsRouteImport.update({
   path: '/rooms',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedQuickmeetRoute = AuthenticatedQuickmeetRouteImport.update({
+  id: '/quickmeet',
+  path: '/quickmeet',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -101,6 +109,11 @@ const AuthenticatedFocusRoute = AuthenticatedFocusRouteImport.update({
   path: '/focus',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedDiscoverRoute = AuthenticatedDiscoverRouteImport.update({
+  id: '/discover',
+  path: '/discover',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedCommunitiesRoute =
   AuthenticatedCommunitiesRouteImport.update({
     id: '/communities',
@@ -117,6 +130,12 @@ const AuthGoogleCallbackRoute = AuthGoogleCallbackRouteImport.update({
   path: '/auth/google/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedNetworkUserIdRoute =
+  AuthenticatedNetworkUserIdRouteImport.update({
+    id: '/network/$userId',
+    path: '/network/$userId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedCommunitiesNewRoute =
   AuthenticatedCommunitiesNewRouteImport.update({
     id: '/communities_/new',
@@ -148,11 +167,13 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/communities': typeof AuthenticatedCommunitiesRoute
+  '/discover': typeof AuthenticatedDiscoverRoute
   '/focus': typeof AuthenticatedFocusRoute
   '/home': typeof AuthenticatedHomeRoute
   '/messages': typeof AuthenticatedMessagesRouteWithChildren
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/quickmeet': typeof AuthenticatedQuickmeetRoute
   '/rooms': typeof AuthenticatedRoomsRoute
   '/sage': typeof AuthenticatedSageRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -160,6 +181,7 @@ export interface FileRoutesByFullPath {
   '/api/sage': typeof ApiSageRoute
   '/communities/$id': typeof AuthenticatedCommunitiesIdRouteWithChildren
   '/communities/new': typeof AuthenticatedCommunitiesNewRoute
+  '/network/$userId': typeof AuthenticatedNetworkUserIdRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
   '/communities/$id/$channel': typeof AuthenticatedCommunitiesIdChannelRoute
   '/messages/dm/$id': typeof AuthenticatedMessagesDmIdRoute
@@ -170,11 +192,13 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/communities': typeof AuthenticatedCommunitiesRoute
+  '/discover': typeof AuthenticatedDiscoverRoute
   '/focus': typeof AuthenticatedFocusRoute
   '/home': typeof AuthenticatedHomeRoute
   '/messages': typeof AuthenticatedMessagesRouteWithChildren
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/quickmeet': typeof AuthenticatedQuickmeetRoute
   '/rooms': typeof AuthenticatedRoomsRoute
   '/sage': typeof AuthenticatedSageRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -182,6 +206,7 @@ export interface FileRoutesByTo {
   '/api/sage': typeof ApiSageRoute
   '/communities/$id': typeof AuthenticatedCommunitiesIdRouteWithChildren
   '/communities/new': typeof AuthenticatedCommunitiesNewRoute
+  '/network/$userId': typeof AuthenticatedNetworkUserIdRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
   '/communities/$id/$channel': typeof AuthenticatedCommunitiesIdChannelRoute
   '/messages/dm/$id': typeof AuthenticatedMessagesDmIdRoute
@@ -194,11 +219,13 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/communities': typeof AuthenticatedCommunitiesRoute
+  '/_authenticated/discover': typeof AuthenticatedDiscoverRoute
   '/_authenticated/focus': typeof AuthenticatedFocusRoute
   '/_authenticated/home': typeof AuthenticatedHomeRoute
   '/_authenticated/messages': typeof AuthenticatedMessagesRouteWithChildren
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/_authenticated/quickmeet': typeof AuthenticatedQuickmeetRoute
   '/_authenticated/rooms': typeof AuthenticatedRoomsRoute
   '/_authenticated/sage': typeof AuthenticatedSageRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
@@ -206,6 +233,7 @@ export interface FileRoutesById {
   '/api/sage': typeof ApiSageRoute
   '/_authenticated/communities_/$id': typeof AuthenticatedCommunitiesIdRouteWithChildren
   '/_authenticated/communities_/new': typeof AuthenticatedCommunitiesNewRoute
+  '/_authenticated/network/$userId': typeof AuthenticatedNetworkUserIdRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
   '/_authenticated/communities_/$id/$channel': typeof AuthenticatedCommunitiesIdChannelRoute
   '/_authenticated/messages/dm/$id': typeof AuthenticatedMessagesDmIdRoute
@@ -218,11 +246,13 @@ export interface FileRouteTypes {
     | '/signup'
     | '/analytics'
     | '/communities'
+    | '/discover'
     | '/focus'
     | '/home'
     | '/messages'
     | '/notifications'
     | '/profile'
+    | '/quickmeet'
     | '/rooms'
     | '/sage'
     | '/settings'
@@ -230,6 +260,7 @@ export interface FileRouteTypes {
     | '/api/sage'
     | '/communities/$id'
     | '/communities/new'
+    | '/network/$userId'
     | '/auth/google/callback'
     | '/communities/$id/$channel'
     | '/messages/dm/$id'
@@ -240,11 +271,13 @@ export interface FileRouteTypes {
     | '/signup'
     | '/analytics'
     | '/communities'
+    | '/discover'
     | '/focus'
     | '/home'
     | '/messages'
     | '/notifications'
     | '/profile'
+    | '/quickmeet'
     | '/rooms'
     | '/sage'
     | '/settings'
@@ -252,6 +285,7 @@ export interface FileRouteTypes {
     | '/api/sage'
     | '/communities/$id'
     | '/communities/new'
+    | '/network/$userId'
     | '/auth/google/callback'
     | '/communities/$id/$channel'
     | '/messages/dm/$id'
@@ -263,11 +297,13 @@ export interface FileRouteTypes {
     | '/signup'
     | '/_authenticated/analytics'
     | '/_authenticated/communities'
+    | '/_authenticated/discover'
     | '/_authenticated/focus'
     | '/_authenticated/home'
     | '/_authenticated/messages'
     | '/_authenticated/notifications'
     | '/_authenticated/profile'
+    | '/_authenticated/quickmeet'
     | '/_authenticated/rooms'
     | '/_authenticated/sage'
     | '/_authenticated/settings'
@@ -275,6 +311,7 @@ export interface FileRouteTypes {
     | '/api/sage'
     | '/_authenticated/communities_/$id'
     | '/_authenticated/communities_/new'
+    | '/_authenticated/network/$userId'
     | '/auth/google/callback'
     | '/_authenticated/communities_/$id/$channel'
     | '/_authenticated/messages/dm/$id'
@@ -354,6 +391,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRoomsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/quickmeet': {
+      id: '/_authenticated/quickmeet'
+      path: '/quickmeet'
+      fullPath: '/quickmeet'
+      preLoaderRoute: typeof AuthenticatedQuickmeetRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/profile': {
       id: '/_authenticated/profile'
       path: '/profile'
@@ -389,6 +433,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFocusRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/discover': {
+      id: '/_authenticated/discover'
+      path: '/discover'
+      fullPath: '/discover'
+      preLoaderRoute: typeof AuthenticatedDiscoverRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/communities': {
       id: '/_authenticated/communities'
       path: '/communities'
@@ -409,6 +460,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/auth/google/callback'
       preLoaderRoute: typeof AuthGoogleCallbackRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/network/$userId': {
+      id: '/_authenticated/network/$userId'
+      path: '/network/$userId'
+      fullPath: '/network/$userId'
+      preLoaderRoute: typeof AuthenticatedNetworkUserIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/communities_/new': {
       id: '/_authenticated/communities_/new'
@@ -472,33 +530,39 @@ const AuthenticatedCommunitiesIdRouteWithChildren =
 interface AuthenticatedRouteChildren {
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedCommunitiesRoute: typeof AuthenticatedCommunitiesRoute
+  AuthenticatedDiscoverRoute: typeof AuthenticatedDiscoverRoute
   AuthenticatedFocusRoute: typeof AuthenticatedFocusRoute
   AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
   AuthenticatedMessagesRoute: typeof AuthenticatedMessagesRouteWithChildren
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedQuickmeetRoute: typeof AuthenticatedQuickmeetRoute
   AuthenticatedRoomsRoute: typeof AuthenticatedRoomsRoute
   AuthenticatedSageRoute: typeof AuthenticatedSageRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedCommunitiesIdRoute: typeof AuthenticatedCommunitiesIdRouteWithChildren
   AuthenticatedCommunitiesNewRoute: typeof AuthenticatedCommunitiesNewRoute
+  AuthenticatedNetworkUserIdRoute: typeof AuthenticatedNetworkUserIdRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
   AuthenticatedCommunitiesRoute: AuthenticatedCommunitiesRoute,
+  AuthenticatedDiscoverRoute: AuthenticatedDiscoverRoute,
   AuthenticatedFocusRoute: AuthenticatedFocusRoute,
   AuthenticatedHomeRoute: AuthenticatedHomeRoute,
   AuthenticatedMessagesRoute: AuthenticatedMessagesRouteWithChildren,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedQuickmeetRoute: AuthenticatedQuickmeetRoute,
   AuthenticatedRoomsRoute: AuthenticatedRoomsRoute,
   AuthenticatedSageRoute: AuthenticatedSageRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedCommunitiesIdRoute: AuthenticatedCommunitiesIdRouteWithChildren,
   AuthenticatedCommunitiesNewRoute: AuthenticatedCommunitiesNewRoute,
+  AuthenticatedNetworkUserIdRoute: AuthenticatedNetworkUserIdRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

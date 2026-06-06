@@ -1,13 +1,13 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { LayoutGrid, Timer, MessageSquare, Users, Sparkles, User } from "lucide-react";
+import { LayoutGrid, Timer, Users, Globe, Sparkles, User } from "lucide-react";
 
 const items = [
-  { to: "/home" as const,        label: "Home",     Icon: LayoutGrid,   match: ["/home"] },
-  { to: "/focus" as const,       label: "Focus",    Icon: Timer,        match: ["/focus"] },
-  { to: "/messages" as const,    label: "Messages", Icon: MessageSquare, match: ["/messages"] },
-  { to: "/communities" as const, label: "Spaces",   Icon: Users,        match: ["/communities"] },
-  { to: "/sage" as const,        label: "Sage",     Icon: Sparkles,     match: ["/sage"] },
-  { to: "/profile" as const,     label: "Profile",  Icon: User,         match: ["/profile"] },
+  { to: "/home" as const,        label: "Home",     Icon: LayoutGrid,    match: ["/home"] },
+  { to: "/focus" as const,       label: "Focus",    Icon: Timer,         match: ["/focus"] },
+  { to: "/communities" as const, label: "Community", Icon: Users,        match: ["/communities"] },
+  { to: "/discover" as const,    label: "Network",  Icon: Globe,         match: ["/discover", "/network"] },
+  { to: "/sage" as const,        label: "Sage",     Icon: Sparkles,      match: ["/sage"] },
+  { to: "/profile" as const,     label: "Profile",  Icon: User,          match: ["/profile"] },
 ];
 
 export function BottomNav() {

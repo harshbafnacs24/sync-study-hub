@@ -116,4 +116,34 @@ export const networkStore = {
   async reportUser(reportedUserId: string, reason: string, category = "other"): Promise<void> {
     await api.reportUser({ userId: reportedUserId, category, reason });
   },
+
+  /* ── Quick Meet (localStorage backup) ── */
+  quickMeets() {
+    if (typeof window === "undefined") return [];
+    try {
+      const data = localStorage.getItem("net.quickmeets");
+      return data ? JSON.parse(data) : [];
+    } catch {
+      return [];
+    }
+  },
+
+  scheduleQuickMeet(data: any) {
+    if (typeof window === "undefined") return null;
+    const session = {
+      id: Math.random().toString(36).substring(2, 9),
+      hostUserId: "me",
+      createdAt: new Date().toISOString(),
+      ...data,
+    };
+    const all = this.quickMeets();
+    localStorage.setItem("net.quickmeets", JSON.stringify([...all, session]));
+    return session;
+  },
+
+  deleteQuickMeet(id: string) {
+    if (typeof window === "undefined") return;
+    const all = this.quickMeets();
+    localStorage.setItem("net.quickmeets", JSON.stringify(all.filter((q: any) => q.id !== id)));
+  },
 };

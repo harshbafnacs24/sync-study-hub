@@ -130,3 +130,39 @@ export function useReportUser() {
       networkStore.reportUser(userId, reason, category),
   });
 }
+
+/* ── Quick Meet ──────────────────────────────────────────────────────────── */
+
+export function useQuickMeets() {
+  return useQuery({
+    queryKey: ["quickmeets"],
+    queryFn: () => networkStore.quickMeets(),
+    staleTime: 0,
+  });
+}
+
+export function useScheduleQuickMeet() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: {
+      invitedUserId: string;
+      title: string;
+      link: string;
+      scheduledAt: string;
+    }) => {
+      const session = networkStore.scheduleQuickMeet(data);
+      return session;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["quickmeets"] });
+    },
+  });
+}
+
+export function useDeleteQuickMeet() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => networkStore.deleteQuickMeet(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["quickmeets"] }),
+  });
+}
