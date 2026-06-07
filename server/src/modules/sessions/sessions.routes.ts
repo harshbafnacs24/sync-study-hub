@@ -8,13 +8,19 @@ export const sessionsRouter = Router();
 
 const createSchema = z.object({
   kind: z.enum(["focus", "short_break", "long_break"]),
-  plannedSeconds: z.number().min(60).max(60 * 60 * 4),
-  elapsedSeconds: z.number().min(0).max(60 * 60 * 4),
+  plannedSeconds: z.number().min(60 * 5).max(60 * 60 * 8),
+  elapsedSeconds: z.number().min(0).max(60 * 60 * 8),
   startedAt: z.string().datetime(),
   endedAt: z.string().datetime().nullable().optional(),
   state: z.enum(["running", "paused", "completed", "cancelled"]).default("completed"),
   subject: z.string().max(60).nullable().optional(),
   taskId: z.string().optional(),
+  taskGoal: z.string().max(200).nullable().optional(),
+  estimatedMinutes: z.number().nullable().optional(),
+  completionStatus: z.enum(["completed", "partial", "not_completed"]).nullable().optional(),
+  completionPercent: z.number().min(0).max(100).nullable().optional(),
+  achievement: z.string().max(500).nullable().optional(),
+  incompleteReason: z.enum(["distracted", "too_difficult", "lack_of_time", "other"]).nullable().optional(),
 });
 
 function serialize(s: any) {
@@ -28,6 +34,12 @@ function serialize(s: any) {
     state: s.state,
     subject: s.subject,
     taskId: s.taskId ? String(s.taskId) : null,
+    taskGoal: s.taskGoal ?? null,
+    estimatedMinutes: s.estimatedMinutes ?? null,
+    completionStatus: s.completionStatus ?? null,
+    completionPercent: s.completionPercent ?? null,
+    achievement: s.achievement ?? null,
+    incompleteReason: s.incompleteReason ?? null,
   };
 }
 

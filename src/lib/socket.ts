@@ -80,6 +80,8 @@ export function connectSocket(token: string) {
     "connection:accepted",
     "connection:removed",
     "user:blocked",
+    "study:started",
+    "study:completed",
   ];
   for (const evt of serverEvents) {
     socket.on(evt, (...args: any[]) => {
@@ -108,4 +110,6 @@ export const SocketEvents = {
   ConnectionAccepted: "connection:accepted",
   ConnectionRemoved: "connection:removed",
   UserBlocked: "user:blocked",
+  StudyStarted: "study:started",
+  StudyCompleted: "study:completed",
 } as const;

@@ -60,6 +60,13 @@ export function attachSocket(httpServer: HttpServer) {
     socket.on("typing:start", (room: string) => socket.to(room).emit("typing:start", { userId, room }));
     socket.on("typing:stop", (room: string) => socket.to(room).emit("typing:stop", { userId, room }));
 
+    socket.on("study:started", (data: Record<string, unknown>) => {
+      socket.broadcast.emit("study:started", { ...data, userId });
+    });
+    socket.on("study:completed", (data: Record<string, unknown>) => {
+      socket.broadcast.emit("study:completed", { ...data, userId });
+    });
+
     socket.on("disconnect", () => {
       onlineUsers.delete(userId);
       io!.emit("presence:offline", { userId });

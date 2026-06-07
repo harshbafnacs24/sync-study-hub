@@ -12,6 +12,8 @@ import { useConversations, useUnreadNotifications } from "../../lib/hooks/use-me
 import { usePlatformStats, useTrending, useTechBookmarks } from "../../lib/hooks/use-tech-feed";
 import { useFeedPosts } from "../../lib/hooks/use-posts";
 import { computeAchievements, getDailyGoal, getSageSessionCount } from "../../lib/achievements";
+import { computeStreakBadges, sessionsStore } from "../../lib/store/sessions";
+import { FriendStudyActivity } from "../../components/focus/FriendStudyActivity";
 
 export const Route = createFileRoute("/_authenticated/home")({
   head: () => ({ meta: [{ title: "Home — Sync & Study" }] }),
@@ -54,6 +56,9 @@ function HomePage() {
     postsCount: posts.length,
   });
   const unlocked = achievements.filter((x) => x.unlocked);
+  const totalSessions = sessionsStore.logs().filter((s) => s.kind === "focus" && s.state === "completed").length;
+  const streakBadges = a ? computeStreakBadges(a, totalSessions) : [];
+  const unlockedStreaks = streakBadges.filter((b) => b.unlocked);
 
   return (
     <PageTransition>
@@ -107,6 +112,8 @@ function HomePage() {
           <StatTile label="Learning goal" value={`${dailyGoal.done}/${dailyGoal.target}m`} />
           <StatTile label="Friends" value={friendCount} />
         </div>
+
+        <FriendStudyActivity />
 
         {active.data && (
           <Card style={{ marginBottom: 12, borderColor: "var(--color-primary)" }}>
@@ -216,6 +223,30 @@ function HomePage() {
           <p style={{ fontSize: "0.72rem", color: "var(--color-muted-foreground)", marginTop: 4 }}>
             {unlocked.length} of {achievements.length} badges unlocked
           </p>
+        )}
+
+        {streakBadges.length > 0 && (
+          <>
+            <SectionHeader eyebrow="Focus" title="Study Streaks" action={<Link to="/analytics" className="ss-btn ss-btn-ghost" style={{ fontSize: "0.72rem", padding: "4px 8px" }}>Analytics <ChevronRight size={12} /></Link>} />
+            <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8, marginBottom: 12 }} className="hide-scrollbar">
+              {streakBadges.map((b) => (
+                <div key={b.id} style={{
+                  minWidth: 88, padding: 10, borderRadius: 12, textAlign: "center",
+                  background: b.unlocked ? "rgba(232,255,71,0.08)" : "var(--bg-2)",
+                  border: b.unlocked ? "1px solid rgba(232,255,71,0.3)" : "1px solid var(--color-border)",
+                  opacity: b.unlocked ? 1 : 0.45,
+                }}>
+                  <div style={{ fontSize: "1.3rem" }}>{b.icon}</div>
+                  <div style={{ fontSize: "0.6rem", fontWeight: 700, marginTop: 4 }}>{b.label}</div>
+                </div>
+              ))}
+            </div>
+            {unlockedStreaks.length > 0 && (
+              <p style={{ fontSize: "0.72rem", color: "var(--color-muted-foreground)", marginBottom: 12 }}>
+                {unlockedStreaks.length} focus badge{unlockedStreaks.length !== 1 ? "s" : ""} earned
+              </p>
+            )}
+          </>
         )}
 
         {/* Quick tasks */}

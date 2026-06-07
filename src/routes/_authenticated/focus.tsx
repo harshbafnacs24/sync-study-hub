@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import { PageTransition } from "../../components/shell/PageTransition";
-import { Play, Pause, X, RotateCcw, Target, Music, ChevronDown, CheckCircle2, Clock, Flame, TrendingUp, SkipForward, Minimize2 } from "lucide-react";
+import { Play, Pause, X, RotateCcw, Target, Music, ChevronDown, CheckCircle2, Clock, Flame, TrendingUp, SkipForward, Minimize2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "../../components/ui-kit/Card";
-import { useFocusTimer } from "../../lib/hooks/use-focus-timer";
+import { useFocus } from "../../lib/focus/focus-context";
 import { useAnalytics, useTasks } from "../../lib/hooks/use-data";
 import type { SessionKind } from "../../lib/store/sessions";
 
@@ -21,7 +21,12 @@ const MODES: { kind: SessionKind; label: string; color: string; defaultMins: num
   { kind: "long_break",  label: "Long Break",   color: "#4A9EFF", defaultMins: 15, emoji: "🧘" },
 ];
 
-const CUSTOM_DURATIONS = [15, 25, 30, 45, 60, 90];
+const CUSTOM_DURATIONS = [5, 15, 25, 30, 45, 60, 90, 120, 180, 240, 480];
+
+const POMODORO_PRESETS = [
+  { label: "25 / 5", focus: 25, short: 5, long: 15 },
+  { label: "50 / 10", focus: 50, short: 10, long: 20 },
+];
 
 const SUBJECTS = ["Algorithms", "Data Structures", "DBMS", "OS", "Networks", "Maths", "Physics", "Chemistry", "English", "Placement Prep", "Project Work", "Other"];
 
@@ -74,7 +79,10 @@ function FocusPage() {
   const [modeIdx, setModeIdx] = useState(0);
   const mode = MODES[modeIdx];
   const [customMins, setCustomMins] = useState(25);
-  const [showDurationPicker, setShowDurationPicker] = useState(false);
+  const [pomodoroPreset, setPomodoroPreset] = useState(0);
+  const [customFocus, setCustomFocus] = useState(25);
+  const [customShort, setCustomShort] = useState(5);
+  const [useCustomCycle, setUseCustomCycle] = useState(false);
 
   // Session config
   const [subject, setSubject] = useState("");
@@ -92,25 +100,27 @@ function FocusPage() {
   const [cycleCount, setCycleCount] = useState<number>(() => Number(localStorage.getItem("focus.cycle") ?? "0"));
   const pomodorosUntilLong = POMODORO_CYCLE - (cycleCount % POMODORO_CYCLE);
 
-  const timer = useFocusTimer((s) => {
-    setImmersiveZone(false);
-    if (s.kind === "focus") {
-      const next = cycleCount + 1;
-      setCycleCount(next);
-      localStorage.setItem("focus.cycle", String(next));
-      const isLongBreak = next % POMODORO_CYCLE === 0;
-      toast.success(`Focus complete! ${isLongBreak ? "Time for a long break 🧘" : "Short break time ☕"}`, { duration: 5000 });
-      // Auto-suggest next mode
-      setModeIdx(isLongBreak ? 2 : 1);
-    } else {
-      toast("Break over — back to work! ⚡", { duration: 3000 });
-      setModeIdx(0);
-    }
-    stopSound();
-  });
+  const focus = useFocus();
+  const preset = POMODORO_PRESETS[pomodoroPreset];
+  const activeFocusMins = useCustomCycle ? customFocus : preset.focus;
+  const activeShortMins = useCustomCycle ? customShort : preset.short;
 
-  const total = timer.session?.plannedSeconds ?? customMins * 60;
-  const remaining = timer.session ? timer.remaining : customMins * 60;
+  useEffect(() => {
+    if (!focus.completedSession || focus.completedSession.kind !== "focus") return;
+    setImmersiveZone(false);
+    const next = cycleCount + 1;
+    setCycleCount(next);
+    localStorage.setItem("focus.cycle", String(next));
+    const isLongBreak = next % POMODORO_CYCLE === 0;
+    toast.success(`Focus complete! ${isLongBreak ? "Time for a long break 🧘" : "Short break time ☕"}`, { duration: 5000 });
+    setModeIdx(isLongBreak ? 2 : 1);
+    if (!isLongBreak) setCustomMins(activeShortMins);
+    else setCustomMins(preset.long);
+    stopSound();
+  }, [focus.completedSession?.id]);
+
+  const total = focus.session?.plannedSeconds ?? (mode.kind === "focus" ? customMins : mode.defaultMins) * 60;
+  const remaining = focus.session ? focus.remaining : (mode.kind === "focus" ? customMins : mode.defaultMins) * 60;
   const progress = total > 0 ? 1 - remaining / total : 0;
 
   // Sound control
@@ -130,16 +140,18 @@ function FocusPage() {
   };
 
   useEffect(() => {
-    if (timer.isRunning && soundId !== "none") playSound(soundId);
-    else if (!timer.isRunning) stopSound();
+    if (focus.isRunning && soundId !== "none") playSound(soundId);
+    else if (!focus.isRunning) stopSound();
     return stopSound;
-  }, [timer.isRunning, soundId]);
+  }, [focus.isRunning, soundId]);
 
   const handleStart = () => {
-    timer.start(mode.kind, mode.kind === "focus" ? customMins : mode.defaultMins, {
-      subject: subject || null,
-      taskId: linkedTaskId,
-    });
+    const mins = mode.kind === "focus" ? customMins : mode.defaultMins;
+    if (mode.kind === "focus") {
+      focus.requestStart("focus", mins, { subject: subject || null, taskId: linkedTaskId });
+    } else {
+      focus.start(mode.kind, mins, { subject: subject || null, taskId: linkedTaskId });
+    }
   };
 
   const openTasks = tasks.data?.filter(t => t.status !== "done") ?? [];
@@ -193,7 +205,7 @@ function FocusPage() {
         {/* ── Mode selector ── */}
         <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
           {MODES.map((m, i) => (
-            <button key={m.kind} onClick={() => { setModeIdx(i); if (!timer.session) setCustomMins(m.defaultMins); }}
+            <button key={m.kind} onClick={() => { setModeIdx(i); if (!focus.session) setCustomMins(m.kind === "focus" ? activeFocusMins : m.defaultMins); }}
               style={{ flex: 1, padding: "8px 4px", borderRadius: 8, border: `1px solid ${modeIdx === i ? m.color + "55" : "var(--color-border)"}`,
                 background: modeIdx === i ? m.color + "15" : "transparent", cursor: "pointer", textAlign: "center" }}>
               <div style={{ fontSize: "1rem", marginBottom: 2 }}>{m.emoji}</div>
@@ -204,26 +216,26 @@ function FocusPage() {
 
         {/* ── Timer ── */}
         <div 
-          onClick={() => { if (timer.session) setImmersiveZone(true); }}
+          onClick={() => { if (focus.session) setImmersiveZone(true); }}
           style={{ 
             display: "flex", 
             flexDirection: "column", 
             alignItems: "center", 
             marginBottom: 14,
-            cursor: timer.session ? "pointer" : "default" 
+            cursor: focus.session ? "pointer" : "default" 
           }}
-          title={timer.session ? "Click to enter Full-screen Focus Zone" : undefined}
+          title={focus.session ? "Click to enter Full-screen Focus Zone" : undefined}
         >
           <CircularTimer progress={progress} color={mode.color}>
             <div className="ss-mono" style={{ fontSize: "0.62rem", color: mode.color, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>
-              {timer.session ? (timer.isRunning ? "Focusing (Click for Zen Mode)" : "Paused (Click for Zen Mode)") : mode.label}
+              {focus.session ? (focus.isRunning ? "Focusing (Click for Zen Mode)" : "Paused (Click for Zen Mode)") : mode.label}
             </div>
-            <div className="ss-display" style={{ fontSize: "3.4rem", fontWeight: 900, letterSpacing: "-0.04em", color: timer.isRunning ? mode.color : "var(--color-foreground)", lineHeight: 1 }}>
+            <div className="ss-display" style={{ fontSize: "3.4rem", fontWeight: 900, letterSpacing: "-0.04em", color: focus.isRunning ? mode.color : "var(--color-foreground)", lineHeight: 1 }}>
               {fmtTime(remaining)}
             </div>
-            {subject && (
-              <div className="ss-mono" style={{ fontSize: "0.6rem", color: "var(--color-muted-foreground)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4 }}>
-                {subject}
+            {(focus.session?.taskGoal || subject) && (
+              <div className="ss-mono" style={{ fontSize: "0.6rem", color: "var(--color-muted-foreground)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {focus.session?.taskGoal || subject}
               </div>
             )}
             {mode.kind === "focus" && (
@@ -235,14 +247,35 @@ function FocusPage() {
         </div>
 
         {/* ── Duration picker (focus mode only) ── */}
-        {!timer.session && mode.kind === "focus" && (
+        {!focus.session && mode.kind === "focus" && (
           <div style={{ marginBottom: 12 }}>
+            <div className="ss-mono" style={{ fontSize: "0.58rem", color: "var(--color-muted-foreground)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, textAlign: "center" }}>Pomodoro Presets</div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 10 }}>
+              {POMODORO_PRESETS.map((p, i) => (
+                <button key={p.label} onClick={() => { setPomodoroPreset(i); setUseCustomCycle(false); setCustomMins(p.focus); }}
+                  className={!useCustomCycle && pomodoroPreset === i ? "ss-btn ss-btn-primary" : "ss-btn ss-btn-outline"}
+                  style={{ padding: "5px 12px", fontSize: "0.75rem" }}>
+                  🍅 {p.label}
+                </button>
+              ))}
+              <button onClick={() => { setUseCustomCycle(true); setCustomMins(customFocus); }}
+                className={useCustomCycle ? "ss-btn ss-btn-primary" : "ss-btn ss-btn-outline"}
+                style={{ padding: "5px 12px", fontSize: "0.75rem" }}>
+                Custom
+              </button>
+            </div>
+            {useCustomCycle && (
+              <div style={{ display: "flex", gap: 10, justifyContent: "center", marginBottom: 10, fontSize: "0.78rem" }}>
+                <label>Focus <input type="number" min={5} max={480} value={customFocus} onChange={(e) => { const v = Math.min(480, Math.max(5, Number(e.target.value))); setCustomFocus(v); setCustomMins(v); }} className="ss-input" style={{ width: 50, marginLeft: 4 }} />m</label>
+                <label>Break <input type="number" min={5} max={60} value={customShort} onChange={(e) => setCustomShort(Math.min(60, Math.max(5, Number(e.target.value))))} className="ss-input" style={{ width: 50, marginLeft: 4 }} />m</label>
+              </div>
+            )}
             <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
               {CUSTOM_DURATIONS.map(d => (
                 <button key={d} onClick={() => setCustomMins(d)}
                   className={customMins === d ? "ss-btn ss-btn-primary" : "ss-btn ss-btn-outline"}
-                  style={{ padding: "5px 12px", fontSize: "0.78rem" }}>
-                  {d}m
+                  style={{ padding: "5px 10px", fontSize: "0.72rem" }}>
+                  {d >= 60 ? `${d / 60}h` : `${d}m`}
                 </button>
               ))}
             </div>
@@ -251,33 +284,38 @@ function FocusPage() {
 
         {/* ── Controls ── */}
         <div style={{ display: "flex", gap: 10, justifyContent: "center", marginBottom: 14 }}>
-          {!timer.session ? (
+          {!focus.session ? (
             <button className="ss-btn ss-btn-primary" onClick={handleStart} style={{ padding: "12px 32px", fontSize: "0.95rem", fontWeight: 700 }}>
               <Play size={16} /> Start {mode.label}
             </button>
           ) : (
             <>
-              {timer.isRunning ? (
-                <button className="ss-btn ss-btn-outline" onClick={timer.pause} style={{ padding: "10px 20px" }}>
+              {focus.isRunning ? (
+                <button className="ss-btn ss-btn-outline" onClick={focus.pause} style={{ padding: "10px 20px" }}>
                   <Pause size={14} /> Pause
                 </button>
               ) : (
-                <button className="ss-btn ss-btn-primary" onClick={timer.resume} style={{ padding: "10px 20px" }}>
+                <button className="ss-btn ss-btn-primary" onClick={focus.resume} style={{ padding: "10px 20px" }}>
                   <Play size={14} /> Resume
                 </button>
               )}
-              <button className="ss-btn ss-btn-outline" onClick={() => { timer.cancel(); stopSound(); }} style={{ padding: "10px 14px" }}>
+              <button className="ss-btn ss-btn-outline" onClick={() => { focus.cancel(); stopSound(); }} style={{ padding: "10px 14px" }}>
                 <X size={14} />
               </button>
-              <button className="ss-btn ss-btn-outline" onClick={() => { timer.cancel(); stopSound(); setTimeout(handleStart, 100); }} style={{ padding: "10px 14px" }} title="Restart">
+              <button className="ss-btn ss-btn-outline" onClick={() => { focus.cancel(); stopSound(); setTimeout(handleStart, 100); }} style={{ padding: "10px 14px" }} title="Restart">
                 <RotateCcw size={14} />
               </button>
+              {focus.session.kind === "focus" && (
+                <button className="ss-btn ss-btn-outline" onClick={() => focus.setFocusMode(!focus.focusMode)} style={{ padding: "10px 14px" }} title="Focus Mode">
+                  {focus.focusMode ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              )}
             </>
           )}
         </div>
 
         {/* ── Secondary Focus Zone Button ── */}
-        {timer.session && (
+        {focus.session && (
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
             <button 
               className="ss-btn ss-btn-outline" 
@@ -290,7 +328,7 @@ function FocusPage() {
         )}
 
         {/* ── Subject picker ── */}
-        {!timer.session && (
+        {!focus.session && (
           <>
             <div className="ss-card" style={{ marginBottom: 8, padding: "10px 14px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}
               onClick={() => setShowSubjects(!showSubjects)}>
@@ -314,7 +352,7 @@ function FocusPage() {
         )}
 
         {/* ── Link to task ── */}
-        {!timer.session && openTasks.length > 0 && (
+        {!focus.session && openTasks.length > 0 && (
           <div className="ss-card" style={{ marginBottom: 8, padding: "10px 14px" }}>
             <div className="ss-mono" style={{ fontSize: "0.6rem", color: "var(--color-muted-foreground)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Link to task</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -350,7 +388,7 @@ function FocusPage() {
           {showSounds && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {SOUNDS.map(s => (
-                <button key={s.id} onClick={() => { setSoundId(s.id); setShowSounds(false); if (timer.isRunning) playSound(s.id); }}
+                <button key={s.id} onClick={() => { setSoundId(s.id); setShowSounds(false); if (focus.isRunning) playSound(s.id); }}
                   style={{ padding: "6px 12px", borderRadius: 20, fontSize: "0.78rem", cursor: "pointer",
                     border: `1px solid ${soundId === s.id ? "rgba(200,255,0,0.3)" : "var(--color-border)"}`,
                     background: soundId === s.id ? "rgba(200,255,0,0.1)" : "transparent",
@@ -401,7 +439,7 @@ function FocusPage() {
       </div>
 
       {/* ── Immersive Focus Zone Overlay ── */}
-      {immersiveZone && timer.session && (
+      {immersiveZone && focus.session && (
         <div style={{
           position: "absolute",
           inset: 0,
@@ -500,7 +538,7 @@ function FocusPage() {
                 {fmtTime(remaining)}
               </span>
               <span className="ss-mono" style={{ fontSize: "0.75rem", color: mode.color, marginTop: 8, letterSpacing: "0.05em" }}>
-                {timer.isRunning ? "BREATHE" : "PAUSED"}
+                {focus.isRunning ? "BREATHE" : "PAUSED"}
               </span>
             </div>
 
@@ -513,7 +551,7 @@ function FocusPage() {
               textTransform: "uppercase",
               textAlign: "center"
             }}>
-              {timer.isRunning ? "Inhale · Hold · Exhale" : "Session Paused"}
+              {focus.isRunning ? "Inhale · Hold · Exhale" : "Session Paused"}
             </div>
 
             {/* Linked Task Info */}
@@ -546,7 +584,7 @@ function FocusPage() {
             <div className="ss-mono" style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>Ambient Sound</div>
             <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
               {SOUNDS.map(s => (
-                <button key={s.id} onClick={() => { setSoundId(s.id); if (timer.isRunning) playSound(s.id); }}
+                <button key={s.id} onClick={() => { setSoundId(s.id); if (focus.isRunning) playSound(s.id); }}
                   style={{
                     padding: "6px 12px",
                     borderRadius: 20,
@@ -569,7 +607,7 @@ function FocusPage() {
               className="ss-btn ss-btn-outline" 
               onClick={() => { 
                 if(confirm("Cancel this focus session?")) { 
-                  timer.cancel(); 
+                  focus.cancel(); 
                   stopSound(); 
                   setImmersiveZone(false); 
                 } 
@@ -588,9 +626,9 @@ function FocusPage() {
               <X size={20} />
             </button>
 
-            {timer.isRunning ? (
+            {focus.isRunning ? (
               <button 
-                onClick={timer.pause} 
+                onClick={focus.pause} 
                 style={{ 
                   borderRadius: "50%", 
                   width: 70, 
@@ -611,7 +649,7 @@ function FocusPage() {
               </button>
             ) : (
               <button 
-                onClick={timer.resume} 
+                onClick={focus.resume} 
                 style={{ 
                   borderRadius: "50%", 
                   width: 70, 
@@ -635,7 +673,7 @@ function FocusPage() {
             <button 
               className="ss-btn ss-btn-outline" 
               onClick={() => { 
-                timer.cancel(); 
+                focus.cancel(); 
                 stopSound(); 
                 setTimeout(handleStart, 100); 
               }} 

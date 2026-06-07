@@ -5,6 +5,10 @@ import { useAuth } from "../lib/auth-context";
 import { MobileShell } from "../components/shell/MobileShell";
 import { BottomNav } from "../components/shell/BottomNav";
 import { api } from "../lib/api-client";
+import { FocusProvider, useFocus } from "../lib/focus/focus-context";
+import { GlobalTimerBar } from "../components/focus/GlobalTimerBar";
+import { FocusModals } from "../components/focus/FocusModals";
+import { FocusModeOverlay } from "../components/focus/FocusModeOverlay";
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
@@ -49,9 +53,21 @@ function AuthenticatedLayout() {
   }
 
   return (
+    <FocusProvider>
+      <AuthenticatedShell isSetupPage={isSetupPage} />
+    </FocusProvider>
+  );
+}
+
+function AuthenticatedShell({ isSetupPage }: { isSetupPage: boolean }) {
+  const { focusMode } = useFocus();
+  return (
     <MobileShell>
+      {!isSetupPage && <GlobalTimerBar />}
+      <FocusModals />
+      <FocusModeOverlay />
       <Outlet />
-      {!isSetupPage && <BottomNav />}
+      {!isSetupPage && !focusMode && <BottomNav />}
     </MobileShell>
   );
 }
