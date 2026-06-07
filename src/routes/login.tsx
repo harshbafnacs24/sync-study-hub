@@ -95,35 +95,9 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [demoUsers, setDemoUsers] = useState<any[]>([]);
-
   useEffect(() => {
     if (!loading && user) navigate({ to: "/home" });
   }, [loading, user, navigate]);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const raw = window.localStorage.getItem("sas.demo_users");
-      if (raw) {
-        setDemoUsers(JSON.parse(raw));
-      } else {
-        const SEED_USERS = [
-          { id: "dev-user", initials: "DU", name: "Dev User", handle: "dev_user" },
-          { id: "aanya_id", initials: "AM", name: "Aanya Mehta", handle: "aanya_mehta" },
-          { id: "kabir_id", initials: "KS", name: "Kabir Singh", handle: "kabir_singh" },
-          { id: "riya_id", initials: "RS", name: "Riya Sharma", handle: "riya_sharma" },
-          { id: "arjun_id", initials: "AV", name: "Arjun Verma", handle: "arjun_verma" },
-          { id: "meera_id", initials: "MI", name: "Meera Iyer", handle: "meera_iyer" },
-        ];
-        setDemoUsers(SEED_USERS);
-      }
-    }
-  }, [user]);
-
-  function enterDemoMode() {
-    loginDemo("dev-user");
-    navigate({ to: "/home" });
-  }
 
   async function onGoogle() {
     setError(null);
@@ -475,64 +449,7 @@ function LoginPage() {
                 </svg>
               </button>
 
-              {/* Quick Login Accounts Grid */}
-              <div style={{ marginTop: 18 }}>
-                <div className="ss-mono" style={{ fontSize: "0.62rem", letterSpacing: "0.08em", color: "var(--color-primary)", textTransform: "uppercase", marginBottom: 10, textAlign: "center", fontWeight: 700 }}>
-                  Quick Sign-In (Demo Mode)
-                </div>
-                <div style={{ 
-                  display: "grid", 
-                  gridTemplateColumns: "repeat(3, 1fr)", 
-                  gap: 8,
-                  maxHeight: 180,
-                  overflowY: "auto",
-                  padding: "2px 0",
-                  marginBottom: 12
-                }}>
-                  {demoUsers.map((du) => (
-                    <button
-                      key={du.id}
-                      onClick={() => {
-                        loginDemo(du.id);
-                        navigate({ to: "/home" });
-                      }}
-                      style={{
-                        background: "rgba(255,255,255,0.03)",
-                        border: "1px solid rgba(255,255,255,0.06)",
-                        borderRadius: 12,
-                        padding: "10px 4px",
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: 6,
-                        cursor: "pointer",
-                        transition: "all 0.2s"
-                      }}
-                      className="demo-account-chip"
-                    >
-                      {/* Initials Circle */}
-                      <div style={{
-                        width: 32, height: 32, borderRadius: "50%",
-                        background: avatarGradient(du.id),
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontWeight: 800, fontSize: "0.78rem", color: "#0c0c0c"
-                      }}>
-                        {du.initials || du.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
-                      </div>
-                      <span style={{ fontSize: "0.68rem", fontWeight: "600", color: "#f0f0f0", textAlign: "center", width: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {du.name.split(" ")[0]}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Separator Divider */}
-              <div style={{ display: "flex", alignItems: "center", gap: 14, margin: "24px 0 14px" }}>
-                <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.05)" }} />
-                <span className="ss-mono" style={{ fontSize: "0.58rem", color: "#333", textTransform: "uppercase", letterSpacing: "0.1em" }}>or</span>
-                <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.05)" }} />
-              </div>
+              <div style={{ height: 16 }} />
 
               {/* Secondary Auth Grid */}
               <div className="auth-grid">
