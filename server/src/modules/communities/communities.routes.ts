@@ -7,6 +7,8 @@ import { Community } from "../../models/Community.js";
 import { Channel } from "../../models/Channel.js";
 import { CommunityMember } from "../../models/CommunityMember.js";
 import { Message } from "../../models/Message.js";
+import { Profile } from "../../models/Profile.js";
+import { getIO } from "../../realtime/socket.js";
 
 export const communitiesRouter = Router();
 communitiesRouter.use(requireAuth);
@@ -90,6 +92,29 @@ communitiesRouter.post("/:id/join", asyncHandler(async (req: AuthedRequest, res)
   res.json({ joined: true });
 }));
 
+communitiesRouter.get("/:id/members", asyncHandler(async (req: AuthedRequest, res) => {
+  const community = await Community.findOne({
+    $or: [{ _id: mongoose.isValidObjectId(req.params.id) ? req.params.id : null }, { slug: req.params.id }],
+  });
+  if (!community) return res.status(404).json({ error: "Community not found" });
+
+  const members = await CommunityMember.find({ communityId: community._id });
+  const profiles = await Profile.find({ userId: { $in: members.map((m) => m.userId) } });
+
+  res.json({
+    members: members.map((m) => {
+      const prof = profiles.find((p) => String(p.userId) === String(m.userId));
+      return {
+        userId: String(m.userId),
+        role: m.role,
+        joinedAt: m.joinedAt,
+        name: prof?.name ?? "Unknown Student",
+        avatar: prof?.avatar ?? null,
+      };
+    }),
+  });
+}));
+
 communitiesRouter.get("/:id/channels", asyncHandler(async (req: AuthedRequest, res) => {
   const community = await Community.findOne({
     $or: [{ _id: mongoose.isValidObjectId(req.params.id) ? req.params.id : null }, { slug: req.params.id }],
@@ -133,28 +158,54 @@ communitiesRouter.get("/channels/:channelId/messages", asyncHandler(async (req: 
       channelId: String(m.channelId),
       authorId: String(m.senderId),
       text: m.text,
+      attachments: m.attachments ?? [],
       createdAt: m.createdAt?.toISOString?.() ?? new Date().toISOString(),
       system: false,
     })),
   });
 }));
 
-const channelSend = z.object({ text: z.string().min(1).max(4000) });
+const channelSend = z.object({
+  text: z.string().min(1).max(4000),
+  attachments: z.array(z.object({
+    url: z.string(),
+    kind: z.string(),
+    name: z.string(),
+    size: z.number(),
+  })).optional(),
+});
 
 communitiesRouter.post("/channels/:channelId/messages", validate(channelSend), asyncHandler(async (req: AuthedRequest, res) => {
   const ch = await Channel.findById(req.params.channelId);
   if (!ch) return res.status(404).json({ error: "Channel not found" });
   const member = await CommunityMember.findOne({ communityId: ch.communityId, userId: req.userId });
   if (!member) return res.status(403).json({ error: "Join the community to post" });
-  const msg = await Message.create({ channelId: ch._id, senderId: req.userId, text: (req.body as any).text });
-  res.status(201).json({
-    message: {
-      id: String(msg._id),
-      channelId: String(msg.channelId),
-      authorId: String(msg.senderId),
-      text: msg.text,
-      createdAt: msg.createdAt?.toISOString?.() ?? new Date().toISOString(),
-      system: false,
-    },
+  
+  const body = req.body as z.infer<typeof channelSend>;
+  const msg = await Message.create({
+    channelId: ch._id,
+    senderId: req.userId,
+    text: body.text,
+    attachments: body.attachments ?? [],
   });
+
+  const serialized = {
+    id: String(msg._id),
+    channelId: String(msg.channelId),
+    authorId: String(msg.senderId),
+    text: msg.text,
+    attachments: msg.attachments ?? [],
+    createdAt: msg.createdAt?.toISOString?.() ?? new Date().toISOString(),
+    system: false,
+  };
+
+  const io = getIO();
+  if (io) {
+    io.to(`channel:${ch._id}`).emit("channel:message", {
+      channelId: String(ch._id),
+      message: serialized,
+    });
+  }
+
+  res.status(201).json({ message: serialized });
 }));

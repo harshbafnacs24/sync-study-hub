@@ -9,6 +9,7 @@ import { useNetworkUser } from "../../lib/hooks/use-network";
 import { MessageBubble } from "../../components/messaging/MessageBubble";
 import { MessageComposer } from "../../components/messaging/MessageComposer";
 import { timeAgo } from "../../components/messaging/Avatar";
+import { API_BASE_URL } from "../../lib/api-client";
 
 export const Route = createFileRoute("/_authenticated/communities_/$id/$channel")({
   head: () => ({ meta: [{ title: "Channel — Sync & Study" }] }),
@@ -82,15 +83,33 @@ function ChannelPage() {
           const showAuthor = !mine && (i === 0 || arr[i - 1]?.authorId !== m.authorId);
           const showMeta = i === arr.length - 1 || arr[i + 1]?.authorId !== m.authorId;
           return (
-            <ChannelMessageBubble
-              key={m.id}
-              mine={mine}
-              text={m.text}
-              authorId={m.authorId}
-              showAuthor={showAuthor}
-              showMeta={showMeta}
-              createdAt={m.createdAt}
-            />
+            <div key={m.id}>
+              <ChannelMessageBubble
+                mine={mine}
+                text={m.text}
+                authorId={m.authorId}
+                showAuthor={showAuthor}
+                showMeta={showMeta}
+                createdAt={m.createdAt}
+              />
+              {(m.attachments ?? []).map((att: any, idx: number) => (
+                <a
+                  key={idx}
+                  href={`${API_BASE_URL}${att.url}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6, marginTop: 4, marginLeft: mine ? "auto" : 0,
+                    marginRight: mine ? 0 : "auto", padding: "6px 10px", borderRadius: 8,
+                    background: "var(--bg-3)", border: "1px solid var(--color-border)",
+                    fontSize: "0.72rem", color: "var(--color-primary)", textDecoration: "none",
+                    maxWidth: "80%",
+                  }}
+                >
+                  📎 {att.name}
+                </a>
+              ))}
+            </div>
           );
         })}
       </div>
@@ -106,7 +125,8 @@ function ChannelPage() {
       {joined ? (
         <MessageComposer
           placeholder={`Message #${ch.name}`}
-          onSend={(text) => post.mutate({ channelId: ch.id, text })}
+          channelId={ch.id}
+          onSend={(text, attachments) => post.mutate({ channelId: ch.id, text, attachments })}
         />
       ) : (
         <div style={{

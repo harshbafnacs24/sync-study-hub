@@ -56,8 +56,18 @@ export const communitiesStore = {
     }
   },
 
-  async postChannel(channelId: string, text: string): Promise<ChannelMessage> {
-    const { message } = await api.sendChannelMessage(channelId, text);
+  async postChannel(channelId: string, text: string, attachments?: { url: string; kind: string; name: string; size: number }[]): Promise<ChannelMessage> {
+    const { message } = await api.sendChannelMessage(channelId, text, attachments);
     return message;
+  },
+
+  async members(communityId: string): Promise<any[]> {
+    try {
+      const { members } = await api.getCommunityMembers(communityId);
+      return members ?? [];
+    } catch (e) {
+      console.error("Error loading community members:", e);
+      return [];
+    }
   },
 };

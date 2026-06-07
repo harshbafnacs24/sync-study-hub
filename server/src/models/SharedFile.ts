@@ -4,6 +4,7 @@ const sharedFileSchema = new Schema(
   {
     uploaderId: { type: String, required: true, index: true },
     conversationId: { type: Schema.Types.ObjectId, ref: "Conversation", default: null, index: true },
+    channelId: { type: Schema.Types.ObjectId, ref: "Channel", default: null, index: true },
     messageId: { type: Schema.Types.ObjectId, ref: "Message", default: null, index: true },
     filename: { type: String, required: true },
     originalName: { type: String, required: true },

@@ -696,11 +696,11 @@ export const api = {
   getChannelMessages: (channelId: string) =>
     request<{ messages: any[] }>(`/api/v1/communities/channels/${channelId}/messages`, { auth: true }),
 
-  sendChannelMessage: (channelId: string, text: string) =>
+  sendChannelMessage: (channelId: string, text: string, attachments?: { url: string; kind: string; name: string; size: number }[]) =>
     request<{ message: any }>(`/api/v1/communities/channels/${channelId}/messages`, {
       method: "POST",
       auth: true,
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, attachments }),
     }),
 
   deletePost: (id: string) =>
@@ -746,6 +746,24 @@ export const api = {
     if (!res.ok) throw new ApiError(data?.error ?? "Upload failed", res.status);
     return data as { file: { id: string; url: string; kind: string; name: string; size: number; mimeType: string } };
   },
+
+  // File upload for community channels
+  uploadChannelFile: async (channelId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    const token = tokenStore.get();
+    const res = await fetch(`${API_BASE_URL}/api/v1/uploads/channel/${channelId}`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new ApiError(data?.error ?? "Upload failed", res.status);
+    return data as { file: { id: string; url: string; kind: string; name: string; size: number; mimeType: string } };
+  },
+
+  getCommunityMembers: (id: string) =>
+    request<{ members: any[] }>(`/api/v1/communities/${id}/members`, { auth: true }),
 
   // Tech Feed
   getTechFeed: (type?: string, category?: string) => {

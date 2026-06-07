@@ -7,6 +7,8 @@ import { asyncHandler } from "../../middleware/validate.js";
 import { SharedFile } from "../../models/SharedFile.js";
 import { Conversation } from "../../models/Conversation.js";
 import { Connection } from "../../models/Connection.js";
+import { Channel } from "../../models/Channel.js";
+import { CommunityMember } from "../../models/CommunityMember.js";
 
 const UPLOAD_DIR = path.resolve("uploads");
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -135,6 +137,49 @@ uploadRouter.post(
   }),
 );
 
+uploadRouter.post(
+  "/channel/:channelId",
+  upload.single("file"),
+  asyncHandler(async (req: AuthedRequest, res) => {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+    const ch = await Channel.findById(req.params.channelId);
+    if (!ch) {
+      fs.unlinkSync(req.file.path);
+      return res.status(404).json({ error: "Channel not found" });
+    }
+
+    const member = await CommunityMember.findOne({ communityId: ch.communityId, userId: req.userId });
+    if (!member) {
+      fs.unlinkSync(req.file.path);
+      return res.status(403).json({ error: "You must join the community to upload files" });
+    }
+
+    const kind = ALLOWED_MIME[req.file.mimetype] ?? "file";
+    const doc = await SharedFile.create({
+      uploaderId: req.userId,
+      conversationId: null,
+      channelId: ch._id,
+      filename: req.file.filename,
+      originalName: req.file.originalname,
+      mimeType: req.file.mimetype,
+      size: req.file.size,
+      kind,
+    });
+
+    res.status(201).json({
+      file: {
+        id: String(doc._id),
+        url: `/api/v1/uploads/${doc.filename}`,
+        kind,
+        name: doc.originalName,
+        size: doc.size,
+        mimeType: doc.mimeType,
+      },
+    });
+  }),
+);
+
 uploadRouter.get("/:filename", asyncHandler(async (req: AuthedRequest, res) => {
   const doc = await SharedFile.findOne({ filename: req.params.filename });
   if (!doc) return res.status(404).json({ error: "File not found" });
@@ -145,7 +190,17 @@ uploadRouter.get("/:filename", asyncHandler(async (req: AuthedRequest, res) => {
       return res.status(403).json({ error: "Access denied" });
     }
   }
-  // Post media (no conversationId) is viewable by any authenticated user
+
+  const channelId = doc.get("channelId");
+  if (channelId) {
+    const ch = await Channel.findById(channelId);
+    if (ch) {
+      const member = await CommunityMember.findOne({ communityId: ch.communityId, userId: req.userId });
+      if (!member) {
+        return res.status(403).json({ error: "Access denied: you must join the community to access this file" });
+      }
+    }
+  }
 
   const filePath = path.join(UPLOAD_DIR, doc.filename);
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: "File not found on disk" });

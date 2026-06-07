@@ -11,11 +11,13 @@ export function MessageComposer({
   onSend,
   disabled,
   conversationId,
+  channelId,
 }: {
   placeholder?: string;
   onSend: (text: string, attachments?: { url: string; kind: string; name: string; size: number }[]) => void;
   disabled?: boolean;
   conversationId?: string;
+  channelId?: string;
 }) {
   const [v, setV] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -30,7 +32,8 @@ export function MessageComposer({
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !conversationId) return;
+    if (!file) return;
+    if (!conversationId && !channelId) return;
     e.target.value = "";
 
     const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
@@ -45,7 +48,9 @@ export function MessageComposer({
 
     setUploading(true);
     try {
-      const { file: uploaded } = await api.uploadChatFile(conversationId, file);
+      const { file: uploaded } = conversationId
+        ? await api.uploadChatFile(conversationId, file)
+        : await api.uploadChannelFile(channelId!, file);
       const attachment = { url: uploaded.url, kind: uploaded.kind, name: uploaded.name, size: uploaded.size };
       onSend(`📎 ${uploaded.name}`, [attachment]);
       toast.success("File shared");
@@ -69,7 +74,7 @@ export function MessageComposer({
         alignItems: "center",
       }}
     >
-      {conversationId && (
+      {(conversationId || channelId) && (
         <>
           <input ref={fileRef} type="file" accept={ALLOWED_EXTENSIONS.join(",")} style={{ display: "none" }} onChange={handleFile} />
           <button

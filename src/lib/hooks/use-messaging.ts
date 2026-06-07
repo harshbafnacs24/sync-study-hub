@@ -123,9 +123,17 @@ export function useChannelMessages(channelId: string | undefined) {
 export function usePostChannel() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ channelId, text }: { channelId: string; text: string }) =>
-      communitiesStore.postChannel(channelId, text),
+    mutationFn: async ({ channelId, text, attachments }: { channelId: string; text: string; attachments?: { url: string; kind: string; name: string; size: number }[] }) =>
+      communitiesStore.postChannel(channelId, text, attachments),
     onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ["channel-messages", vars.channelId] }),
+  });
+}
+
+export function useCommunityMembers(communityId: string) {
+  return useQuery({
+    queryKey: ["community-members", communityId],
+    queryFn: async () => communitiesStore.members(communityId),
+    staleTime: 0,
   });
 }
 export function useToggleJoin() {

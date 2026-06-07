@@ -119,6 +119,7 @@ export interface ChannelMessage {
   text: string;
   createdAt: string;
   system?: boolean;
+  attachments?: MessageAttachment[];
 }
 
 export type NotificationKind =

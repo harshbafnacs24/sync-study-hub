@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
-import { ChevronLeft, Hash, Pin, Users, Sparkles } from "lucide-react";
-import { useCommunity, useChannels, useToggleJoin } from "../../lib/hooks/use-messaging";
+import { useState } from "react";
+import { ChevronLeft, Hash, Pin, Users, Sparkles, Clock } from "lucide-react";
+import { useCommunity, useChannels, useToggleJoin, useCommunityMembers } from "../../lib/hooks/use-messaging";
 
 export const Route = createFileRoute("/_authenticated/communities_/$id")({
   head: () => ({ meta: [{ title: "Community — Sync & Study" }] }),
@@ -13,6 +14,8 @@ function CommunityDetailPage() {
   const channels = useChannels(id);
   const join = useToggleJoin();
   const nav = useNavigate();
+  const [showMembers, setShowMembers] = useState(false);
+  const members = useCommunityMembers(id);
 
   const c = community.data;
   if (!c) {
@@ -45,9 +48,17 @@ function CommunityDetailPage() {
             }}>{c.iconChar}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <h2 className="ss-display" style={{ fontSize: "1.3rem", fontWeight: 800, letterSpacing: "-0.02em" }}>{c.name}</h2>
-              <div className="ss-mono" style={{ fontSize: "0.65rem", color: "var(--color-muted-foreground)", marginTop: 4, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <Users size={11} /> {c.members.toLocaleString()} MEMBERS
-              </div>
+              <button 
+                onClick={() => setShowMembers(true)}
+                className="ss-mono" 
+                style={{ 
+                  background: "none", border: "none", cursor: "pointer", 
+                  fontSize: "0.65rem", color: "var(--color-primary)", marginTop: 4, 
+                  display: "inline-flex", alignItems: "center", gap: 6, padding: 0 
+                }}
+              >
+                <Users size={11} /> {c.members.toLocaleString()} MEMBERS (VIEW ALL)
+              </button>
             </div>
           </div>
           <p style={{ color: "var(--color-muted-foreground)", fontSize: "0.85rem", lineHeight: 1.5, marginTop: 12 }}>
@@ -75,6 +86,22 @@ function CommunityDetailPage() {
           </div>
         </div>
 
+        {/* Community Pomodoro Timer widget */}
+        {c.joined && (
+          <div className="ss-card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", margin: "12px 16px 4px", background: "rgba(200,255,0,0.04)", borderColor: "rgba(200,255,0,0.15)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Clock size={16} style={{ color: "var(--color-primary)" }} />
+              <div>
+                <div className="ss-display" style={{ fontWeight: 700, fontSize: "0.85rem" }}>Community Pomodoro Timer</div>
+                <div style={{ fontSize: "0.72rem", color: "var(--color-muted-foreground)", marginTop: 1 }}>Start a study focus session for {c.name}</div>
+              </div>
+            </div>
+            <Link to="/focus" className="ss-btn ss-btn-primary" style={{ padding: "6px 12px", fontSize: "0.72rem" }}>
+              Start Timer
+            </Link>
+          </div>
+        )}
+
         <div style={{ padding: "16px 16px 80px" }}>
           {pinned.length > 0 && (
             <>
@@ -91,6 +118,113 @@ function CommunityDetailPage() {
           ))}
         </div>
       </div>
+
+      {showMembers && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 300,
+          background: "rgba(0,0,0,0.85)", display: "flex", 
+          justifyContent: "flex-end",
+        }}>
+          <div onClick={() => setShowMembers(false)} style={{ position: "absolute", inset: 0, zIndex: -1 }} />
+          
+          <div style={{
+            width: "100%", maxWidth: 360,
+            background: "#0a0a0a",
+            borderLeft: "1px solid var(--color-border)",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            boxShadow: "-10px 0 40px rgba(0,0,0,0.8)",
+          }}>
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <h3 className="ss-display" style={{ fontWeight: 800, fontSize: "1.05rem", color: "#FFF" }}>Community Members</h3>
+                <span className="ss-mono" style={{ fontSize: "0.65rem", color: "var(--color-muted-foreground)" }}>{c.name}</span>
+              </div>
+              <button 
+                onClick={() => setShowMembers(false)}
+                className="ss-btn ss-btn-ghost"
+                style={{ fontSize: "0.82rem", padding: "6px 10px" }}
+              >
+                Close
+              </button>
+            </div>
+            
+            <div style={{ flex: 1, overflowY: "auto", padding: "12px 20px" }}>
+              {members.isLoading ? (
+                <div className="ss-mono" style={{ fontSize: "0.75rem", color: "var(--color-muted-foreground)", padding: 12 }}>Loading members...</div>
+              ) : members.data && members.data.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {members.data.map((m: any) => (
+                    <div key={m.userId} style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 0" }}>
+                      {m.avatar ? (
+                        (m.avatar.startsWith("http") || m.avatar.startsWith("/") || m.avatar.startsWith("data:")) ? (
+                          <img
+                            src={m.avatar}
+                            alt=""
+                            style={{
+                              width: 32,
+                              height: 32,
+                              borderRadius: 8,
+                              objectFit: "cover",
+                              border: "1px solid var(--color-border)"
+                            }}
+                          />
+                        ) : (
+                          <div style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 8,
+                            background: "rgba(255, 255, 255, 0.04)",
+                            border: "1px solid var(--color-border)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "1.1rem",
+                            lineHeight: 1,
+                            userSelect: "none"
+                          }}>
+                            {m.avatar}
+                          </div>
+                        )
+                      ) : (
+                        <div style={{
+                          width: 32, height: 32, borderRadius: 8,
+                          background: "rgba(232, 255, 71, 0.06)",
+                          border: "1px solid rgba(232, 255, 71, 0.2)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          color: "var(--color-primary)", fontWeight: "bold", fontSize: "0.85rem"
+                        }}>
+                          {String(m.name || "S").slice(0, 1).toUpperCase()}
+                        </div>
+                      )}
+                      
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "#fff", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+                          {m.name}
+                        </div>
+                        <div style={{ fontSize: "0.68rem", color: "var(--color-muted-foreground)", display: "flex", alignItems: "center", gap: 6 }}>
+                          {m.role === "admin" || m.role === "owner" ? (
+                            <span className="ss-mono" style={{ color: "var(--color-primary)", fontSize: "0.6rem", textTransform: "uppercase", background: "rgba(232,255,71,0.08)", padding: "1px 4px", borderRadius: 4 }}>
+                              {m.role}
+                            </span>
+                          ) : (
+                            <span className="ss-mono" style={{ fontSize: "0.6rem", textTransform: "uppercase" }}>
+                              {m.role ?? "member"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="ss-mono" style={{ fontSize: "0.75rem", color: "var(--color-muted-foreground)", padding: 12 }}>No members found.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
