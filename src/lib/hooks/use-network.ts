@@ -7,7 +7,7 @@ import { socketBus, SocketEvents } from "../socket";
 export function useDiscoverUsers(skip = 0, limit = 20) {
   return useQuery({
     queryKey: ["network", "discover", skip, limit],
-    queryFn: () => networkStore.allUsers(),
+    queryFn: () => networkStore.discoverUsers(skip, limit),
     staleTime: 30000,
   });
 }
@@ -59,6 +59,19 @@ export function useFriends() {
 }
 
 export function useConnections() {
+  const qc = useQueryClient();
+  useEffect(() => {
+    const invalidate = () => {
+      qc.invalidateQueries({ queryKey: ["network", "connections"] });
+      qc.invalidateQueries({ queryKey: ["network", "discover"] });
+      qc.invalidateQueries({ queryKey: ["network", "friends"] });
+    };
+    const off1 = socketBus.on(SocketEvents.ConnectionRequest, invalidate);
+    const off2 = socketBus.on(SocketEvents.ConnectionAccepted, invalidate);
+    const off3 = socketBus.on(SocketEvents.ConnectionRemoved, invalidate);
+    return () => { off1(); off2(); off3(); };
+  }, [qc]);
+
   return useQuery({
     queryKey: ["network", "connections"],
     queryFn: () => networkStore.connections(),

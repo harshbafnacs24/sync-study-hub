@@ -22,6 +22,22 @@ const createSchema = z.object({
 
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
 
+function serializeCommunity(c: any, joined = false) {
+  return {
+    id: String(c._id),
+    name: c.name,
+    slug: c.slug,
+    description: c.description ?? "",
+    category: c.category,
+    tags: c.tags ?? [],
+    members: c.members ?? 0,
+    iconChar: c.iconChar ?? "•",
+    joined,
+    trending: (c.members ?? 0) >= 10,
+    recommended: false,
+  };
+}
+
 communitiesRouter.get("/", asyncHandler(async (req: AuthedRequest, res) => {
   const q = (req.query.q as string | undefined)?.trim();
   const category = req.query.category as string | undefined;
@@ -29,7 +45,14 @@ communitiesRouter.get("/", asyncHandler(async (req: AuthedRequest, res) => {
   if (category && category !== "All") filter.category = category;
   if (q) filter.$or = [{ name: new RegExp(q, "i") }, { tags: new RegExp(q, "i") }, { description: new RegExp(q, "i") }];
   const communities = await Community.find(filter).sort({ members: -1 }).limit(60);
-  res.json({ communities });
+  const memberships = await CommunityMember.find({
+    userId: req.userId,
+    communityId: { $in: communities.map((c) => c._id) },
+  });
+  const joinedIds = new Set(memberships.map((m) => String(m.communityId)));
+  res.json({
+    communities: communities.map((c) => serializeCommunity(c, joinedIds.has(String(c._id)))),
+  });
 }));
 
 communitiesRouter.post("/", validate(createSchema), asyncHandler(async (req: AuthedRequest, res) => {
@@ -40,30 +63,48 @@ communitiesRouter.post("/", validate(createSchema), asyncHandler(async (req: Aut
   await Channel.insertMany(["general", "resources", "daily-progress", "questions", "session-links"].map((name) => ({
     communityId: community._id, name, createdBy: req.userId, topic: name === "general" ? "Community-wide chat" : "",
   })));
-  res.status(201).json({ community });
+  res.status(201).json({ community: serializeCommunity(community, true) });
 }));
 
 communitiesRouter.get("/:id", asyncHandler(async (req: AuthedRequest, res) => {
   const c = await Community.findOne({ $or: [{ _id: mongoose.isValidObjectId(req.params.id) ? req.params.id : null }, { slug: req.params.id }] });
   if (!c) return res.status(404).json({ error: "Community not found" });
-  res.json({ community: c });
+  const member = await CommunityMember.findOne({ communityId: c._id, userId: req.userId });
+  res.json({ community: serializeCommunity(c, !!member) });
 }));
 
 communitiesRouter.post("/:id/join", asyncHandler(async (req: AuthedRequest, res) => {
-  const existing = await CommunityMember.findOne({ communityId: req.params.id, userId: req.userId });
+  const community = await Community.findOne({
+    $or: [{ _id: mongoose.isValidObjectId(req.params.id) ? req.params.id : null }, { slug: req.params.id }],
+  });
+  if (!community) return res.status(404).json({ error: "Community not found" });
+
+  const existing = await CommunityMember.findOne({ communityId: community._id, userId: req.userId });
   if (existing) {
     await existing.deleteOne();
-    await Community.updateOne({ _id: req.params.id }, { $inc: { members: -1 } });
+    await Community.updateOne({ _id: community._id }, { $inc: { members: -1 } });
     return res.json({ joined: false });
   }
-  await CommunityMember.create({ communityId: req.params.id, userId: req.userId, role: "member" });
-  await Community.updateOne({ _id: req.params.id }, { $inc: { members: 1 } });
+  await CommunityMember.create({ communityId: community._id, userId: req.userId, role: "member" });
+  await Community.updateOne({ _id: community._id }, { $inc: { members: 1 } });
   res.json({ joined: true });
 }));
 
 communitiesRouter.get("/:id/channels", asyncHandler(async (req: AuthedRequest, res) => {
-  const channels = await Channel.find({ communityId: req.params.id }).sort({ pinned: -1, name: 1 });
-  res.json({ channels });
+  const community = await Community.findOne({
+    $or: [{ _id: mongoose.isValidObjectId(req.params.id) ? req.params.id : null }, { slug: req.params.id }],
+  });
+  if (!community) return res.status(404).json({ error: "Community not found" });
+  const channels = await Channel.find({ communityId: community._id }).sort({ pinned: -1, name: 1 });
+  res.json({
+    channels: channels.map((ch) => ({
+      id: String(ch._id),
+      communityId: String(ch.communityId),
+      name: ch.name,
+      topic: ch.topic ?? undefined,
+      pinned: ch.pinned ?? false,
+    })),
+  });
 }));
 
 const channelCreate = z.object({
@@ -86,7 +127,16 @@ communitiesRouter.get("/channels/:channelId/messages", asyncHandler(async (req: 
   const filter: any = { channelId: req.params.channelId };
   if (before) filter._id = { $lt: new mongoose.Types.ObjectId(before) };
   const items = await Message.find(filter).sort({ createdAt: -1 }).limit(limit);
-  res.json({ messages: items.reverse() });
+  res.json({
+    messages: items.reverse().map((m) => ({
+      id: String(m._id),
+      channelId: String(m.channelId),
+      authorId: String(m.senderId),
+      text: m.text,
+      createdAt: m.createdAt?.toISOString?.() ?? new Date().toISOString(),
+      system: false,
+    })),
+  });
 }));
 
 const channelSend = z.object({ text: z.string().min(1).max(4000) });
@@ -97,5 +147,14 @@ communitiesRouter.post("/channels/:channelId/messages", validate(channelSend), a
   const member = await CommunityMember.findOne({ communityId: ch.communityId, userId: req.userId });
   if (!member) return res.status(403).json({ error: "Join the community to post" });
   const msg = await Message.create({ channelId: ch._id, senderId: req.userId, text: (req.body as any).text });
-  res.status(201).json({ message: msg });
+  res.status(201).json({
+    message: {
+      id: String(msg._id),
+      channelId: String(msg.channelId),
+      authorId: String(msg.senderId),
+      text: msg.text,
+      createdAt: msg.createdAt?.toISOString?.() ?? new Date().toISOString(),
+      system: false,
+    },
+  });
 }));

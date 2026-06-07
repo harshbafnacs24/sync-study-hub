@@ -31,19 +31,26 @@ type DiscoverTab = "feed" | "search" | "foryou" | "network";
 function ProfileCard({ user }: { user: any }) {
   const connStatus = useConnectionStatus(user.id);
   const send = useSendConnectionRequest();
+  const accept = useAcceptConnectionRequest();
   const remove = useRemoveConnection();
-  const connections = useConnections();
   const navigate = useNavigate();
   const startConv = useStartConversation();
 
   const handleConnect = () => {
-    if (connStatus.status === "none") {
+    if (connStatus.status === "incoming_pending" && connStatus.connectionId) {
+      accept.mutate(connStatus.connectionId, {
+        onSuccess: () => toast.success(`Connected with ${user.name}!`),
+        onError: () => toast.error("Failed to accept request"),
+      });
+    } else if (connStatus.status === "none") {
       send.mutate(user.id, {
         onSuccess: () => toast.success(`Connection request sent to ${user.name}`),
         onError: () => toast.error("Failed to send request"),
       });
     } else if (connStatus.status === "connected" && connStatus.connectionId) {
       remove.mutate(connStatus.connectionId, { onSuccess: () => toast.success("Connection removed") });
+    } else if (connStatus.status === "outgoing_pending" && connStatus.connectionId) {
+      remove.mutate(connStatus.connectionId, { onSuccess: () => toast.success("Request withdrawn") });
     }
   };
 
@@ -128,14 +135,12 @@ function ProfileCard({ user }: { user: any }) {
 
       {/* Stats row */}
       <div style={{ display: "flex", gap: 16, borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 10 }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "0.85rem", fontWeight: 800, color: "#fff" }}>{user.studyStreak ?? 0}d</div>
-          <div style={{ fontSize: "0.6rem", color: "#555", fontFamily: "var(--font-mono)" }}>STREAK</div>
-        </div>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "0.85rem", fontWeight: 800, color: "#fff" }}>{user.totalHours ?? 0}h</div>
-          <div style={{ fontSize: "0.6rem", color: "#555", fontFamily: "var(--font-mono)" }}>TOTAL</div>
-        </div>
+        {(user.mutualFriends ?? 0) > 0 && (
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: "0.85rem", fontWeight: 800, color: "var(--color-primary)" }}>{user.mutualFriends}</div>
+            <div style={{ fontSize: "0.6rem", color: "#555", fontFamily: "var(--font-mono)" }}>MUTUAL</div>
+          </div>
+        )}
         <div style={{ flex: 1 }} />
         {/* Actions */}
         <div style={{ display: "flex", gap: 6 }}>
@@ -669,6 +674,7 @@ function DiscoverPage() {
   const { data: unreadCount = 0 } = useUnreadNotifications();
 
   const search = useSearchUsers(query);
+  const discover = useDiscoverUsers();
   const forYou = useForYouUsers();
 
   const suggestedUsers = (forYou.data ?? []).filter((u: any) => {
@@ -861,15 +867,6 @@ function DiscoverPage() {
 
   return (
     <PageTransition>
-      {/* Stories Overlay */}
-      {activeStoryIdx !== null && (
-        <StoryModal
-          stories={stories}
-          initialIndex={activeStoryIdx}
-          onClose={() => setActiveStoryIdx(null)}
-        />
-      )}
-
       {/* Header */}
       <div className="ss-ph" style={{ paddingBottom: 14 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -960,79 +957,6 @@ function DiscoverPage() {
 
       <div className="ss-body" style={{ paddingBottom: 80, paddingTop: 10 }}>
 
-        {/* ─── Stories Bar ─── */}
-        <div style={{
-          display: "flex",
-          gap: 12,
-          overflowX: "auto",
-          padding: "4px 4px 12px 4px",
-          borderBottom: "1px solid var(--color-border)",
-          marginBottom: 16,
-          scrollbarWidth: "none"
-        }} className="hide-scrollbar">
-          <style>{`
-            .hide-scrollbar::-webkit-scrollbar {
-              display: none;
-            }
-          `}</style>
-          {stories.map((story, i) => (
-            <div 
-              key={i} 
-              onClick={() => handleOpenStory(i)}
-              style={{ 
-                display: "flex", 
-                flexDirection: "column", 
-                alignItems: "center", 
-                cursor: "pointer", 
-                flexShrink: 0 
-              }}
-            >
-              {/* Outer ring border representing active/viewed story */}
-              <div style={{
-                width: 54, height: 54, borderRadius: "50%",
-                background: story.viewed 
-                  ? "var(--color-border)" 
-                  : "linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                padding: story.viewed ? 1.5 : 2,
-                boxShadow: story.viewed ? "none" : "0 0 6px rgba(220,39,67,0.3)"
-              }}>
-                <div style={{
-                  width: "100%", height: "100%", borderRadius: "50%",
-                  background: "var(--color-background)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  padding: 2
-                }}>
-                  {story.userAvatar && !(story.userAvatar.startsWith("http") || story.userAvatar.startsWith("/") || story.userAvatar.startsWith("data:")) ? (
-                    <span style={{ fontSize: "1.5rem", userSelect: "none" }}>{story.userAvatar}</span>
-                  ) : (
-                    <img 
-                      src={story.userAvatar} 
-                      alt="" 
-                      style={{ 
-                        width: "100%", height: "100%", borderRadius: "50%", 
-                        objectFit: "cover" 
-                      }} 
-                    />
-                  )}
-                </div>
-              </div>
-              <span className="ss-mono" style={{ 
-                fontSize: "0.6rem", 
-                color: story.viewed ? "var(--color-muted-foreground)" : "var(--color-foreground)", 
-                marginTop: 6,
-                fontWeight: story.viewed ? 500 : 700,
-                maxWidth: 60,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap"
-              }}>
-                {story.userName.split(" ")[0]}
-              </span>
-            </div>
-          ))}
-        </div>
-
         {/* ─── FEED TAB ─── */}
         {tab === "feed" && (
           <FeedSection
@@ -1064,14 +988,27 @@ function DiscoverPage() {
         {/* ─── SEARCH / DISCOVER TAB ─── */}
         {tab === "search" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {search.isLoading ? (
-              <div style={{ textAlign: "center", color: "#555", padding: 40 }}>Searching…</div>
-            ) : (search.data ?? []).length === 0 ? (
+            {!query.trim() && (
+              <div style={{
+                padding: "10px 14px",
+                background: "rgba(232,255,71,0.04)",
+                border: "1px solid rgba(232,255,71,0.08)",
+                borderRadius: 10,
+                fontSize: "0.75rem",
+                color: "#888",
+                lineHeight: 1.5,
+              }}>
+                Browse students with completed profiles. Use search to filter by name, school, or interests.
+              </div>
+            )}
+            {(query.trim() ? search.isLoading : discover.isLoading) ? (
+              <div style={{ textAlign: "center", color: "#555", padding: 40 }}>Loading students…</div>
+            ) : (query.trim() ? (search.data ?? []) : (discover.data ?? [])).length === 0 ? (
               <div style={{ textAlign: "center", color: "#555", padding: 40, fontSize: "0.85rem" }}>
-                {query ? `No results for "${query}"` : "Start typing to search for students"}
+                {query ? `No results for "${query}"` : "No students found yet. Complete your profile and check back soon!"}
               </div>
             ) : (
-              (search.data ?? []).map((u) => <ProfileCard key={u.id} user={u} />)
+              (query.trim() ? (search.data ?? []) : (discover.data ?? [])).map((u) => <ProfileCard key={u.id} user={u} />)
             )}
           </div>
         )}

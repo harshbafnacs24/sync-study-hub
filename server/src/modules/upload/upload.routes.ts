@@ -61,6 +61,42 @@ async function areFriends(userId: string, peerId: string): Promise<boolean> {
 }
 
 uploadRouter.post(
+  "/post",
+  upload.single("file"),
+  asyncHandler(async (req: AuthedRequest, res) => {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+    const kind = ALLOWED_MIME[req.file.mimetype] ?? "file";
+    if (!["image", "gif"].includes(kind)) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: "Only images and GIFs are allowed for posts" });
+    }
+
+    const doc = await SharedFile.create({
+      uploaderId: req.userId,
+      conversationId: null,
+      filename: req.file.filename,
+      originalName: req.file.originalname,
+      mimeType: req.file.mimetype,
+      size: req.file.size,
+      kind,
+    });
+
+    res.status(201).json({
+      file: {
+        id: String(doc._id),
+        url: `/api/v1/uploads/${doc.filename}`,
+        kind,
+        name: doc.originalName,
+        size: doc.size,
+        mimeType: doc.mimeType,
+        mediaType: kind === "gif" ? "gif" : "image",
+      },
+    });
+  }),
+);
+
+uploadRouter.post(
   "/chat/:conversationId",
   upload.single("file"),
   asyncHandler(async (req: AuthedRequest, res) => {
@@ -108,9 +144,8 @@ uploadRouter.get("/:filename", asyncHandler(async (req: AuthedRequest, res) => {
     if (!conv?.participants.includes(req.userId!)) {
       return res.status(403).json({ error: "Access denied" });
     }
-  } else if (doc.uploaderId !== req.userId) {
-    return res.status(403).json({ error: "Access denied" });
   }
+  // Post media (no conversationId) is viewable by any authenticated user
 
   const filePath = path.join(UPLOAD_DIR, doc.filename);
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: "File not found on disk" });

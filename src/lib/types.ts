@@ -137,6 +137,8 @@ export interface FeedPost {
   id: string;
   authorId: string;
   content: string;
+  mediaUrl?: string | null;
+  mediaType?: "image" | "gif" | null;
   createdAt: string;
   editedAt?: string | null;
   author: {

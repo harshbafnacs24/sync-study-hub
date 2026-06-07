@@ -31,14 +31,18 @@ export interface Connection {
 
 export const networkStore = {
   /* ── Users ── */
-  async allUsers(): Promise<NetworkUser[]> {
+  async discoverUsers(skip = 0, limit = 20): Promise<NetworkUser[]> {
     try {
-      const { users } = await api.discoverUsers();
+      const { users } = await api.discoverUsers(skip, limit);
       return users ?? [];
     } catch (e) {
-      console.error("Error fetching users:", e);
+      console.error("Error fetching discover users:", e);
       return [];
     }
+  },
+
+  async allUsers(): Promise<NetworkUser[]> {
+    return this.discoverUsers(0, 50);
   },
 
   async getUser(id: string): Promise<NetworkUser | undefined> {

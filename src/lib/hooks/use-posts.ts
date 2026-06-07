@@ -8,7 +8,20 @@ export function useFeedPosts() {
 export function useCreatePost() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (content: string) => postsStore.create(content),
+    mutationFn: (input: string | { content: string; mediaUrl?: string; mediaType?: "image" | "gif" }) => {
+      if (typeof input === "string") return postsStore.create(input);
+      const { content, mediaUrl, mediaType } = input;
+      return postsStore.create(content, mediaUrl && mediaType ? { mediaUrl, mediaType } : undefined);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["feed-posts"] }),
+  });
+}
+
+export function useUpdatePost() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, content, mediaUrl, mediaType }: { id: string; content: string; mediaUrl?: string | null; mediaType?: "image" | "gif" | null }) =>
+      postsStore.update(id, content, mediaUrl !== undefined ? { mediaUrl, mediaType: mediaType ?? null } : undefined),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["feed-posts"] }),
   });
 }

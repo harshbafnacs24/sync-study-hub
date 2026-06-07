@@ -2,11 +2,10 @@ import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-r
 import { useEffect, useMemo, useRef } from "react";
 import { ChevronLeft, Hash, Sparkles, Users } from "lucide-react";
 import {
-  useCommunity, useChannelMessages, usePostChannel, useToggleJoin, useLiveChannel,
+  useCommunity, useChannels, useChannelMessages, usePostChannel, useToggleJoin, useLiveChannel,
 } from "../../lib/hooks/use-messaging";
-import { communitiesStore } from "../../lib/store/communities";
-import { messagesStore } from "../../lib/store/messages";
-import { SEED_PEERS } from "../../lib/store/seed";
+import { useAuth } from "../../lib/auth-context";
+import { useNetworkUser } from "../../lib/hooks/use-network";
 import { MessageBubble } from "../../components/messaging/MessageBubble";
 import { MessageComposer } from "../../components/messaging/MessageComposer";
 import { timeAgo } from "../../components/messaging/Avatar";
@@ -16,11 +15,29 @@ export const Route = createFileRoute("/_authenticated/communities_/$id/$channel"
   component: ChannelPage,
 });
 
+function ChannelMessageBubble({
+  mine, text, authorId, showAuthor, showMeta, createdAt,
+}: {
+  mine: boolean; text: string; authorId: string; showAuthor: boolean; showMeta: boolean; createdAt: string;
+}) {
+  const { data: author } = useNetworkUser(mine ? "" : authorId);
+  return (
+    <MessageBubble
+      mine={mine}
+      text={text}
+      authorLabel={showAuthor ? (author?.name ?? "Member") : undefined}
+      meta={showMeta ? timeAgo(createdAt) : undefined}
+    />
+  );
+}
+
 function ChannelPage() {
   const { id, channel } = useParams({ from: "/_authenticated/communities_/$id/$channel" });
   const nav = useNavigate();
+  const { user } = useAuth();
   const community = useCommunity(id);
-  const ch = useMemo(() => communitiesStore.channelByName(id, channel), [id, channel]);
+  const channels = useChannels(id);
+  const ch = useMemo(() => (channels.data ?? []).find((c) => c.name === channel), [channels.data, channel]);
   const messages = useChannelMessages(ch?.id);
   const post = usePostChannel();
   const join = useToggleJoin();
@@ -61,17 +78,18 @@ function ChannelPage() {
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
         {(messages.data ?? []).map((m, i, arr) => {
           if (m.system) return <MessageBubble key={m.id} mine={false} text={m.text} system />;
-          const mine = m.authorId === "me";
-          const peer = mine ? null : SEED_PEERS.find((p) => p.id === m.authorId);
+          const mine = String(m.authorId) === String(user?.id);
           const showAuthor = !mine && (i === 0 || arr[i - 1]?.authorId !== m.authorId);
           const showMeta = i === arr.length - 1 || arr[i + 1]?.authorId !== m.authorId;
           return (
-            <MessageBubble
+            <ChannelMessageBubble
               key={m.id}
               mine={mine}
               text={m.text}
-              authorLabel={showAuthor ? peer?.name ?? "Member" : undefined}
-              meta={showMeta ? timeAgo(m.createdAt) : undefined}
+              authorId={m.authorId}
+              showAuthor={showAuthor}
+              showMeta={showMeta}
+              createdAt={m.createdAt}
             />
           );
         })}

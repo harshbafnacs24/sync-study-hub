@@ -47,6 +47,7 @@ networkRouter.get("/search", asyncHandler(async (req: AuthedRequest, res) => {
 
   const profiles = await Profile.find({
     userId: { $nin: excludeIds },
+    profileCompleted: true,
     $or: [
       { name: { $regex: q, $options: "i" } },
       { publicId: { $regex: q, $options: "i" } },
@@ -58,7 +59,13 @@ networkRouter.get("/search", asyncHandler(async (req: AuthedRequest, res) => {
     ]
   }).limit(30);
 
-  res.json({ users: profiles.map(mapProfile) });
+  const users = await Promise.all(
+    profiles.map(async (p) => ({
+      ...mapProfile(p),
+      mutualFriends: await getMutualFriendCount(req.userId!, String(p.userId)),
+    }))
+  );
+  res.json({ users });
 }));
 
 /* ── GET /discover — paginated user discovery ── */
@@ -69,7 +76,7 @@ networkRouter.get("/discover", asyncHandler(async (req: AuthedRequest, res) => {
   const blockedIds = await getBlockedIds(req.userId!);
   const excludeIds = [...blockedIds, req.userId!];
 
-  const profiles = await Profile.find({ userId: { $nin: excludeIds } })
+  const profiles = await Profile.find({ userId: { $nin: excludeIds }, profileCompleted: true })
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit + 1); // +1 to check if there's more
@@ -77,8 +84,15 @@ networkRouter.get("/discover", asyncHandler(async (req: AuthedRequest, res) => {
   const hasMore = profiles.length > limit;
   const results = hasMore ? profiles.slice(0, limit) : profiles;
 
+  const users = await Promise.all(
+    results.map(async (p) => ({
+      ...mapProfile(p),
+      mutualFriends: await getMutualFriendCount(req.userId!, String(p.userId)),
+    }))
+  );
+
   res.json({
-    users: results.map(mapProfile),
+    users,
     hasMore,
     nextSkip: hasMore ? skip + limit : null,
   });
@@ -101,7 +115,7 @@ networkRouter.get("/for-you", asyncHandler(async (req: AuthedRequest, res) => {
 
   const excludeIds = [...new Set([...blockedIds, ...connectedIds, req.userId!])];
 
-  const profiles = await Profile.find({ userId: { $nin: excludeIds } }).limit(100);
+  const profiles = await Profile.find({ userId: { $nin: excludeIds }, profileCompleted: true }).limit(100);
 
   // Score by interest overlap
   const scored = profiles.map(p => {
@@ -126,7 +140,13 @@ networkRouter.get("/for-you", asyncHandler(async (req: AuthedRequest, res) => {
   scored.sort((a, b) => b.score - a.score);
   const top = scored.slice(0, 20);
 
-  res.json({ users: top.map(s => mapProfile(s.profile)) });
+  const users = await Promise.all(
+    top.map(async (s) => ({
+      ...mapProfile(s.profile),
+      mutualFriends: await getMutualFriendCount(req.userId!, String(s.profile.userId)),
+    }))
+  );
+  res.json({ users });
 }));
 
 async function getFriendIds(userId: string): Promise<string[]> {

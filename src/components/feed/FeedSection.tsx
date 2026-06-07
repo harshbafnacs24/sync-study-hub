@@ -1,11 +1,19 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useAuth } from "../../lib/auth-context";
 import { timeAgo } from "../messaging/Avatar";
 import {
   useFeedPosts, useCreatePost, useToggleLike, useAddComment, usePostComments,
+  useDeletePost, useUpdatePost,
 } from "../../lib/hooks/use-posts";
+import { api, API_BASE_URL } from "../../lib/api-client";
 import type { FeedPost } from "../../lib/types";
 import { toast } from "sonner";
+
+const GIF_PRESETS = [
+  { url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3BndmdmM283OHZpdHhvbTh0cnNscjR2OHU3bzY2dnN6aWRnbWNnayZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/33OrjzUFwkwEg/giphy.gif", label: "🐱 Lofi" },
+  { url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmtlbjNuZnoxOHl6aThnZTR3cnR5bGVsbGlqZWV4ZXplMW13bzdhOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/13HgwGsXF0aiGY/giphy.gif", label: "⚡ Matrix" },
+  { url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbDVtcXZjNm04ejRxamRjcmtyaTBpcnM5YnhoYzAwMjdvdzM5eXphOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/V4aB3p69rlY9q/giphy.gif", label: "🌌 Chill" },
+];
 
 function EmojiAvatar({ avatar, name, size = 34 }: { avatar?: string | null; name: string; size?: number }) {
   const isEmoji = avatar && !avatar.startsWith("http") && !avatar.startsWith("/") && !avatar.startsWith("data:");
@@ -25,14 +33,46 @@ function CreatePostForm() {
   const create = useCreatePost();
   const [content, setContent] = useState("");
   const [open, setOpen] = useState(false);
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const [mediaType, setMediaType] = useState<"image" | "gif" | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setUploading(true);
+    try {
+      const { file: uploaded } = await api.uploadPostMedia(file);
+      setMediaUrl(`${API_BASE_URL}${uploaded.url}`);
+      setMediaType(uploaded.mediaType);
+      toast.success("Image attached");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim()) return;
-    create.mutate(content.trim(), {
-      onSuccess: () => { setContent(""); setOpen(false); toast.success("Post shared!"); },
-      onError: () => toast.error("Failed to create post"),
-    });
+    create.mutate(
+      mediaUrl && mediaType
+        ? { content: content.trim(), mediaUrl, mediaType }
+        : content.trim(),
+      {
+        onSuccess: () => {
+          setContent("");
+          setMediaUrl(null);
+          setMediaType(null);
+          setOpen(false);
+          toast.success("Post shared!");
+        },
+        onError: () => toast.error("Failed to create post"),
+      },
+    );
   };
 
   const avatar = (user as any)?.avatar;
@@ -55,7 +95,7 @@ function CreatePostForm() {
       <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span className="ss-mono" style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--color-primary)" }}>NEW POST</span>
-          <button type="button" onClick={() => setOpen(false)} style={{ background: "none", border: "none", color: "var(--color-muted-foreground)", cursor: "pointer", fontSize: "0.75rem" }}>Cancel</button>
+          <button type="button" onClick={() => { setOpen(false); setMediaUrl(null); setMediaType(null); }} style={{ background: "none", border: "none", color: "var(--color-muted-foreground)", cursor: "pointer", fontSize: "0.75rem" }}>Cancel</button>
         </div>
         <textarea
           value={content}
@@ -68,7 +108,30 @@ function CreatePostForm() {
             borderRadius: 12, padding: 10, color: "var(--color-foreground)", fontSize: "0.8rem", resize: "none", outline: "none",
           }}
         />
-        <button type="submit" className="ss-btn ss-btn-primary" disabled={create.isPending} style={{ width: "100%", padding: "8px 0", borderRadius: 8, fontSize: "0.78rem" }}>
+        {mediaUrl && (
+          <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", border: "1px solid var(--color-border)" }}>
+            <img src={mediaUrl} alt="Post media" style={{ width: "100%", maxHeight: 200, objectFit: "cover", display: "block" }} />
+            <button type="button" onClick={() => { setMediaUrl(null); setMediaType(null); }} style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.6)", border: "none", color: "#fff", borderRadius: 6, padding: "4px 8px", fontSize: "0.7rem", cursor: "pointer" }}>Remove</button>
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          <input ref={fileRef} type="file" accept="image/*,.gif" style={{ display: "none" }} onChange={handleFile} />
+          <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="ss-btn ss-btn-outline" style={{ padding: "6px 10px", fontSize: "0.72rem" }}>
+            {uploading ? "Uploading…" : "📷 Image"}
+          </button>
+          {GIF_PRESETS.map((g) => (
+            <button
+              key={g.url}
+              type="button"
+              onClick={() => { setMediaUrl(g.url); setMediaType("gif"); }}
+              className="ss-btn ss-btn-outline"
+              style={{ padding: "6px 8px", fontSize: "0.68rem", borderColor: mediaUrl === g.url ? "var(--color-primary)" : undefined }}
+            >
+              {g.label}
+            </button>
+          ))}
+        </div>
+        <button type="submit" className="ss-btn ss-btn-primary" disabled={create.isPending || uploading} style={{ width: "100%", padding: "8px 0", borderRadius: 8, fontSize: "0.78rem" }}>
           Share to Feed
         </button>
       </form>
@@ -77,11 +140,17 @@ function CreatePostForm() {
 }
 
 function ApiFeedPostCard({ post }: { post: FeedPost }) {
+  const { user } = useAuth();
   const toggleLike = useToggleLike();
   const addComment = useAddComment();
+  const deletePost = useDeletePost();
+  const updatePost = useUpdatePost();
   const { data: comments = [] } = usePostComments(post.id);
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [editContent, setEditContent] = useState(post.content);
+  const isOwner = user?.id === post.authorId;
 
   const handleComment = (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,6 +159,17 @@ function ApiFeedPostCard({ post }: { post: FeedPost }) {
       onSuccess: () => setCommentText(""),
     });
   };
+
+  const handleEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editContent.trim()) return;
+    updatePost.mutate({ id: post.id, content: editContent.trim() }, {
+      onSuccess: () => { setEditing(false); toast.success("Post updated"); },
+      onError: () => toast.error("Failed to update post"),
+    });
+  };
+
+  const mediaSrc = post.mediaUrl?.startsWith("http") ? post.mediaUrl : post.mediaUrl ? `${API_BASE_URL}${post.mediaUrl}` : null;
 
   return (
     <div className="ss-card ss-card-anim" style={{ padding: 0, overflow: "hidden", background: "var(--bg-2)", border: "1px solid var(--color-border)", borderRadius: 16, marginBottom: 14 }}>
@@ -101,12 +181,42 @@ function ApiFeedPostCard({ post }: { post: FeedPost }) {
             {post.author.school} · {timeAgo(post.createdAt)}
           </div>
         </div>
+        {isOwner && !editing && (
+          <div style={{ display: "flex", gap: 4 }}>
+            <button onClick={() => setEditing(true)} style={{ background: "none", border: "none", color: "var(--color-muted-foreground)", cursor: "pointer", fontSize: "0.7rem" }}>Edit</button>
+            <button
+              onClick={() => deletePost.mutate(post.id, { onSuccess: () => toast.success("Post deleted") })}
+              style={{ background: "none", border: "none", color: "#ff6b6b", cursor: "pointer", fontSize: "0.7rem" }}
+            >Delete</button>
+          </div>
+        )}
       </div>
 
-      <div style={{ padding: "0 14px 12px", fontSize: "0.82rem", lineHeight: 1.55, color: "var(--color-foreground)" }}>
-        {post.content}
-        {post.editedAt && <span style={{ fontSize: "0.65rem", color: "var(--color-muted-foreground)", marginLeft: 6 }}>(edited)</span>}
-      </div>
+      {mediaSrc && (
+        <div style={{ width: "100%", background: "#060606", borderTop: "1px solid var(--color-border)", borderBottom: "1px solid var(--color-border)" }}>
+          <img src={mediaSrc} alt="Post media" style={{ width: "100%", maxHeight: 320, objectFit: "cover", display: "block" }} />
+        </div>
+      )}
+
+      {editing ? (
+        <form onSubmit={handleEdit} style={{ padding: "0 14px 12px" }}>
+          <textarea
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            rows={3}
+            style={{ width: "100%", background: "var(--bg-3)", border: "1px solid var(--color-border)", borderRadius: 8, padding: 8, color: "var(--color-foreground)", fontSize: "0.8rem", resize: "none" }}
+          />
+          <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+            <button type="submit" className="ss-btn ss-btn-primary" style={{ padding: "4px 10px", fontSize: "0.72rem" }}>Save</button>
+            <button type="button" onClick={() => { setEditing(false); setEditContent(post.content); }} className="ss-btn ss-btn-outline" style={{ padding: "4px 10px", fontSize: "0.72rem" }}>Cancel</button>
+          </div>
+        </form>
+      ) : (
+        <div style={{ padding: "0 14px 12px", fontSize: "0.82rem", lineHeight: 1.55, color: "var(--color-foreground)" }}>
+          {post.content}
+          {post.editedAt && <span style={{ fontSize: "0.65rem", color: "var(--color-muted-foreground)", marginLeft: 6 }}>(edited)</span>}
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: 16, alignItems: "center", padding: "6px 14px 10px", borderTop: "1px solid var(--color-border)" }}>
         <button

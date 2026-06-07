@@ -501,11 +501,11 @@ async function request<T>(
   try {
     res = await fetch(`${API_BASE_URL}${path}`, { ...rest, headers: finalHeaders });
   } catch (err) {
-    if (typeof window !== "undefined") {
-      window.sessionStorage.setItem("sas.demo_mode", "true");
+    if (DEV_OFFLINE_MODE || (typeof window !== "undefined" && window.localStorage.getItem("sas.demo_mode") === "true")) {
+      console.warn(`[api-client] API unreachable, using offline demo mode.`, err);
+      return handleOfflineRequest(path, init) as T;
     }
-    console.warn(`[api-client] Cannot reach API at ${API_BASE_URL}. Automatically switching to offline Demo Mode.`, err);
-    return handleOfflineRequest(path, init) as T;
+    throw new ApiError(`Cannot reach server at ${API_BASE_URL}. Check your connection.`, 0);
   }
   const text = await res.text();
   const data = text ? safeJson(text) : null;
@@ -643,18 +643,62 @@ export const api = {
   getFeed: () =>
     request<{ posts: FeedPost[] }>("/api/v1/posts/feed", { auth: true }),
 
-  createPost: (content: string) =>
+  createPost: (content: string, media?: { mediaUrl: string; mediaType: "image" | "gif" }) =>
     request<{ post: FeedPost }>("/api/v1/posts", {
       method: "POST",
       auth: true,
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, ...media }),
     }),
 
-  updatePost: (id: string, content: string) =>
+  uploadPostMedia: async (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    const token = tokenStore.get();
+    const res = await fetch(`${API_BASE_URL}/api/v1/uploads/post`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new ApiError(data?.error ?? "Upload failed", res.status);
+    return data as { file: { url: string; mediaType: "image" | "gif"; name: string } };
+  },
+
+  updatePost: (id: string, content: string, media?: { mediaUrl: string | null; mediaType: "image" | "gif" | null }) =>
     request<{ post: FeedPost }>(`/api/v1/posts/${id}`, {
       method: "PATCH",
       auth: true,
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, ...media }),
+    }),
+
+  // Communities
+  getCommunities: () =>
+    request<{ communities: any[] }>("/api/v1/communities", { auth: true }),
+
+  getCommunity: (id: string) =>
+    request<{ community: any }>(`/api/v1/communities/${id}`, { auth: true }),
+
+  createCommunity: (body: { name: string; description: string; category: string; tags: string[] }) =>
+    request<{ community: any }>("/api/v1/communities", {
+      method: "POST",
+      auth: true,
+      body: JSON.stringify(body),
+    }),
+
+  toggleCommunityJoin: (id: string) =>
+    request<{ joined: boolean }>(`/api/v1/communities/${id}/join`, { method: "POST", auth: true }),
+
+  getCommunityChannels: (id: string) =>
+    request<{ channels: any[] }>(`/api/v1/communities/${id}/channels`, { auth: true }),
+
+  getChannelMessages: (channelId: string) =>
+    request<{ messages: any[] }>(`/api/v1/communities/channels/${channelId}/messages`, { auth: true }),
+
+  sendChannelMessage: (channelId: string, text: string) =>
+    request<{ message: any }>(`/api/v1/communities/channels/${channelId}/messages`, {
+      method: "POST",
+      auth: true,
+      body: JSON.stringify({ text }),
     }),
 
   deletePost: (id: string) =>

@@ -4,6 +4,8 @@ const postSchema = new Schema(
   {
     authorId: { type: String, required: true, index: true },
     content: { type: String, required: true, maxlength: 2000 },
+    mediaUrl: { type: String, default: null },
+    mediaType: { type: String, enum: ["image", "gif", null], default: null },
     editedAt: { type: Date, default: null },
   },
   { timestamps: true },

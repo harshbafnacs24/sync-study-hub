@@ -29,6 +29,8 @@ async function serializePost(post: any, viewerId: string) {
     id: String(post._id),
     authorId: post.authorId,
     content: post.content,
+    mediaUrl: post.mediaUrl ?? null,
+    mediaType: post.mediaType ?? null,
     createdAt: post.createdAt.toISOString(),
     editedAt: post.editedAt?.toISOString?.() ?? null,
     author: {
@@ -53,18 +55,29 @@ postsRouter.get("/feed", asyncHandler(async (req: AuthedRequest, res) => {
   res.json({ posts: serialized });
 }));
 
-const createSchema = z.object({ content: z.string().min(1).max(2000) });
+const createSchema = z.object({
+  content: z.string().min(1).max(2000),
+  mediaUrl: z.string().url().optional().nullable(),
+  mediaType: z.enum(["image", "gif"]).optional().nullable(),
+});
 postsRouter.post("/", validate(createSchema), asyncHandler(async (req: AuthedRequest, res) => {
-  const { content } = req.body as { content: string };
-  const post = await Post.create({ authorId: req.userId, content });
+  const { content, mediaUrl, mediaType } = req.body as { content: string; mediaUrl?: string | null; mediaType?: "image" | "gif" | null };
+  const post = await Post.create({ authorId: req.userId, content, mediaUrl: mediaUrl ?? null, mediaType: mediaType ?? null });
   res.status(201).json({ post: await serializePost(post, req.userId!) });
 }));
 
-const updateSchema = z.object({ content: z.string().min(1).max(2000) });
+const updateSchema = z.object({
+  content: z.string().min(1).max(2000),
+  mediaUrl: z.string().url().optional().nullable(),
+  mediaType: z.enum(["image", "gif"]).optional().nullable(),
+});
 postsRouter.patch("/:id", validate(updateSchema), asyncHandler(async (req: AuthedRequest, res) => {
   const post = await Post.findOne({ _id: req.params.id, authorId: req.userId });
   if (!post) return res.status(404).json({ error: "Post not found" });
-  post.content = (req.body as { content: string }).content;
+  const body = req.body as { content: string; mediaUrl?: string | null; mediaType?: "image" | "gif" | null };
+  post.content = body.content;
+  if (body.mediaUrl !== undefined) post.mediaUrl = body.mediaUrl;
+  if (body.mediaType !== undefined) post.mediaType = body.mediaType;
   post.editedAt = new Date();
   await post.save();
   res.json({ post: await serializePost(post, req.userId!) });
