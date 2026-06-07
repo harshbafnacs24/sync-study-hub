@@ -144,10 +144,11 @@ async function request<T>(
   try {
     res = await fetch(`${API_BASE_URL}${path}`, { ...rest, headers: finalHeaders });
   } catch {
-    throw new ApiError(
-      `Cannot reach API at ${API_BASE_URL}. Is the /server backend running?`,
-      0,
-    );
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("sas.demo_mode", "true");
+    }
+    console.warn(`[api-client] Cannot reach API at ${API_BASE_URL}. Automatically switching to offline Demo Mode.`);
+    return handleOfflineRequest(path, init) as T;
   }
   const text = await res.text();
   const data = text ? safeJson(text) : null;
