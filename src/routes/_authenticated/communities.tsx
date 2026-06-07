@@ -56,16 +56,27 @@ function CommunitiesPage() {
         </div>
 
         <div style={{ display: "flex", gap: 6, overflowX: "auto", padding: "12px 0 4px", scrollbarWidth: "none" }}>
-          {categories.map((c) => (
-            <button
-              key={c}
-              onClick={() => setCat(c)}
-              className={`ss-chip ${cat === c ? "ss-chip-accent" : ""}`}
-              style={{ flexShrink: 0, cursor: "pointer", border: 0 }}
-            >
-              {c}
-            </button>
-          ))}
+          {categories.map((c) => {
+            const shortNames: Record<string, string> = {
+              "All": "All",
+              "Interview Prep": "Prep",
+              "Engineering": "Dev",
+              "Research": "Research",
+              "Accountability": "Focus",
+              "Competitive": "CP",
+              "Exams": "Exams"
+            };
+            return (
+              <button
+                key={c}
+                onClick={() => setCat(c)}
+                className={`ss-chip ${cat === c ? "ss-chip-accent" : ""}`}
+                style={{ flexShrink: 0, cursor: "pointer", border: 0 }}
+              >
+                {shortNames[c] || c}
+              </button>
+            );
+          })}
         </div>
 
         {trending.length > 0 && (

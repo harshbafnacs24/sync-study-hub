@@ -36,18 +36,40 @@ export function BottomNav() {
               }}
             >
               {label === "Profile" && user?.avatar ? (
-                <img
-                  src={user.avatar}
-                  alt=""
-                  style={{
-                    width: 20,
-                    height: 20,
-                    borderRadius: "50%",
-                    border: active ? `2px solid ${color}` : "1.5px solid var(--color-border)",
-                    objectFit: "cover",
-                    transition: "border-color 250ms ease",
-                  }}
-                />
+                (user.avatar.startsWith("http") || user.avatar.startsWith("/") || user.avatar.startsWith("data:")) ? (
+                  <img
+                    src={user.avatar}
+                    alt=""
+                    style={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: "50%",
+                      border: active ? `2px solid ${color}` : "1.5px solid var(--color-border)",
+                      objectFit: "cover",
+                      transition: "border-color 250ms ease",
+                    }}
+                  />
+                ) : (
+                  <span
+                    style={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: "50%",
+                      border: active ? `2px solid ${color}` : "1.5px solid var(--color-border)",
+                      background: "var(--bg-3)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "12px",
+                      lineHeight: 1,
+                      boxSizing: "border-box",
+                      transition: "border-color 250ms ease",
+                      userSelect: "none"
+                    }}
+                  >
+                    {user.avatar}
+                  </span>
+                )
               ) : (
                 <Icon
                   size={18}

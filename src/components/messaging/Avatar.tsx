@@ -2,21 +2,42 @@ import type { CSSProperties } from "react";
 import type { Peer } from "../../lib/types";
 
 export function Avatar({ peer, size = 36 }: { peer: Pick<Peer, "initials" | "online"> & { avatar?: string | null }; size?: number }) {
+  const isUrl = peer.avatar && (peer.avatar.startsWith("http") || peer.avatar.startsWith("/") || peer.avatar.startsWith("data:"));
   return (
     <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
       {peer.avatar ? (
-        <img
-          src={peer.avatar}
-          alt=""
-          style={{
-            width: size,
-            height: size,
-            borderRadius: 999,
-            objectFit: "cover",
-            border: "1px solid var(--color-border)",
-            display: "block"
-          }}
-        />
+        isUrl ? (
+          <img
+            src={peer.avatar}
+            alt=""
+            style={{
+              width: size,
+              height: size,
+              borderRadius: 999,
+              objectFit: "cover",
+              border: "1px solid var(--color-border)",
+              display: "block"
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: size,
+              height: size,
+              borderRadius: 999,
+              background: "var(--bg-3)",
+              border: "1px solid var(--color-border)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: size * 0.58,
+              lineHeight: 1,
+              userSelect: "none"
+            }}
+          >
+            {peer.avatar}
+          </div>
+        )
       ) : (
         <div
           className="ss-display"

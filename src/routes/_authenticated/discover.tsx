@@ -62,11 +62,13 @@ function ProfileCard({ user }: { user: any }) {
         {/* Avatar */}
         <div style={{
           width: 46, height: 46, borderRadius: 12, flexShrink: 0,
-          background: avatarGradient(user.id),
+          background: user.avatar && !(user.avatar.startsWith("http") || user.avatar.startsWith("/") || user.avatar.startsWith("data:")) ? "var(--bg-3)" : avatarGradient(user.id),
+          border: "1px solid var(--color-border)",
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontWeight: 800, fontSize: "1rem", color: "#0c0c0c",
+          fontWeight: 800, fontSize: user.avatar && !(user.avatar.startsWith("http") || user.avatar.startsWith("/") || user.avatar.startsWith("data:")) ? "1.6rem" : "1rem",
+          color: user.avatar && !(user.avatar.startsWith("http") || user.avatar.startsWith("/") || user.avatar.startsWith("data:")) ? "inherit" : "#0c0c0c",
         }}>
-          {user.initials}
+          {user.avatar && !(user.avatar.startsWith("http") || user.avatar.startsWith("/") || user.avatar.startsWith("data:")) ? user.avatar : user.initials}
         </div>
         {/* Info */}
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -298,7 +300,18 @@ function StoryModal({ stories, initialIndex, onClose }: { stories: Story[]; init
         </div>
         {/* User Info */}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <img src={story.userAvatar} alt="" style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #fff", objectFit: "cover" }} />
+          {story.userAvatar && (story.userAvatar.startsWith("http") || story.userAvatar.startsWith("/") || story.userAvatar.startsWith("data:")) ? (
+            <img src={story.userAvatar} alt="" style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #fff", objectFit: "cover" }} />
+          ) : (
+            <div style={{
+              width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #fff",
+              background: "rgba(255, 255, 255, 0.1)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: "1.1rem", lineHeight: 1, userSelect: "none"
+            }}>
+              {story.userAvatar}
+            </div>
+          )}
           <div style={{ flex: 1 }}>
             <div style={{ color: "#fff", fontWeight: 700, fontSize: "0.85rem" }}>{story.userName}</div>
             <div style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.68rem" }}>Active Study Story</div>
@@ -357,7 +370,18 @@ function FeedPostCard({ post, onLike, onAddComment }: { post: FeedPost; onLike: 
     <div className="ss-card ss-card-anim" style={{ padding: 0, overflow: "hidden", background: "var(--bg-2)", border: "1px solid var(--color-border)", borderRadius: 16, marginBottom: 14 }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: 12 }}>
-        <img src={post.userAvatar} alt="" style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid var(--color-primary)", objectFit: "cover" }} />
+        {post.userAvatar && (post.userAvatar.startsWith("http") || post.userAvatar.startsWith("/") || post.userAvatar.startsWith("data:")) ? (
+          <img src={post.userAvatar} alt="" style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid var(--color-primary)", objectFit: "cover" }} />
+        ) : (
+          <div style={{
+            width: 34, height: 34, borderRadius: "50%", border: "1.5px solid var(--color-primary)",
+            background: "var(--bg-3)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: "1.1rem", lineHeight: 1, userSelect: "none"
+          }}>
+            {post.userAvatar}
+          </div>
+        )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--color-foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{post.userName}</div>
           <div style={{ fontSize: "0.7rem", color: "var(--color-primary)", fontFamily: "var(--font-mono)" }}>@{post.userHandle}</div>
@@ -461,14 +485,18 @@ function SuggestedFriendCard({ user, matchText }: { user: any; matchText: string
       {/* Avatar */}
       <div style={{
         width: 50, height: 50, borderRadius: "50%",
-        background: avatarGradient(user.id),
+        background: user.avatar && !(user.avatar.startsWith("http") || user.avatar.startsWith("/") || user.avatar.startsWith("data:")) ? "var(--bg-3)" : avatarGradient(user.id),
         display: "flex", alignItems: "center", justifyContent: "center",
-        fontWeight: 800, fontSize: "1.1rem", color: "#0c0c0c",
+        fontWeight: 800, fontSize: user.avatar && !(user.avatar.startsWith("http") || user.avatar.startsWith("/") || user.avatar.startsWith("data:")) ? "1.6rem" : "1.1rem",
         border: "2px solid var(--color-border)",
         overflow: "hidden"
       }}>
         {user.avatar ? (
-          <img src={user.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          (user.avatar.startsWith("http") || user.avatar.startsWith("/") || user.avatar.startsWith("data:")) ? (
+            <img src={user.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : (
+            user.avatar
+          )
         ) : (
           user.initials
         )}
@@ -502,6 +530,108 @@ function SuggestedFriendCard({ user, matchText }: { user: any; matchText: string
       >
         {connStatus.status === "outgoing_pending" ? "Sent" : "Connect"}
       </button>
+    </div>
+  );
+}
+
+/* ─── Create Post Card ────────────────────────────────────────────────────── */
+
+interface CreatePostCardProps {
+  onAddPost: (caption: string, mediaUrl: string) => void;
+  user: any;
+}
+
+function CreatePostCard({ onAddPost, user }: CreatePostCardProps) {
+  const [caption, setCaption] = useState("");
+  const [selectedMedia, setSelectedMedia] = useState("https://images.unsplash.com/photo-1542831371-29b0f74f9713?auto=format&fit=crop&w=600&q=80");
+  const [showForm, setShowForm] = useState(false);
+
+  const presets = [
+    { url: "https://images.unsplash.com/photo-1542831371-29b0f74f9713?auto=format&fit=crop&w=600&q=80", label: "💻 Code" },
+    { url: "https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&w=600&q=80", label: "☕ Cozy Desk" },
+    { url: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80", label: "📚 Library" },
+    { url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3BndmdmM283OHZpdHhvbTh0cnNscjR2OHU3bzY2dnN6aWRnbWNnayZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/33OrjzUFwkwEg/giphy.gif", label: "🐱 Lofi Cat" },
+    { url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmtlbjNuZnoxOHl6aThnZTR3cnR5bGVsbGlqZWV4ZXplMW13bzdhOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/13HgwGsXF0aiGY/giphy.gif", label: "⚡ Matrix" },
+    { url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbDVtcXZjNm04ejRxamRjcmtyaTBpcnM5YnhoYzAwMjdvdzM5eXphOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/V4aB3p69rlY9q/giphy.gif", label: "🌌 Chill GVL" },
+  ];
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!caption.trim()) return;
+    onAddPost(caption, selectedMedia);
+    setCaption("");
+    setShowForm(false);
+  };
+
+  const isUserEmoji = user?.avatar && !(user.avatar.startsWith("http") || user.avatar.startsWith("/") || user.avatar.startsWith("data:"));
+
+  return (
+    <div className="ss-card" style={{ padding: 14, marginBottom: 16, background: "var(--bg-2)", border: "1px solid var(--color-border)", borderRadius: 16 }}>
+      {!showForm ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }} onClick={() => setShowForm(true)}>
+          <div style={{
+            width: 36, height: 36, borderRadius: "50%",
+            background: isUserEmoji ? "var(--bg-3)" : "var(--color-primary)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: isUserEmoji ? "1.25rem" : "0.85rem", fontWeight: "bold"
+          }}>
+            {isUserEmoji ? user.avatar : user?.name?.slice(0, 2).toUpperCase() || "ME"}
+          </div>
+          <div style={{ flex: 1, background: "var(--bg-3)", padding: "8px 14px", borderRadius: 20, color: "var(--color-muted-foreground)", fontSize: "0.78rem" }}>
+            Share your study progress or upload a feed post...
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span className="ss-mono" style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--color-primary)" }}>NEW STUDY POST</span>
+            <button type="button" onClick={() => setShowForm(false)} style={{ background: "none", border: "none", color: "var(--color-muted-foreground)", cursor: "pointer", fontSize: "0.75rem" }}>Cancel</button>
+          </div>
+
+          <textarea
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            placeholder="What are you studying or coding right now?"
+            rows={3}
+            required
+            style={{
+              width: "100%", background: "var(--bg-3)", border: "1px solid var(--color-border)",
+              borderRadius: 12, padding: 10, color: "var(--color-foreground)", fontSize: "0.8rem",
+              fontFamily: "var(--font-body)", resize: "none", outline: "none"
+            }}
+          />
+
+          <div>
+            <span className="ss-mono" style={{ fontSize: "0.6rem", color: "var(--color-muted-foreground)", display: "block", marginBottom: 6 }}>SELECT POST MEDIA</span>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+              {presets.map((p) => (
+                <button
+                  type="button"
+                  key={p.url}
+                  onClick={() => setSelectedMedia(p.url)}
+                  style={{
+                    padding: "6px 2px",
+                    background: selectedMedia === p.url ? "rgba(232, 255, 71, 0.08)" : "var(--bg-3)",
+                    border: selectedMedia === p.url ? "1.5px solid var(--color-primary)" : "1px solid var(--color-border)",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    fontSize: "0.68rem",
+                    fontWeight: selectedMedia === p.url ? "bold" : "normal",
+                    color: selectedMedia === p.url ? "var(--color-primary)" : "var(--color-muted-foreground)",
+                    transition: "all 0.15s ease"
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button type="submit" className="ss-btn ss-btn-primary" style={{ width: "100%", padding: "8px 0", borderRadius: 8, fontSize: "0.78rem" }}>
+            Share to Feed
+          </button>
+        </form>
+      )}
     </div>
   );
 }
@@ -540,7 +670,7 @@ function DiscoverPage() {
     {
       userId: "kabir_id",
       userName: "Kabir Singh",
-      userAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80",
+      userAvatar: "👨‍🎓",
       mediaUrl: "https://images.unsplash.com/photo-1542831371-29b0f74f9713?auto=format&fit=crop&w=600&q=80",
       caption: "Setting up the new IDE theme. Custom keyboard is feeling crisp! ⌨️💻",
       viewed: false
@@ -548,7 +678,7 @@ function DiscoverPage() {
     {
       userId: "aanya_id",
       userName: "Aanya Mehta",
-      userAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80",
+      userAvatar: "👩‍🎓",
       mediaUrl: "https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&w=600&q=80",
       caption: "Cracking binary tree traversals before coffee gets cold. ☕🌳",
       viewed: false
@@ -556,7 +686,7 @@ function DiscoverPage() {
     {
       userId: "riya_id",
       userName: "Riya Sharma",
-      userAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&h=150&q=80",
+      userAvatar: "👩‍🏫",
       mediaUrl: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmtlbjNuZnoxOHl6aThnZTR3cnR5bGVsbGlqZWV4ZXplMW13bzdhOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/13HgwGsXF0aiGY/giphy.gif",
       caption: "Sage AI has some suggestions. Study grind on AI models! 🤖✨",
       viewed: false
@@ -564,7 +694,7 @@ function DiscoverPage() {
     {
       userId: "arjun_id",
       userName: "Arjun Verma",
-      userAvatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&h=150&q=80",
+      userAvatar: "👨‍💻",
       mediaUrl: "https://images.unsplash.com/photo-1607799279861-4dd421887fb3?auto=format&fit=crop&w=600&q=80",
       caption: "SQL query optimization is an art form. DB is running 10x faster now! 💾📊",
       viewed: false
@@ -572,7 +702,7 @@ function DiscoverPage() {
     {
       userId: "meera_id",
       userName: "Meera Iyer",
-      userAvatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=150&h=150&q=80",
+      userAvatar: "👩‍💻",
       mediaUrl: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbDVtcXZjNm04ejRxamRjcmtyaTBpcnM5YnhoYzAwMjdvdzM5eXphOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/V4aB3p69rlY9q/giphy.gif",
       caption: "Focusing on operating system threads. Keep grinding! ☕⚙️",
       viewed: false
@@ -588,56 +718,74 @@ function DiscoverPage() {
     );
   };
 
-  // --- Instagram Feed State ---
-  const [posts, setPosts] = useState<FeedPost[]>([
-    {
-      id: "post-1",
-      userId: "aanya_id",
-      userName: "Aanya Mehta",
-      userHandle: "aanya_mehta",
-      userAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80",
-      mediaUrl: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80",
-      caption: "Midterm prep has officially begun. Sliding window problems are starting to click! Who's up for a focus room session tonight? 📚🚀",
-      likes: 12,
-      hasLiked: false,
-      comments: [
-        { userName: "kabir_singh", text: "I'm down for a study room at 8 PM!" },
-        { userName: "arjun_verma", text: "Need help with sliding window. Count me in!" }
-      ],
-      createdAt: "2h ago"
-    },
-    {
-      id: "post-2",
-      userId: "kabir_id",
-      userName: "Kabir Singh",
-      userHandle: "kabir_singh",
-      userAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80",
-      mediaUrl: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3BndmdmM283OHZpdHhvbTh0cnNscjR2OHU3bzY2dnN6aWRnbWNnayZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/33OrjzUFwkwEg/giphy.gif",
-      caption: "Me writing React form hooks at 2 AM. Hydrated and locked in! 🐱💻☕",
-      likes: 28,
-      hasLiked: false,
-      comments: [
-        { userName: "aanya_mehta", text: "Accurate! Go sleep Kabir 😂" },
-        { userName: "meera_iyer", text: "React 19 forms are super clean though!" }
-      ],
-      createdAt: "4h ago"
-    },
-    {
-      id: "post-3",
-      userId: "riya_id",
-      userName: "Riya Sharma",
-      userHandle: "riya_sharma",
-      userAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&h=150&q=80",
-      mediaUrl: "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80",
-      caption: "Cozy vibes only for tonight's machine learning model training. Sage AI is helping debug my loss function. 💡🤖🌌",
-      likes: 19,
-      hasLiked: false,
-      comments: [
-        { userName: "kabir_singh", text: "That workspace setup looks incredible." }
-      ],
-      createdAt: "1d ago"
+  // --- Instagram Feed State (User-Generated with LocalStorage Persistence) ---
+  const [posts, setPosts] = useState<FeedPost[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = window.localStorage.getItem("sas.feed_posts");
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.error("Failed to parse feed posts", e);
+        }
+      }
     }
-  ]);
+    return [
+      {
+        id: "post-1",
+        userId: "aanya_id",
+        userName: "Aanya Mehta",
+        userHandle: "aanya_mehta",
+        userAvatar: "👩‍🎓",
+        mediaUrl: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80",
+        caption: "Midterm prep has officially begun. Sliding window problems are starting to click! Who's up for a focus room session tonight? 📚🚀",
+        likes: 12,
+        hasLiked: false,
+        comments: [
+          { userName: "kabir_singh", text: "I'm down for a study room at 8 PM!" },
+          { userName: "arjun_verma", text: "Need help with sliding window. Count me in!" }
+        ],
+        createdAt: "2h ago"
+      },
+      {
+        id: "post-2",
+        userId: "kabir_id",
+        userName: "Kabir Singh",
+        userHandle: "kabir_singh",
+        userAvatar: "👨‍🎓",
+        mediaUrl: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3BndmdmM283OHZpdHhvbTh0cnNscjR2OHU3bzY2dnN6aWRnbWNnayZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/33OrjzUFwkwEg/giphy.gif",
+        caption: "Me writing React form hooks at 2 AM. Hydrated and locked in! 🐱💻☕",
+        likes: 28,
+        hasLiked: false,
+        comments: [
+          { userName: "aanya_mehta", text: "Accurate! Go sleep Kabir 😂" },
+          { userName: "meera_iyer", text: "React 19 forms are super clean though!" }
+        ],
+        createdAt: "4h ago"
+      },
+      {
+        id: "post-3",
+        userId: "riya_id",
+        userName: "Riya Sharma",
+        userHandle: "riya_sharma",
+        userAvatar: "👩‍🏫",
+        mediaUrl: "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80",
+        caption: "Cozy vibes only for tonight's machine learning model training. Sage AI is helping debug my loss function. 💡🤖🌌",
+        likes: 19,
+        hasLiked: false,
+        comments: [
+          { userName: "kabir_singh", text: "That workspace setup looks incredible." }
+        ],
+        createdAt: "1d ago"
+      }
+    ];
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("sas.feed_posts", JSON.stringify(posts));
+    }
+  }, [posts]);
 
   const handleLikePost = (postId: string) => {
     setPosts((prevPosts) =>
@@ -661,12 +809,30 @@ function DiscoverPage() {
         if (p.id === postId) {
           return {
             ...p,
-            comments: [...p.comments, { userName: currentUser?.name?.toLowerCase().replace(/\s+/g, "_") || "me", text: commentText }]
+            comments: [...p.comments, { userName: (currentUser as any)?.handle || currentUser?.name?.toLowerCase().replace(/\s+/g, "_") || "me", text: commentText }]
           };
         }
         return p;
       })
     );
+  };
+
+  const handleAddPost = (caption: string, mediaUrl: string) => {
+    const newPost: FeedPost = {
+      id: `post-${Date.now()}`,
+      userId: currentUser?.id || "me",
+      userName: currentUser?.name || "Dev User",
+      userHandle: (currentUser as any)?.handle || currentUser?.name?.toLowerCase().replace(/\s+/g, "_") || "dev_user",
+      userAvatar: currentUser?.avatar || "🧑‍🎓",
+      mediaUrl,
+      caption,
+      likes: 0,
+      hasLiked: false,
+      comments: [],
+      createdAt: "Just now"
+    };
+    setPosts((prev) => [newPost, ...prev]);
+    toast.success("Post shared to feed!");
   };
 
   return (
@@ -796,14 +962,18 @@ function DiscoverPage() {
                   display: "flex", alignItems: "center", justifyContent: "center",
                   padding: 2
                 }}>
-                  <img 
-                    src={story.userAvatar} 
-                    alt="" 
-                    style={{ 
-                      width: "100%", height: "100%", borderRadius: "50%", 
-                      objectFit: "cover" 
-                    }} 
-                  />
+                  {story.userAvatar && !(story.userAvatar.startsWith("http") || story.userAvatar.startsWith("/") || story.userAvatar.startsWith("data:")) ? (
+                    <span style={{ fontSize: "1.5rem", userSelect: "none" }}>{story.userAvatar}</span>
+                  ) : (
+                    <img 
+                      src={story.userAvatar} 
+                      alt="" 
+                      style={{ 
+                        width: "100%", height: "100%", borderRadius: "50%", 
+                        objectFit: "cover" 
+                      }} 
+                    />
+                  )}
                 </div>
               </div>
               <span className="ss-mono" style={{ 
@@ -825,6 +995,8 @@ function DiscoverPage() {
         {/* ─── FEED TAB ─── */}
         {tab === "feed" && (
           <div style={{ display: "flex", flexDirection: "column" }}>
+            <CreatePostCard user={currentUser} onAddPost={handleAddPost} />
+
             {/* Suggested Friends Carousel (similar interests or characteristics) */}
             {suggestedUsers.length > 0 && (
               <div style={{
