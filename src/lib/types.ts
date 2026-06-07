@@ -4,6 +4,7 @@ export interface AuthUser {
   id: string;
   email: string;
   name?: string;
+  avatar?: string | null;
   createdAt: string;
 }
 
@@ -40,6 +41,7 @@ export interface Peer {
   initials: string;
   online: boolean;
   subject?: string;
+  avatar?: string | null;
 }
 
 export interface Conversation {

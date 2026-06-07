@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import { PageTransition } from "../../components/shell/PageTransition";
-import { Play, Pause, X, RotateCcw, Target, Music, ChevronDown, CheckCircle2, Clock, Flame, TrendingUp, SkipForward } from "lucide-react";
+import { Play, Pause, X, RotateCcw, Target, Music, ChevronDown, CheckCircle2, Clock, Flame, TrendingUp, SkipForward, Minimize2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "../../components/ui-kit/Card";
 import { useFocusTimer } from "../../lib/hooks/use-focus-timer";
@@ -67,6 +67,9 @@ function FocusPage() {
   const tasks = useTasks();
   const a = analytics.data;
 
+  // Immersive Zone Zen Mode state
+  const [immersiveZone, setImmersiveZone] = useState(false);
+
   // Mode & duration
   const [modeIdx, setModeIdx] = useState(0);
   const mode = MODES[modeIdx];
@@ -90,6 +93,7 @@ function FocusPage() {
   const pomodorosUntilLong = POMODORO_CYCLE - (cycleCount % POMODORO_CYCLE);
 
   const timer = useFocusTimer((s) => {
+    setImmersiveZone(false);
     if (s.kind === "focus") {
       const next = cycleCount + 1;
       setCycleCount(next);
@@ -199,10 +203,20 @@ function FocusPage() {
         </div>
 
         {/* ── Timer ── */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 14 }}>
+        <div 
+          onClick={() => { if (timer.session) setImmersiveZone(true); }}
+          style={{ 
+            display: "flex", 
+            flexDirection: "column", 
+            alignItems: "center", 
+            marginBottom: 14,
+            cursor: timer.session ? "pointer" : "default" 
+          }}
+          title={timer.session ? "Click to enter Full-screen Focus Zone" : undefined}
+        >
           <CircularTimer progress={progress} color={mode.color}>
             <div className="ss-mono" style={{ fontSize: "0.62rem", color: mode.color, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>
-              {timer.session ? (timer.isRunning ? "Focusing" : "Paused") : mode.label}
+              {timer.session ? (timer.isRunning ? "Focusing (Click for Zen Mode)" : "Paused (Click for Zen Mode)") : mode.label}
             </div>
             <div className="ss-display" style={{ fontSize: "3.4rem", fontWeight: 900, letterSpacing: "-0.04em", color: timer.isRunning ? mode.color : "var(--color-foreground)", lineHeight: 1 }}>
               {fmtTime(remaining)}
@@ -261,6 +275,19 @@ function FocusPage() {
             </>
           )}
         </div>
+
+        {/* ── Secondary Focus Zone Button ── */}
+        {timer.session && (
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+            <button 
+              className="ss-btn ss-btn-outline" 
+              onClick={() => setImmersiveZone(true)} 
+              style={{ width: "100%", maxWidth: "260px", padding: "8px 16px", fontSize: "0.82rem", gap: 6 }}
+            >
+              <SkipForward size={14} style={{ transform: "rotate(90deg)" }} /> Open Immersive Focus Zone
+            </button>
+          </div>
+        )}
 
         {/* ── Subject picker ── */}
         {!timer.session && (
@@ -372,6 +399,262 @@ function FocusPage() {
         </div>
 
       </div>
+
+      {/* ── Immersive Focus Zone Overlay ── */}
+      {immersiveZone && timer.session && (
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          background: "radial-gradient(circle at center, #110e1a 0%, #07050d 100%)",
+          zIndex: 100,
+          display: "flex",
+          flexDirection: "column",
+          padding: 24,
+          animation: "ssFadeIn 0.3s ease-out both",
+          overflow: "hidden"
+        }}>
+          <style>{`
+            @keyframes ssZenBreath {
+              0%, 100% { transform: scale(1); opacity: 0.15; }
+              50% { transform: scale(1.22); opacity: 0.35; }
+            }
+            @keyframes ssZenBreathSubtle {
+              0%, 100% { transform: scale(1); opacity: 0.25; }
+              50% { transform: scale(1.1); opacity: 0.55; }
+            }
+          `}</style>
+
+          {/* Top Bar */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <button 
+              onClick={() => setImmersiveZone(false)} 
+              style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.6)", fontSize: "0.8rem", cursor: "pointer", background: "none", border: "none", padding: 0 }}
+            >
+              <Minimize2 size={16} />
+              <span className="ss-mono" style={{ letterSpacing: "0.05em", textTransform: "uppercase" }}>Exit Zen</span>
+            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: mode.color, boxShadow: `0 0 8px ${mode.color}` }} />
+              <span className="ss-mono" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.8)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                {mode.label}
+              </span>
+            </div>
+            <div style={{ width: 68 }} /> {/* spacer to balance */}
+          </div>
+
+          {/* Centered Breathing Area */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative" }}>
+            {/* Animated breathing glow circles in the background */}
+            <div style={{
+              position: "absolute",
+              width: 280,
+              height: 280,
+              borderRadius: "50%",
+              background: `radial-gradient(circle, ${mode.color}44 0%, transparent 70%)`,
+              animation: "ssZenBreath 8s ease-in-out infinite",
+              pointerEvents: "none"
+            }} />
+            <div style={{
+              position: "absolute",
+              width: 220,
+              height: 220,
+              borderRadius: "50%",
+              background: `radial-gradient(circle, ${mode.color}22 0%, transparent 70%)`,
+              animation: "ssZenBreathSubtle 8s ease-in-out infinite",
+              animationDelay: "4s",
+              pointerEvents: "none"
+            }} />
+
+            {/* Circular Timer representation */}
+            <div style={{
+              position: "relative",
+              width: 220,
+              height: 220,
+              borderRadius: "50%",
+              border: "1px solid rgba(255,255,255,0.08)",
+              background: "rgba(10, 10, 12, 0.6)",
+              backdropFilter: "blur(12px)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 2,
+              boxShadow: "0 8px 32px rgba(0,0,0,0.5)"
+            }}>
+              {/* Circular progress overlay around the rim */}
+              <svg width={220} height={220} style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none" }}>
+                <circle cx={110} cy={110} r={100} fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth={4} />
+                <circle cx={110} cy={110} r={100} fill="none" stroke={mode.color} strokeWidth={4}
+                  strokeDasharray={2 * Math.PI * 100}
+                  strokeDashoffset={2 * Math.PI * 100 * (1 - progress)}
+                  strokeLinecap="round"
+                  transform="rotate(-90 110 110)"
+                  style={{ transition: "stroke-dashoffset 0.9s linear" }}
+                />
+              </svg>
+
+              <span className="ss-mono" style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 6 }}>
+                Remaining
+              </span>
+              <span className="ss-display" style={{ fontSize: "3.6rem", fontWeight: 900, color: "#ffffff", letterSpacing: "-0.02em", lineHeight: 1 }}>
+                {fmtTime(remaining)}
+              </span>
+              <span className="ss-mono" style={{ fontSize: "0.75rem", color: mode.color, marginTop: 8, letterSpacing: "0.05em" }}>
+                {timer.isRunning ? "BREATHE" : "PAUSED"}
+              </span>
+            </div>
+
+            {/* Breathing guide label */}
+            <div className="ss-mono" style={{
+              fontSize: "0.8rem",
+              color: "rgba(255,255,255,0.6)",
+              marginTop: 32,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              textAlign: "center"
+            }}>
+              {timer.isRunning ? "Inhale · Hold · Exhale" : "Session Paused"}
+            </div>
+
+            {/* Linked Task Info */}
+            {linkedTask ? (
+              <div style={{ textAlign: "center", marginTop: 16, maxWidth: "280px" }}>
+                <div className="ss-mono" style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Focus Target</div>
+                <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#ffffff", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                  {linkedTask.title}
+                </div>
+              </div>
+            ) : subject ? (
+              <div style={{ textAlign: "center", marginTop: 16 }}>
+                <div className="ss-mono" style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Subject</div>
+                <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#ffffff", marginTop: 4 }}>
+                  📚 {subject}
+                </div>
+              </div>
+            ) : (
+              <div style={{ textAlign: "center", marginTop: 16 }}>
+                <div className="ss-mono" style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Focus Session</div>
+                <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#ffffff", marginTop: 4 }}>
+                  ⚡ General Study
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Ambient Sound Pickers inside Focus Zone */}
+          <div style={{ marginBottom: 24, textAlign: "center" }}>
+            <div className="ss-mono" style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>Ambient Sound</div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+              {SOUNDS.map(s => (
+                <button key={s.id} onClick={() => { setSoundId(s.id); if (timer.isRunning) playSound(s.id); }}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 20,
+                    fontSize: "0.78rem",
+                    cursor: "pointer",
+                    border: `1px solid ${soundId === s.id ? mode.color : "rgba(255,255,255,0.1)"}`,
+                    background: soundId === s.id ? `${mode.color}15` : "transparent",
+                    color: soundId === s.id ? mode.color : "rgba(255,255,255,0.7)",
+                    transition: "all 0.2s"
+                  }}>
+                  {s.emoji} {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Action Controls */}
+          <div style={{ display: "flex", gap: 20, justifyContent: "center", alignItems: "center", marginBottom: 16 }}>
+            <button 
+              className="ss-btn ss-btn-outline" 
+              onClick={() => { 
+                if(confirm("Cancel this focus session?")) { 
+                  timer.cancel(); 
+                  stopSound(); 
+                  setImmersiveZone(false); 
+                } 
+              }} 
+              style={{ 
+                borderRadius: "50%", 
+                width: 54, 
+                height: 54, 
+                padding: 0, 
+                borderColor: "rgba(255,255,255,0.2)", 
+                color: "#ffffff",
+                background: "rgba(255,255,255,0.05)" 
+              }}
+              title="Cancel Session"
+            >
+              <X size={20} />
+            </button>
+
+            {timer.isRunning ? (
+              <button 
+                onClick={timer.pause} 
+                style={{ 
+                  borderRadius: "50%", 
+                  width: 70, 
+                  height: 70, 
+                  padding: 0, 
+                  background: mode.color, 
+                  color: "#000000",
+                  border: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: `0 0 20px ${mode.color}55`
+                }}
+                title="Pause"
+              >
+                <Pause size={28} />
+              </button>
+            ) : (
+              <button 
+                onClick={timer.resume} 
+                style={{ 
+                  borderRadius: "50%", 
+                  width: 70, 
+                  height: 70, 
+                  padding: 0, 
+                  background: mode.color, 
+                  color: "#000000",
+                  border: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: `0 0 20px ${mode.color}55`
+                }}
+                title="Resume"
+              >
+                <Play size={28} style={{ marginLeft: 4 }} />
+              </button>
+            )}
+
+            <button 
+              className="ss-btn ss-btn-outline" 
+              onClick={() => { 
+                timer.cancel(); 
+                stopSound(); 
+                setTimeout(handleStart, 100); 
+              }} 
+              style={{ 
+                borderRadius: "50%", 
+                width: 54, 
+                height: 54, 
+                padding: 0, 
+                borderColor: "rgba(255,255,255,0.2)", 
+                color: "#ffffff",
+                background: "rgba(255,255,255,0.05)" 
+              }}
+              title="Restart"
+            >
+              <RotateCcw size={20} />
+            </button>
+          </div>
+        </div>
+      )}
     </PageTransition>
   );
 }

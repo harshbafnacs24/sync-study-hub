@@ -1,27 +1,42 @@
 import type { CSSProperties } from "react";
 import type { Peer } from "../../lib/types";
 
-export function Avatar({ peer, size = 36 }: { peer: Pick<Peer, "initials" | "online">; size?: number }) {
+export function Avatar({ peer, size = 36 }: { peer: Pick<Peer, "initials" | "online"> & { avatar?: string | null }; size?: number }) {
   return (
     <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
-      <div
-        className="ss-display"
-        style={{
-          width: size,
-          height: size,
-          borderRadius: 999,
-          background: "var(--bg-3)",
-          border: "1px solid var(--color-border)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontWeight: 700,
-          fontSize: size * 0.36,
-          color: "var(--color-foreground)",
-        }}
-      >
-        {peer.initials}
-      </div>
+      {peer.avatar ? (
+        <img
+          src={peer.avatar}
+          alt=""
+          style={{
+            width: size,
+            height: size,
+            borderRadius: 999,
+            objectFit: "cover",
+            border: "1px solid var(--color-border)",
+            display: "block"
+          }}
+        />
+      ) : (
+        <div
+          className="ss-display"
+          style={{
+            width: size,
+            height: size,
+            borderRadius: 999,
+            background: "var(--bg-3)",
+            border: "1px solid var(--color-border)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontWeight: 700,
+            fontSize: size * 0.36,
+            color: "var(--color-foreground)",
+          }}
+        >
+          {peer.initials}
+        </div>
+      )}
       {peer.online && <PresenceDot />}
     </div>
   );

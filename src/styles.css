@@ -45,8 +45,8 @@
 
 :root {
   --radius: 0.5rem;
-  --font-display: 'Syne', sans-serif;
-  --font-body: 'DM Sans', sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Syne', sans-serif;
+  --font-body: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
   --font-mono: 'DM Mono', monospace;
   --nav-h: 64px;
   --shell-w: 430px;
@@ -159,6 +159,36 @@
   --bg-glow: oklch(0.78 0.16 205 / 0.06);
   --ambient-1: oklch(0.78 0.16 205 / 0.5);
   --ambient-2: oklch(0.72 0.18 250 / 0.25);
+}
+
+.theme-light {
+  --background: oklch(0.99 0.005 0);       /* bright soft white */
+  --foreground: oklch(0.12 0 0);          /* deep carbon black */
+  --bg-2: oklch(0.96 0.005 0);            /* light grey cards */
+  --bg-3: oklch(0.92 0.005 0);            /* active elements */
+  --bg-4: oklch(0.88 0.005 0);
+  --card: oklch(0.97 0.005 0);
+  --card-foreground: oklch(0.12 0 0);
+  --popover: oklch(0.97 0.005 0);
+  --popover-foreground: oklch(0.12 0 0);
+  --primary: oklch(0.65 0.25 350);        /* Instagram-like pink-red */
+  --primary-foreground: oklch(0.99 0.005 0);
+  --secondary: oklch(0.92 0.005 0);
+  --secondary-foreground: oklch(0.12 0 0);
+  --muted: oklch(0.92 0.005 0);
+  --muted-foreground: oklch(0.48 0 0);    /* muted carbon grey */
+  --accent: oklch(0.65 0.25 350);
+  --accent-foreground: oklch(0.99 0.005 0);
+  --destructive: oklch(0.66 0.24 25);
+  --destructive-foreground: oklch(0.99 0.005 0);
+  --success: oklch(0.68 0.18 145);
+  --info: oklch(0.55 0.18 245);
+  --border: oklch(0 0 0 / 0.08);          /* very thin clean borders */
+  --input: oklch(0 0 0 / 0.06);
+  --ring: oklch(0.65 0.25 350 / 0.3);
+  --bg-glow: oklch(0.65 0.25 350 / 0.04);
+  --ambient-1: oklch(0.65 0.25 350 / 0.12);
+  --ambient-2: oklch(0.55 0.18 245 / 0.08);
 }
 
 @layer base {

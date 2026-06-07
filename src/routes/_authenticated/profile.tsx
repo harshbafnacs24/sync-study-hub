@@ -47,6 +47,7 @@ function ProfilePage() {
     if (data?.profile) {
       setForm({
         name: data.profile.name,
+        avatar: data.profile.avatar ?? "",
         bio: data.profile.bio ?? "",
         school: data.profile.school ?? "",
         year: data.profile.year ?? "",
@@ -358,16 +359,30 @@ function ProfilePage() {
               </div>
               
               <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 20 }}>
-                {/* Mock Avatar */}
-                <div style={{
-                  width: 54, height: 54, borderRadius: 14,
-                  background: "rgba(232, 255, 71, 0.06)",
-                  border: "1px solid rgba(232, 255, 71, 0.2)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  color: "var(--color-primary)", fontWeight: "bold", fontSize: "1.2rem"
-                }}>
-                  {String(form.name || "S").slice(0, 1).toUpperCase()}
-                </div>
+                {/* Profile Avatar */}
+                {form.avatar ? (
+                  <img
+                    src={form.avatar}
+                    alt=""
+                    style={{
+                      width: 54,
+                      height: 54,
+                      borderRadius: 14,
+                      objectFit: "cover",
+                      border: "1px solid var(--color-border)"
+                    }}
+                  />
+                ) : (
+                  <div style={{
+                    width: 54, height: 54, borderRadius: 14,
+                    background: "rgba(232, 255, 71, 0.06)",
+                    border: "1px solid rgba(232, 255, 71, 0.2)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    color: "var(--color-primary)", fontWeight: "bold", fontSize: "1.2rem"
+                  }}>
+                    {String(form.name || "S").slice(0, 1).toUpperCase()}
+                  </div>
+                )}
                 <div>
                   <div className="ss-display" style={{ fontWeight: 800, fontSize: "1.15rem", color: "#F0F0F0" }}>
                     {form.name || "Student"}
@@ -537,6 +552,41 @@ function ProfilePage() {
               });
             }}
           >
+            <Field label="Choose Profile Photo">
+              <div style={{ display: "flex", gap: 10, overflowX: "auto", padding: "4px 0", marginBottom: 4 }}>
+                {[
+                  "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=150&h=150&q=80",
+                  "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80",
+                  "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80",
+                  "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&h=150&q=80",
+                  "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&h=150&q=80",
+                  "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=150&h=150&q=80",
+                  "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80"
+                ].map((url, i) => (
+                  <button
+                    type="button"
+                    key={i}
+                    onClick={() => setForm({ ...form, avatar: url })}
+                    style={{
+                      padding: 0,
+                      background: "none",
+                      border: form.avatar === url ? "3px solid var(--color-primary)" : "2px solid rgba(255,255,255,0.06)",
+                      borderRadius: "50%",
+                      cursor: "pointer",
+                      width: 50,
+                      height: 50,
+                      flexShrink: 0,
+                      boxSizing: "border-box",
+                      overflow: "hidden",
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  </button>
+                ))}
+              </div>
+            </Field>
+
             <Field label="Display name">
               <input className="ss-input" value={form.name ?? ""} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
             </Field>
