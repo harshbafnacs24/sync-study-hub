@@ -8,7 +8,7 @@ export const Route = createFileRoute("/_authenticated/communities_/$id")({
 });
 
 function CommunityDetailPage() {
-  const { id } = useParams({ from: "/_authenticated/communities/$id" });
+  const { id } = useParams({ from: "/_authenticated/communities_/$id" });
   const community = useCommunity(id);
   const channels = useChannels(id);
   const join = useToggleJoin();

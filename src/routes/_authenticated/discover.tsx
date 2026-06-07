@@ -11,10 +11,10 @@ import {
   useRemoveConnection,
   useConnectionStatus,
   useDiscoverUsers,
+  useNetworkUser,
 } from "../../lib/hooks/use-network";
-import { networkStore } from "../../lib/store/network";
+import { networkStore, type NetworkUser, type Connection } from "../../lib/store/network";
 import { useAuth } from "../../lib/auth-context";
-import type { NetworkUser, Connection } from "../../lib/types";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/discover")({

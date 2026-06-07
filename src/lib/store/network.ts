@@ -14,6 +14,9 @@ export interface NetworkUser {
   school: string;
   year: string;
   goals: string;
+  subject?: string;
+  studyStreak?: number;
+  totalHours?: number;
 }
 
 export interface Connection {

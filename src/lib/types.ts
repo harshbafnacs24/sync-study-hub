@@ -19,6 +19,7 @@ export interface Profile {
   goals?: string | null;
   timezone?: string | null;
   updatedAt?: string;
+  publicId?: string;
 }
 
 export interface AuthResponse {

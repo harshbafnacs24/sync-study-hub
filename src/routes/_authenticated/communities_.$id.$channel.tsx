@@ -6,6 +6,7 @@ import {
 } from "../../lib/hooks/use-messaging";
 import { communitiesStore } from "../../lib/store/communities";
 import { messagesStore } from "../../lib/store/messages";
+import { SEED_PEERS } from "../../lib/store/seed";
 import { MessageBubble } from "../../components/messaging/MessageBubble";
 import { MessageComposer } from "../../components/messaging/MessageComposer";
 import { timeAgo } from "../../components/messaging/Avatar";
@@ -16,7 +17,7 @@ export const Route = createFileRoute("/_authenticated/communities_/$id/$channel"
 });
 
 function ChannelPage() {
-  const { id, channel } = useParams({ from: "/_authenticated/communities/$id/$channel" });
+  const { id, channel } = useParams({ from: "/_authenticated/communities_/$id/$channel" });
   const nav = useNavigate();
   const community = useCommunity(id);
   const ch = useMemo(() => communitiesStore.channelByName(id, channel), [id, channel]);
@@ -61,7 +62,7 @@ function ChannelPage() {
         {(messages.data ?? []).map((m, i, arr) => {
           if (m.system) return <MessageBubble key={m.id} mine={false} text={m.text} system />;
           const mine = m.authorId === "me";
-          const peer = mine ? null : messagesStore.peer(m.authorId);
+          const peer = mine ? null : SEED_PEERS.find((p) => p.id === m.authorId);
           const showAuthor = !mine && (i === 0 || arr[i - 1]?.authorId !== m.authorId);
           const showMeta = i === arr.length - 1 || arr[i + 1]?.authorId !== m.authorId;
           return (
