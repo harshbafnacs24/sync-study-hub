@@ -36,12 +36,18 @@ export function useLiveChannel(channelId: string | undefined) {
   const qc = useQueryClient();
   useEffect(() => {
     if (!channelId) return;
+    socketBus.emit("channel:join", channelId);
+    
     const off = socketBus.on(SocketEvents.ChannelMessage, (p: { channelId: string }) => {
       if (p?.channelId === channelId) {
         qc.invalidateQueries({ queryKey: ["channel-messages", channelId] });
       }
     });
-    return off;
+    
+    return () => {
+      socketBus.emit("channel:leave", channelId);
+      off();
+    };
   }, [qc, channelId]);
 }
 

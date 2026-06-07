@@ -52,10 +52,22 @@ export function attachSocket(httpServer: HttpServer) {
     onlineUsers.add(userId);
     io!.emit("presence:online", { userId });
 
-    socket.on("conversation:join", (id: string) => socket.join(`conv:${id}`));
-    socket.on("conversation:leave", (id: string) => socket.leave(`conv:${id}`));
-    socket.on("channel:join", (id: string) => socket.join(`channel:${id}`));
-    socket.on("channel:leave", (id: string) => socket.leave(`channel:${id}`));
+    socket.on("conversation:join", (id: string) => {
+      const room = id.startsWith("conv:") ? id : `conv:${id}`;
+      socket.join(room);
+    });
+    socket.on("conversation:leave", (id: string) => {
+      const room = id.startsWith("conv:") ? id : `conv:${id}`;
+      socket.leave(room);
+    });
+    socket.on("channel:join", (id: string) => {
+      const room = id.startsWith("channel:") ? id : `channel:${id}`;
+      socket.join(room);
+    });
+    socket.on("channel:leave", (id: string) => {
+      const room = id.startsWith("channel:") ? id : `channel:${id}`;
+      socket.leave(room);
+    });
 
     socket.on("typing:start", (room: string) => socket.to(room).emit("typing:start", { userId, room }));
     socket.on("typing:stop", (room: string) => socket.to(room).emit("typing:stop", { userId, room }));

@@ -11,24 +11,20 @@ class SocketBus {
   on(event: string, cb: Listener): () => void {
     if (!this.listeners.has(event)) this.listeners.set(event, new Set());
     this.listeners.get(event)!.add(cb);
-    socket?.on(event, cb);
     return () => {
       this.listeners.get(event)?.delete(cb);
-      socket?.off(event, cb);
     };
   }
 
   emit(event: string, ...args: unknown[]) {
+    // Trigger local listeners immediately for instant UI response
     this.listeners.get(event)?.forEach((cb) => cb(...args));
+    // Send event to server
     socket?.emit(event, ...args);
   }
 
-  _bindSocket(s: Socket) {
-    for (const [event, cbs] of this.listeners) {
-      for (const cb of cbs) {
-        s.on(event, cb);
-      }
-    }
+  _publishLocal(event: string, ...args: unknown[]) {
+    this.listeners.get(event)?.forEach((cb) => cb(...args));
   }
 
   reset() {
@@ -85,7 +81,7 @@ export function connectSocket(token: string) {
   ];
   for (const evt of serverEvents) {
     socket.on(evt, (...args: any[]) => {
-      socketBus.emit(evt, ...args);
+      socketBus._publishLocal(evt, ...args);
     });
   }
 }
