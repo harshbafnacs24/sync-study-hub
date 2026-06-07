@@ -1,8 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { LogOut } from "lucide-react";
 import { PageHeader, Card, SectionHeader } from "../../components/ui-kit/Card";
 import { useAuth } from "../../lib/auth-context";
 import { THEMES, useTheme } from "../../lib/theme";
+import { api } from "../../lib/api-client";
+import { avatarsForGender } from "../../lib/avatars";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({ meta: [{ title: "Settings — Sync & Study" }] }),
@@ -13,15 +17,54 @@ function SettingsPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
+  const qc = useQueryClient();
+
+  const { data: profileData } = useQuery({
+    queryKey: ["my-profile"],
+    queryFn: () => api.getMyProfile(),
+  });
+
+  const profile = profileData?.profile;
+  const avatarOptions = avatarsForGender(profile?.gender ?? "other");
+
+  const updateAvatar = useMutation({
+    mutationFn: (avatar: string) => api.updateMyProfile({ avatar }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["my-profile"] });
+      toast.success("Avatar updated");
+    },
+    onError: () => toast.error("Failed to update avatar"),
+  });
 
   return (
     <>
       <PageHeader eyebrow="Preferences" title="Settings" sub={user?.email} />
       <div className="ss-body">
+        <SectionHeader eyebrow="Profile" title="Avatar" />
+        <Card>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "8px 0" }}>
+            {avatarOptions.map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => updateAvatar.mutate(emoji)}
+                style={{
+                  width: 48, height: 48, borderRadius: 12, fontSize: "1.5rem", cursor: "pointer",
+                  border: profile?.avatar === emoji ? "2px solid var(--color-primary)" : "1px solid var(--color-border)",
+                  background: "var(--bg-2)",
+                }}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        </Card>
+
         <SectionHeader eyebrow="Account" title="Profile" />
         <Card>
           <Row label="Email" value={user?.email ?? "—"} />
-          <Row label="Display name" value={user?.name ?? "Set in Profile"} />
+          <Row label="Display name" value={profile?.name ?? user?.name ?? "Set in Profile"} />
+          <Row label="University" value={profile?.school ?? "—"} />
+          <Row label="Branch" value={profile?.branch ?? "—"} />
         </Card>
 
         <SectionHeader eyebrow="Appearance" title="Theme Options" />
@@ -32,18 +75,11 @@ function SettingsPage() {
                 key={t.id}
                 onClick={() => setTheme(t.id)}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "12px 14px",
-                  borderRadius: 10,
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "12px 14px", borderRadius: 10,
                   border: theme === t.id ? "1.5px solid var(--color-primary)" : "1px solid var(--color-border)",
-                  background: "var(--bg-2)",
-                  cursor: "pointer",
-                  color: "var(--color-foreground)",
-                  transition: "all 0.2s",
-                  width: "100%",
-                  textAlign: "left",
+                  background: "var(--bg-2)", cursor: "pointer", color: "var(--color-foreground)",
+                  transition: "all 0.2s", width: "100%", textAlign: "left",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -51,7 +87,6 @@ function SettingsPage() {
                     width: 20, height: 20, borderRadius: "50%",
                     background: `linear-gradient(135deg, ${t.primary}, ${t.bg})`,
                     border: "1px solid rgba(255,255,255,0.15)",
-                    boxShadow: theme === t.id ? `0 0 10px ${t.primary}66` : "none"
                   }} />
                   <span style={{ fontSize: "0.85rem", fontWeight: theme === t.id ? 700 : 500 }}>{t.name}</span>
                 </div>
@@ -63,19 +98,6 @@ function SettingsPage() {
               </button>
             ))}
           </div>
-        </Card>
-
-        <SectionHeader eyebrow="Focus" title="Pomodoro defaults" />
-        <Card>
-          <Row label="Focus" value="25 min" />
-          <Row label="Short break" value="5 min" />
-          <Row label="Long break" value="15 min" />
-        </Card>
-
-        <SectionHeader eyebrow="AI" title="Sage" />
-        <Card>
-          <Row label="Model" value="Claude (default)" />
-          <Row label="Context" value="Tasks · Sessions · Streak" />
         </Card>
 
         <button

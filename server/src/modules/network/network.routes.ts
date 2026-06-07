@@ -6,8 +6,8 @@ import { Connection } from "../../models/Connection.js";
 import { Profile } from "../../models/Profile.js";
 import { Block } from "../../models/Block.js";
 import { Report } from "../../models/Report.js";
-import { Notification } from "../../models/Notification.js";
-import { emitToUser } from "../../realtime/socket.js";
+import { emitToUser, isUserOnline } from "../../realtime/socket.js";
+import { createNotification } from "../../lib/notifications.js";
 
 export const networkRouter = Router();
 networkRouter.use(requireAuth);
@@ -53,6 +53,7 @@ networkRouter.get("/search", asyncHandler(async (req: AuthedRequest, res) => {
       { subjects: { $regex: q, $options: "i" } },
       { bio: { $regex: q, $options: "i" } },
       { school: { $regex: q, $options: "i" } },
+      { branch: { $regex: q, $options: "i" } },
       { goals: { $regex: q, $options: "i" } },
     ]
   }).limit(30);
@@ -128,11 +129,39 @@ networkRouter.get("/for-you", asyncHandler(async (req: AuthedRequest, res) => {
   res.json({ users: top.map(s => mapProfile(s.profile)) });
 }));
 
+async function getFriendIds(userId: string): Promise<string[]> {
+  const conns = await Connection.find({
+    $or: [{ fromUserId: userId }, { toUserId: userId }],
+    status: "accepted",
+  });
+  return conns.map((c) => (String(c.fromUserId) === userId ? String(c.toUserId) : String(c.fromUserId)));
+}
+
+async function getMutualFriendCount(userId: string, otherId: string): Promise<number> {
+  const myFriends = new Set(await getFriendIds(userId));
+  const theirFriends = await getFriendIds(otherId);
+  return theirFriends.filter((id) => myFriends.has(id)).length;
+}
+
+/* ── GET /friends — accepted friends list ── */
+networkRouter.get("/friends", asyncHandler(async (req: AuthedRequest, res) => {
+  const friendIds = await getFriendIds(req.userId!);
+  const profiles = await Profile.find({ userId: { $in: friendIds } });
+  res.json({ users: profiles.map(mapProfile) });
+}));
+
 /* ── GET /user/:id — get a single user's public profile ── */
 networkRouter.get("/user/:id", asyncHandler(async (req: AuthedRequest, res) => {
   const profile = await Profile.findOne({ userId: req.params.id });
   if (!profile) return res.status(404).json({ error: "User not found" });
-  res.json({ user: mapProfile(profile) });
+  const mutualFriends = await getMutualFriendCount(req.userId!, req.params.id);
+  res.json({ user: { ...mapProfile(profile), mutualFriends } });
+}));
+
+/* ── GET /user/:id/mutual-friends — mutual friends count ── */
+networkRouter.get("/user/:id/mutual-friends", asyncHandler(async (req: AuthedRequest, res) => {
+  const count = await getMutualFriendCount(req.userId!, req.params.id);
+  res.json({ count });
 }));
 
 /* ── GET /connections — list all connections ── */
@@ -171,15 +200,14 @@ networkRouter.post("/connections", validate(sendSchema), asyncHandler(async (req
 
   const conn = await Connection.create({ fromUserId: req.userId, toUserId, status: "pending" });
 
-  // Create notification for recipient
   const senderProfile = await Profile.findOne({ userId: req.userId });
-  await Notification.create({
+  await createNotification({
     userId: toUserId,
-    kind: "community_invite", // reuse existing kind for connection requests
-    title: "New Connection Request",
-    body: `${senderProfile?.name ?? "Someone"} wants to connect with you`,
+    kind: "friend_request",
+    title: "Friend Request",
+    body: `${senderProfile?.name ?? "Someone"} sent you a friend request`,
     href: "/discover",
-    read: false,
+    payload: { connectionId: String(conn._id) },
   });
 
   // Emit socket event
@@ -217,14 +245,13 @@ networkRouter.put("/connections/:id", validate(updateSchema), asyncHandler(async
       acceptedBy: accepterProfile ? { name: accepterProfile.name } : null,
     });
 
-    // Create notification
-    await Notification.create({
+    await createNotification({
       userId: otherUserId,
-      kind: "community_invite",
-      title: "Connection Accepted",
-      body: `${accepterProfile?.name ?? "Someone"} accepted your connection request`,
+      kind: "friend_accepted",
+      title: "Friend Request Accepted",
+      body: `${accepterProfile?.name ?? "Someone"} accepted your friend request`,
       href: "/discover",
-      read: false,
+      payload: { connectionId: String(conn._id) },
     });
   }
 
@@ -304,23 +331,28 @@ networkRouter.post("/report", validate(reportSchema), asyncHandler(async (req: A
 
 /* ── Profile mapper ── */
 function mapProfile(p: any) {
+  const userId = String(p.userId);
   return {
-    id: String(p.userId),
-    userId: String(p.userId),
+    id: userId,
+    userId,
     username: (p.name ?? "").replace(/\s+/g, ""),
     handle: (p.name ?? "").toLowerCase().replace(/\s+/g, "_"),
     name: p.name ?? "Unknown",
     publicId: p.publicId ?? "",
     initials: (p.name ?? "?").split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2),
     avatar: p.avatar ?? null,
-    online: false,
+    online: isUserOnline(userId),
     bio: p.bio ?? "",
     interests: p.subjects ?? [],
+    subjects: p.subjects ?? [],
     communities: [],
     school: p.school ?? "",
+    branch: p.branch ?? "",
     year: p.year ?? "",
+    gender: p.gender ?? null,
     studyStreak: 0,
     totalHours: 0,
     goals: p.goals ?? "",
+    profileCompleted: p.profileCompleted ?? false,
   };
 }

@@ -39,7 +39,7 @@ class SocketBus {
 export const socketBus = new SocketBus();
 
 export function connectSocket(token: string) {
-  if (typeof window !== "undefined" && window.localStorage.getItem("sas.demo_mode") === "true") {
+  if (typeof window !== "undefined" && (window.localStorage.getItem("sas.demo_mode") === "true" || window.sessionStorage.getItem("sas.demo_mode") === "true")) {
     console.log("[socket] running in offline demo mode, skipping server connection");
     return;
   }

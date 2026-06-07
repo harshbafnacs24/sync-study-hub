@@ -11,12 +11,19 @@ function publicUser(u: UserDoc) {
   return { id: String(u._id), email: u.email, createdAt: u.createdAt.toISOString() };
 }
 
-async function ensureProfile(userId: string, name: string, avatar?: string | null) {
+async function ensureProfile(userId: string, name: string) {
   const existing = await Profile.findOne({ userId });
   if (existing) return existing;
-  const suffix = Math.floor(100000 + Math.random() * 900000); // 6-digit public ID
+  const suffix = Math.floor(100000 + Math.random() * 900000);
   const publicId = `STUDY-${suffix}`;
-  return Profile.create({ userId, name, publicId, avatar: avatar ?? null, subjects: [] });
+  return Profile.create({
+    userId,
+    name: name || "New Student",
+    publicId,
+    avatar: null,
+    subjects: [],
+    profileCompleted: false,
+  });
 }
 
 export async function signupWithEmail(email: string, password: string, name: string) {
@@ -73,7 +80,7 @@ export async function loginWithGoogle(idToken: string) {
     user.googleId = googleId;
     await user.save();
   }
-  await ensureProfile(String(user._id), name ?? email.split("@")[0], picture ?? null);
+  await ensureProfile(String(user._id), name ?? email.split("@")[0]);
   return { token: signToken(String(user._id)), user: publicUser(user) };
 }
 

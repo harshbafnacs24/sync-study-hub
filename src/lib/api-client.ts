@@ -1,4 +1,4 @@
-import type { AuthResponse, Profile, ProfilePatch, AuthUser } from "./types";
+import type { AuthResponse, Profile, ProfilePatch, ProfileSetupInput, AuthUser, FeedPost, FeedComment } from "./types";
 import { DEV_OFFLINE_MODE } from "./dev-mode";
 import { storage } from "./store/storage";
 import { SEED_NETWORK_USERS } from "./store/seed-archive";
@@ -248,7 +248,21 @@ function handleOfflineRequest(path: string, init: any): any {
     return { token: currentUser.id, user: currentUser };
   }
 
-  if (path.startsWith("/api/profile/me")) {
+  if (path.startsWith("/api/profile/setup")) {
+    const body = JSON.parse(init.body || "{}");
+    const updated = { ...currentUser, ...body, profileCompleted: true, updatedAt: new Date().toISOString() };
+    const index = users.findIndex(u => u.id === currentUserId);
+    if (index !== -1) {
+      users[index] = updated;
+      window.localStorage.setItem("sas.demo_users", JSON.stringify(users));
+    }
+    return { profile: updated };
+  }
+
+  if (path.startsWith("/api/profile/me") || path.startsWith("/api/profile/avatars")) {
+    if (path.includes("/avatars")) {
+      return { avatars: ["🧑‍🎓", "🧑‍💻", "🧑‍🏫"] };
+    }
     if (method === "PATCH") {
       const patch = JSON.parse(init.body || "{}");
       const updated = { ...currentUser, ...patch, updatedAt: new Date().toISOString() };
@@ -259,11 +273,30 @@ function handleOfflineRequest(path: string, init: any): any {
       }
       return { profile: updated };
     } else {
-      return { profile: currentUser };
+      return { profile: { ...currentUser, profileCompleted: currentUser.profileCompleted ?? true } };
     }
   }
 
-  if (path.startsWith("/api/v1/network/discover")) {
+  if (path.startsWith("/api/v1/posts")) {
+    if (path.includes("/feed")) return { posts: [] };
+    if (method === "POST" && !path.includes("/comments") && !path.includes("/like")) {
+      return { post: { id: "post-demo", authorId: currentUserId, content: JSON.parse(init.body || "{}").content, createdAt: new Date().toISOString(), author: { id: currentUserId, name: currentUser.name, avatar: currentUser.avatar, school: currentUser.school ?? "" }, likeCount: 0, liked: false, commentCount: 0 } };
+    }
+    return { posts: [], comments: [], ok: true };
+  }
+
+  if (path.startsWith("/api/v1/notifications")) {
+    if (path.includes("unread-count")) return { count: 0 };
+    if (path.includes("read-all")) return { ok: true };
+    return { notifications: [] };
+  }
+
+  if (path.startsWith("/api/v1/network/friends")) {
+    const friendIds = conns.filter(c => c.status === "accepted").map(c => c.fromUserId === currentUserId ? c.toUserId : c.fromUserId);
+    return { users: users.filter(u => friendIds.includes(u.id)) };
+  }
+
+  if (path.startsWith("/api/v1/network/discover") || path.startsWith("/api/v1/network/search") || path.startsWith("/api/network/search")) {
     const q = new URLSearchParams(path.split("?")[1] || "").get("q") || "";
     let filtered = users.filter(u => u.id !== currentUserId);
     if (q) {
@@ -426,7 +459,7 @@ async function request<T>(
   path: string,
   init: RequestInit & { auth?: boolean } = {},
 ): Promise<T> {
-  if (typeof window !== "undefined" && window.localStorage.getItem("sas.demo_mode") === "true") {
+  if (typeof window !== "undefined" && (window.localStorage.getItem("sas.demo_mode") === "true" || window.sessionStorage.getItem("sas.demo_mode") === "true")) {
     return handleOfflineRequest(path, init) as T;
   }
   const { auth = false, headers, ...rest } = init;
@@ -441,11 +474,11 @@ async function request<T>(
   let res: Response;
   try {
     res = await fetch(`${API_BASE_URL}${path}`, { ...rest, headers: finalHeaders });
-  } catch {
+  } catch (err) {
     if (typeof window !== "undefined") {
-      window.localStorage.setItem("sas.demo_mode", "true");
+      window.sessionStorage.setItem("sas.demo_mode", "true");
     }
-    console.warn(`[api-client] Cannot reach API at ${API_BASE_URL}. Automatically switching to offline Demo Mode.`);
+    console.warn(`[api-client] Cannot reach API at ${API_BASE_URL}. Automatically switching to offline Demo Mode.`, err);
     return handleOfflineRequest(path, init) as T;
   }
   const text = await res.text();
@@ -489,6 +522,16 @@ export const api = {
       body: JSON.stringify(patch),
     });
   },
+
+  setupProfile: (body: ProfileSetupInput) =>
+    request<{ profile: Profile }>("/api/profile/setup", {
+      method: "POST",
+      auth: true,
+      body: JSON.stringify(body),
+    }),
+
+  getAvatarOptions: () =>
+    request<{ avatars: string[] }>("/api/profile/avatars", { auth: true }),
 
   // Network discovery
   searchUsers: (q: string) =>
@@ -566,6 +609,71 @@ export const api = {
       method: "POST",
       auth: true,
     }),
+
+  getFriends: () =>
+    request<{ users: any[] }>("/api/v1/network/friends", { auth: true }),
+
+  // Posts / Feed
+  getFeed: () =>
+    request<{ posts: FeedPost[] }>("/api/v1/posts/feed", { auth: true }),
+
+  createPost: (content: string) =>
+    request<{ post: FeedPost }>("/api/v1/posts", {
+      method: "POST",
+      auth: true,
+      body: JSON.stringify({ content }),
+    }),
+
+  updatePost: (id: string, content: string) =>
+    request<{ post: FeedPost }>(`/api/v1/posts/${id}`, {
+      method: "PATCH",
+      auth: true,
+      body: JSON.stringify({ content }),
+    }),
+
+  deletePost: (id: string) =>
+    request<{ ok: boolean }>(`/api/v1/posts/${id}`, { method: "DELETE", auth: true }),
+
+  toggleLike: (postId: string) =>
+    request<{ post: FeedPost }>(`/api/v1/posts/${postId}/like`, { method: "POST", auth: true }),
+
+  getComments: (postId: string) =>
+    request<{ comments: FeedComment[] }>(`/api/v1/posts/${postId}/comments`, { auth: true }),
+
+  addComment: (postId: string, content: string) =>
+    request<{ comment: FeedComment }>(`/api/v1/posts/${postId}/comments`, {
+      method: "POST",
+      auth: true,
+      body: JSON.stringify({ content }),
+    }),
+
+  // Notifications
+  getNotifications: () =>
+    request<{ notifications: any[] }>("/api/v1/notifications", { auth: true }),
+
+  getUnreadNotificationCount: () =>
+    request<{ count: number }>("/api/v1/notifications/unread-count", { auth: true }),
+
+  markAllNotificationsRead: () =>
+    request<{ ok: boolean }>("/api/v1/notifications/read-all", { method: "POST", auth: true }),
+
+  markNotificationRead: (id: string) =>
+    request<{ ok: boolean }>(`/api/v1/notifications/${id}/read`, { method: "POST", auth: true }),
+
+  // File upload for chat
+  uploadChatFile: async (conversationId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    const token = tokenStore.get();
+    const res = await fetch(`${API_BASE_URL}/api/v1/uploads/chat/${conversationId}`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new ApiError(data?.error ?? "Upload failed", res.status);
+    return data as { file: { id: string; url: string; kind: string; name: string; size: number; mimeType: string } };
+  },
 
   request: <T>(path: string, init?: RequestInit & { auth?: boolean }) =>
     request<T>(path, init),

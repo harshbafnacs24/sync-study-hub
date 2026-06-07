@@ -15,7 +15,7 @@ export function streamSage(
   payload: { messages: SageMessageInput[]; context?: unknown },
   handlers: { onToken: (text: string) => void; onError?: (message: string) => void },
 ): SageStreamHandle {
-  if (typeof window !== "undefined" && window.localStorage.getItem("sas.demo_mode") === "true") {
+  if (typeof window !== "undefined" && (window.localStorage.getItem("sas.demo_mode") === "true" || window.sessionStorage.getItem("sas.demo_mode") === "true")) {
     const userPrompt = payload.messages.filter(m => m.role === "user").at(-1)?.text ?? "";
     return streamSageReply(userPrompt, handlers.onToken);
   }

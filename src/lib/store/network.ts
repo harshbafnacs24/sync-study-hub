@@ -12,7 +12,9 @@ export interface NetworkUser {
   bio: string;
   interests: string[];
   school: string;
+  branch?: string;
   year: string;
+  mutualFriends?: number;
   goals: string;
   subject?: string;
   studyStreak?: number;
@@ -55,6 +57,16 @@ export const networkStore = {
       return users;
     } catch (e) {
       console.error("Error searching users:", e);
+      return [];
+    }
+  },
+
+  async friends(): Promise<NetworkUser[]> {
+    try {
+      const { users } = await api.getFriends();
+      return users;
+    } catch (e) {
+      console.error("Error fetching friends:", e);
       return [];
     }
   },

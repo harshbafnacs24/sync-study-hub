@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const t = tokenStore.get();
     if (!t) { setLoading(false); return; }
 
-    if (typeof window !== "undefined" && window.localStorage.getItem("sas.demo_mode") === "true") {
+    if (typeof window !== "undefined" && (window.localStorage.getItem("sas.demo_mode") === "true" || window.sessionStorage.getItem("sas.demo_mode") === "true")) {
       const rawUsers = window.localStorage.getItem("sas.demo_users");
       const users = rawUsers ? JSON.parse(rawUsers) : [];
       const u = users.find((x: any) => x.id === t) || MOCK_USER;
@@ -119,6 +119,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Always use the highly-compatible Web OAuth popup flow.
     // This bypasses any native Android SHA-1 signature or keystore configuration issues!
     const idToken = await getGoogleIdToken();
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem("sas.demo_mode");
+      window.sessionStorage.removeItem("sas.demo_mode");
+    }
     await handleAuth(api.google(idToken));
   };
 
@@ -139,13 +143,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthState = {
     user,
     loading,
-    loginEmail: (email, password) => handleAuth(api.login({ email, password })),
-    signupEmail: (email, password, name) => handleAuth(api.signup({ email, password, name })),
+    loginEmail: (email, password) => {
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem("sas.demo_mode");
+        window.sessionStorage.removeItem("sas.demo_mode");
+      }
+      return handleAuth(api.login({ email, password }));
+    },
+    signupEmail: (email, password, name) => {
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem("sas.demo_mode");
+        window.sessionStorage.removeItem("sas.demo_mode");
+      }
+      return handleAuth(api.signup({ email, password, name }));
+    },
     loginGoogle,
     loginDemo,
     logout: () => {
       if (typeof window !== "undefined") {
         window.localStorage.removeItem("sas.demo_mode");
+        window.sessionStorage.removeItem("sas.demo_mode");
       }
       tokenStore.clear();
       disconnectSocket();

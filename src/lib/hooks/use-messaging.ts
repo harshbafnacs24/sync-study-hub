@@ -64,8 +64,8 @@ export function useDMs(conversationId: string) {
 export function useSendDM() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ conversationId, text }: { conversationId: string; text: string }) =>
-      messagesStore.send(conversationId, text),
+    mutationFn: async ({ conversationId, text, attachments }: { conversationId: string; text: string; attachments?: { url: string; kind: string; name: string; size: number }[] }) =>
+      messagesStore.send(conversationId, text, attachments),
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["dms", vars.conversationId] });
       qc.invalidateQueries({ queryKey: ["conversations"] });
@@ -153,6 +153,13 @@ export function useNotifications() {
   return useQuery({ queryKey: ["notifications"], queryFn: async () => notificationsStore.list(), staleTime: 0 });
 }
 export function useUnreadNotifications() {
+  const qc = useQueryClient();
+  useEffect(() => {
+    const off = socketBus.on(SocketEvents.NotificationNew, () => {
+      qc.invalidateQueries({ queryKey: ["notifications"] });
+    });
+    return off;
+  }, [qc]);
   return useQuery({ queryKey: ["notifications", "unread"], queryFn: async () => notificationsStore.unreadCount(), staleTime: 5_000 });
 }
 export function useMarkNotificationsRead() {

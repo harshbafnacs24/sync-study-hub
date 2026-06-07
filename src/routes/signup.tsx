@@ -33,7 +33,7 @@ function SignupPage() {
     try {
       await signupEmail(email, password, name.trim());
       toast.success("Welcome to Sync & Study");
-      navigate({ to: "/home" });
+      navigate({ to: "/profile-setup" });
     } catch (err: any) {
       setError(err?.message ?? "Signup failed");
     } finally {
@@ -44,7 +44,7 @@ function SignupPage() {
   async function onGoogle() {
     try {
       await loginGoogle();
-      navigate({ to: "/home" });
+      navigate({ to: "/profile-setup" });
     } catch (err: any) {
       toast.error(err?.message ?? "Google sign-in failed");
     }

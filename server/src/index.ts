@@ -14,6 +14,8 @@ import { communitiesRouter } from "./modules/communities/communities.routes.js";
 import { notificationsRouter } from "./modules/notifications/notifications.routes.js";
 import { sageRouter } from "./modules/sage/sage.routes.js";
 import { networkRouter } from "./modules/network/network.routes.js";
+import { postsRouter } from "./modules/posts/posts.routes.js";
+import { uploadRouter } from "./modules/upload/upload.routes.js";
 import { attachSocket } from "./realtime/socket.js";
 
 async function main() {
@@ -46,6 +48,8 @@ async function main() {
   app.use("/api/v1/notifications", notificationsRouter);
   app.use("/api/v1/sage", sageRouter);
   app.use("/api/v1/network", networkRouter);
+  app.use("/api/v1/posts", postsRouter);
+  app.use("/api/v1/uploads", uploadRouter);
 
   // Legacy unversioned aliases.
   app.use("/api/auth", authRouter);

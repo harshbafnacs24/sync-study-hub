@@ -1,6 +1,8 @@
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { networkStore } from "../store/network";
 import { useAuth } from "../auth-context";
+import { socketBus, SocketEvents } from "../socket";
 
 export function useDiscoverUsers(skip = 0, limit = 20) {
   return useQuery({
@@ -28,10 +30,31 @@ export function useForYouUsers() {
 }
 
 export function useNetworkUser(userId: string) {
+  const qc = useQueryClient();
+  useEffect(() => {
+    const offOnline = socketBus.on(SocketEvents.PresenceOnline, () => {
+      qc.invalidateQueries({ queryKey: ["network", "user", userId] });
+      qc.invalidateQueries({ queryKey: ["network", "friends"] });
+    });
+    const offOffline = socketBus.on(SocketEvents.PresenceOffline, () => {
+      qc.invalidateQueries({ queryKey: ["network", "user", userId] });
+      qc.invalidateQueries({ queryKey: ["network", "friends"] });
+    });
+    return () => { offOnline(); offOffline(); };
+  }, [qc, userId]);
+
   return useQuery({
     queryKey: ["network", "user", userId],
     queryFn: () => networkStore.getUser(userId),
     enabled: !!userId,
+  });
+}
+
+export function useFriends() {
+  return useQuery({
+    queryKey: ["network", "friends"],
+    queryFn: () => networkStore.friends(),
+    staleTime: 30000,
   });
 }
 

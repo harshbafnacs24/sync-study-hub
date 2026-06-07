@@ -8,7 +8,18 @@ notificationsRouter.use(requireAuth);
 
 notificationsRouter.get("/", asyncHandler(async (req: AuthedRequest, res) => {
   const items = await Notification.find({ userId: req.userId }).sort({ createdAt: -1 }).limit(100);
-  res.json({ notifications: items });
+  res.json({
+    notifications: items.map((n) => ({
+      id: String(n._id),
+      kind: n.kind,
+      title: n.title,
+      body: n.body,
+      href: n.href,
+      read: n.read,
+      createdAt: n.createdAt.toISOString(),
+      payload: n.payload,
+    })),
+  });
 }));
 
 notificationsRouter.get("/unread-count", asyncHandler(async (req: AuthedRequest, res) => {

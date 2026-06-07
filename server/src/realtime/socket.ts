@@ -10,9 +10,18 @@ export interface SocketContext {
 }
 
 let io: Server | null = null;
+const onlineUsers = new Set<string>();
 
 export function getIO(): Server | null {
   return io;
+}
+
+export function isUserOnline(userId: string): boolean {
+  return onlineUsers.has(userId);
+}
+
+export function getOnlineUserIds(): string[] {
+  return Array.from(onlineUsers);
 }
 
 export function emitToUser(userId: string, event: string, data: any) {
@@ -40,6 +49,7 @@ export function attachSocket(httpServer: HttpServer) {
   io.on("connection", (socket: AnySocket) => {
     const userId: string = socket.data.userId;
     socket.join(`user:${userId}`);
+    onlineUsers.add(userId);
     io!.emit("presence:online", { userId });
 
     socket.on("conversation:join", (id: string) => socket.join(`conv:${id}`));
@@ -48,9 +58,10 @@ export function attachSocket(httpServer: HttpServer) {
     socket.on("channel:leave", (id: string) => socket.leave(`channel:${id}`));
 
     socket.on("typing:start", (room: string) => socket.to(room).emit("typing:start", { userId, room }));
-    socket.on("typing:stop",  (room: string) => socket.to(room).emit("typing:stop",  { userId, room }));
+    socket.on("typing:stop", (room: string) => socket.to(room).emit("typing:stop", { userId, room }));
 
     socket.on("disconnect", () => {
+      onlineUsers.delete(userId);
       io!.emit("presence:offline", { userId });
     });
   });

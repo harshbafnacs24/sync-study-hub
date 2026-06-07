@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { Bell, MessageSquare, Hash, AtSign, Users, Clock, ListChecks } from "lucide-react";
+import { Bell, MessageSquare, Hash, AtSign, Users, Clock, ListChecks, UserCheck } from "lucide-react";
 import { PageHeader, EmptyState } from "../../components/ui-kit/Card";
 import { useNotifications, useMarkNotificationsRead } from "../../lib/hooks/use-messaging";
 import { timeAgo } from "../../components/messaging/Avatar";
@@ -12,8 +12,12 @@ export const Route = createFileRoute("/_authenticated/notifications")({
   component: NotificationsPage,
 });
 
-const ICONS: Record<NotificationKind, any> = {
+const ICONS: Partial<Record<NotificationKind, any>> = {
+  friend_request: Users,
+  friend_accepted: UserCheck,
   dm: MessageSquare,
+  comment: MessageSquare,
+  like: Bell,
   channel_message: Hash,
   mention: AtSign,
   community_invite: Users,

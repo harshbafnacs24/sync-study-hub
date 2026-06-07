@@ -136,11 +136,21 @@ function NetworkUserProfile() {
           <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 16 }}>
             <div style={{
               width: 64, height: 64, borderRadius: 16, flexShrink: 0,
-              background: avatarGradient(user.id),
+              background: user.avatar && !(user.avatar.startsWith("http") || user.avatar.startsWith("/") || user.avatar.startsWith("data:")) ? "var(--bg-3)" : avatarGradient(user.id),
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontWeight: 900, fontSize: "1.4rem", color: "#0c0c0c",
+              fontWeight: 900, fontSize: user.avatar && !(user.avatar.startsWith("http") || user.avatar.startsWith("/") || user.avatar.startsWith("data:")) ? "2.2rem" : "1.4rem",
+              color: user.avatar && !(user.avatar.startsWith("http") || user.avatar.startsWith("/") || user.avatar.startsWith("data:")) ? "inherit" : "#0c0c0c",
+              border: "1px solid var(--color-border)"
             }}>
-              {user.initials}
+              {user.avatar ? (
+                (user.avatar.startsWith("http") || user.avatar.startsWith("/") || user.avatar.startsWith("data:")) ? (
+                  <img src={user.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 16 }} />
+                ) : (
+                  user.avatar
+                )
+              ) : (
+                user.initials
+              )}
             </div>
             <div>
               <div style={{ fontWeight: 800, fontSize: "1.15rem", color: "#f0f0f0" }}>{user.name}</div>
@@ -148,8 +158,13 @@ function NetworkUserProfile() {
                 @{user.handle}
               </div>
               <div style={{ fontSize: "0.72rem", color: "#666", marginTop: 2 }}>
-                {user.school} · {user.year}
+                {user.school}{user.branch ? ` · ${user.branch}` : ""} · {user.year}
               </div>
+              {(user as any).mutualFriends > 0 && (
+                <div style={{ fontSize: "0.68rem", color: "var(--color-primary)", marginTop: 4 }}>
+                  {(user as any).mutualFriends} mutual friend{(user as any).mutualFriends !== 1 ? "s" : ""}
+                </div>
+              )}
             </div>
           </div>
 

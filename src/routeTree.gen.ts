@@ -19,6 +19,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedSageRouteImport } from './routes/_authenticated/sage'
 import { Route as AuthenticatedRoomsRouteImport } from './routes/_authenticated/rooms'
 import { Route as AuthenticatedQuickmeetRouteImport } from './routes/_authenticated/quickmeet'
+import { Route as AuthenticatedProfileSetupRouteImport } from './routes/_authenticated/profile-setup'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedMessagesRouteImport } from './routes/_authenticated/messages'
@@ -83,6 +84,12 @@ const AuthenticatedQuickmeetRoute = AuthenticatedQuickmeetRouteImport.update({
   path: '/quickmeet',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedProfileSetupRoute =
+  AuthenticatedProfileSetupRouteImport.update({
+    id: '/profile-setup',
+    path: '/profile-setup',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -173,6 +180,7 @@ export interface FileRoutesByFullPath {
   '/messages': typeof AuthenticatedMessagesRouteWithChildren
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/profile-setup': typeof AuthenticatedProfileSetupRoute
   '/quickmeet': typeof AuthenticatedQuickmeetRoute
   '/rooms': typeof AuthenticatedRoomsRoute
   '/sage': typeof AuthenticatedSageRoute
@@ -198,6 +206,7 @@ export interface FileRoutesByTo {
   '/messages': typeof AuthenticatedMessagesRouteWithChildren
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/profile-setup': typeof AuthenticatedProfileSetupRoute
   '/quickmeet': typeof AuthenticatedQuickmeetRoute
   '/rooms': typeof AuthenticatedRoomsRoute
   '/sage': typeof AuthenticatedSageRoute
@@ -225,6 +234,7 @@ export interface FileRoutesById {
   '/_authenticated/messages': typeof AuthenticatedMessagesRouteWithChildren
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/_authenticated/profile-setup': typeof AuthenticatedProfileSetupRoute
   '/_authenticated/quickmeet': typeof AuthenticatedQuickmeetRoute
   '/_authenticated/rooms': typeof AuthenticatedRoomsRoute
   '/_authenticated/sage': typeof AuthenticatedSageRoute
@@ -252,6 +262,7 @@ export interface FileRouteTypes {
     | '/messages'
     | '/notifications'
     | '/profile'
+    | '/profile-setup'
     | '/quickmeet'
     | '/rooms'
     | '/sage'
@@ -277,6 +288,7 @@ export interface FileRouteTypes {
     | '/messages'
     | '/notifications'
     | '/profile'
+    | '/profile-setup'
     | '/quickmeet'
     | '/rooms'
     | '/sage'
@@ -303,6 +315,7 @@ export interface FileRouteTypes {
     | '/_authenticated/messages'
     | '/_authenticated/notifications'
     | '/_authenticated/profile'
+    | '/_authenticated/profile-setup'
     | '/_authenticated/quickmeet'
     | '/_authenticated/rooms'
     | '/_authenticated/sage'
@@ -396,6 +409,13 @@ declare module '@tanstack/react-router' {
       path: '/quickmeet'
       fullPath: '/quickmeet'
       preLoaderRoute: typeof AuthenticatedQuickmeetRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/profile-setup': {
+      id: '/_authenticated/profile-setup'
+      path: '/profile-setup'
+      fullPath: '/profile-setup'
+      preLoaderRoute: typeof AuthenticatedProfileSetupRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/profile': {
@@ -536,6 +556,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedMessagesRoute: typeof AuthenticatedMessagesRouteWithChildren
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedProfileSetupRoute: typeof AuthenticatedProfileSetupRoute
   AuthenticatedQuickmeetRoute: typeof AuthenticatedQuickmeetRoute
   AuthenticatedRoomsRoute: typeof AuthenticatedRoomsRoute
   AuthenticatedSageRoute: typeof AuthenticatedSageRoute
@@ -555,6 +576,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedMessagesRoute: AuthenticatedMessagesRouteWithChildren,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedProfileSetupRoute: AuthenticatedProfileSetupRoute,
   AuthenticatedQuickmeetRoute: AuthenticatedQuickmeetRoute,
   AuthenticatedRoomsRoute: AuthenticatedRoomsRoute,
   AuthenticatedSageRoute: AuthenticatedSageRoute,

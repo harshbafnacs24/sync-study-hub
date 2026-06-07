@@ -32,11 +32,11 @@ export const messagesStore = {
     }
   },
 
-  async send(conversationId: string, text: string): Promise<DirectMessage> {
+  async send(conversationId: string, text: string, attachments?: { url: string; kind: string; name: string; size: number }[]): Promise<DirectMessage> {
     const { message } = await api.request<{ message: any }>(`/api/v1/conversations/${conversationId}/messages`, {
       method: "POST",
       auth: true,
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, attachments }),
     });
     const msg = mapMessage(message);
     socketBus.emit(SocketEvents.MessageNew, { conversationId, message: msg });
@@ -105,12 +105,16 @@ function mapConversation(c: any): Conversation {
 }
 
 function mapMessage(m: any): DirectMessage {
+  const currentUserId = getLoggedInUserId();
   return {
     id: String(m._id),
     conversationId: String(m.conversationId),
     senderId: String(m.senderId),
     text: m.text,
     createdAt: m.createdAt,
-    read: Array.isArray(m.readBy) && m.readBy.length > 0,
+    read: String(m.senderId) === currentUserId
+      ? Array.isArray(m.readBy) && m.readBy.some((id: string) => id !== currentUserId)
+      : false,
+    attachments: m.attachments ?? [],
   };
 }

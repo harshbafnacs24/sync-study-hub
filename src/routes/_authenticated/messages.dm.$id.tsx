@@ -1,11 +1,12 @@
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, Pin, Sparkles } from "lucide-react";
 import {
   useConversation, useDMs, useSendDM, useMarkConversationRead, useTogglePin, useLiveDM,
 } from "../../lib/hooks/use-messaging";
 import { useNetworkUser } from "../../lib/hooks/use-network";
-import { messagesStore } from "../../lib/store/messages";
+import { socketBus, SocketEvents } from "../../lib/socket";
+import { API_BASE_URL } from "../../lib/api-client";
 import { Avatar, timeAgo } from "../../components/messaging/Avatar";
 import { MessageBubble } from "../../components/messaging/MessageBubble";
 import { MessageComposer } from "../../components/messaging/MessageComposer";
@@ -16,14 +17,6 @@ export const Route = createFileRoute("/_authenticated/messages/dm/$id")({
   head: () => ({ meta: [{ title: "Conversation — Sync & Study" }] }),
   component: DMPage,
 });
-
-const PEER_REPLIES = [
-  "got it — adding to my plan.",
-  "let's sync after my next focus block.",
-  "agreed. I'll share notes once I'm done.",
-  "perfect, dropping a link in #resources.",
-  "yes — same energy. Let's grind.",
-];
 
 function DMPage() {
   const { id } = useParams({ from: "/_authenticated/messages/dm/$id" });
@@ -39,25 +32,30 @@ function DMPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   useLiveDM(id);
 
+  useEffect(() => {
+    socketBus.emit("conversation:join", `conv:${id}`);
+    return () => { socketBus.emit("conversation:leave", `conv:${id}`); };
+  }, [id]);
+
+  useEffect(() => {
+    const offStart = socketBus.on(SocketEvents.TypingStart, (p: { userId: string; room: string }) => {
+      if (p.room === `conv:${id}` && p.userId === conv.data?.peerId) setTyping(true);
+    });
+    const offStop = socketBus.on(SocketEvents.TypingStop, (p: { userId: string; room: string }) => {
+      if (p.room === `conv:${id}` && p.userId === conv.data?.peerId) setTyping(false);
+    });
+    return () => { offStart(); offStop(); };
+  }, [id, conv.data?.peerId]);
+
   useEffect(() => { markRead.mutate(id); }, [id]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages.data?.length, typing]);
 
-  const onSend = (text: string) => {
-    send.mutate({ conversationId: id, text });
-    if (!peer?.online) return;
-    // Mock peer typing + reply for an alive feel
-    const typingTimer = window.setTimeout(() => setTyping(true), 700);
-    const replyTimer = window.setTimeout(() => {
-      setTyping(false);
-      if (peer) {
-        const reply = PEER_REPLIES[Math.floor(Math.random() * PEER_REPLIES.length)];
-        messagesStore.sendAs(id, peer.id, reply, { read: true });
-      }
-    }, 2400);
-    return () => { window.clearTimeout(typingTimer); window.clearTimeout(replyTimer); };
+  const onSend = (text: string, attachments?: { url: string; kind: string; name: string; size: number }[]) => {
+    send.mutate({ conversationId: id, text, attachments });
+    socketBus.emit(SocketEvents.TypingStop, `conv:${id}`);
   };
 
   if (!conv.data || !peer) {
@@ -97,12 +95,30 @@ function DMPage() {
           const mine = String(m.senderId) === String(currentUser?.id);
           const showMeta = i === arr.length - 1 || arr[i + 1]?.senderId !== m.senderId;
           return (
-            <MessageBubble
-              key={m.id}
-              mine={mine}
-              text={m.text}
-              meta={showMeta ? `${timeAgo(m.createdAt)}${mine ? (m.read ? " · read" : " · sent") : ""}` : undefined}
-            />
+            <div key={m.id}>
+              <MessageBubble
+                mine={mine}
+                text={m.text}
+                meta={showMeta ? `${timeAgo(m.createdAt)}${mine ? (m.read ? " · read" : " · sent") : ""}` : undefined}
+              />
+              {(m.attachments ?? []).map((att, idx) => (
+                <a
+                  key={idx}
+                  href={`${API_BASE_URL}${att.url}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6, marginTop: 4, marginLeft: mine ? "auto" : 0,
+                    marginRight: mine ? 0 : "auto", padding: "6px 10px", borderRadius: 8,
+                    background: "var(--bg-3)", border: "1px solid var(--color-border)",
+                    fontSize: "0.72rem", color: "var(--color-primary)", textDecoration: "none",
+                    maxWidth: "80%",
+                  }}
+                >
+                  📎 {att.name}
+                </a>
+              ))}
+            </div>
           );
         })}
         {typing && (
@@ -125,7 +141,7 @@ function DMPage() {
         <Sparkles size={12} /> Ask Sage to draft a study plan with {peer.name.split(" ")[0]}
       </button>
 
-      <MessageComposer onSend={onSend} placeholder={`Message ${peer.name.split(" ")[0]}`} />
+      <MessageComposer conversationId={id} onSend={onSend} placeholder={`Message ${peer.name.split(" ")[0]}`} />
     </>
   );
 }

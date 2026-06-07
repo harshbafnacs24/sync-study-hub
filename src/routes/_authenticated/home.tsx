@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { PageTransition } from "../../components/shell/PageTransition";
-import { Bell, Plus, Play, Sparkles, ChevronRight } from "lucide-react";
+import { Bell, Plus, Play, Sparkles, ChevronRight, MessageSquare } from "lucide-react";
 import { Card, PageHeader, SectionHeader, StatTile, EmptyState, PriorityBadge } from "../../components/ui-kit/Card";
 import { useTasks, useAnalytics, useActiveSession, useToggleTask, useCreateTask, useProfile } from "../../lib/hooks/use-data";
 import { useAuth } from "../../lib/auth-context";
@@ -80,14 +80,24 @@ function Dashboard() {
         title={`Hey, ${displayName}`}
         sub={`${today} · ${a?.todaySessions ?? 0} sessions today`}
         right={
-          <Link
-            to="/notifications"
-            className="ss-btn ss-btn-outline"
-            style={{ width: 38, height: 38, padding: 0, borderRadius: 999 }}
-            aria-label="Notifications"
-          >
-            <Bell size={16} />
-          </Link>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Link
+              to="/messages"
+              className="ss-btn ss-btn-outline"
+              style={{ width: 38, height: 38, padding: 0, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center" }}
+              aria-label="Messages"
+            >
+              <MessageSquare size={16} />
+            </Link>
+            <Link
+              to="/notifications"
+              className="ss-btn ss-btn-outline"
+              style={{ width: 38, height: 38, padding: 0, borderRadius: 999 }}
+              aria-label="Notifications"
+            >
+              <Bell size={16} />
+            </Link>
+          </div>
         }
       />
 

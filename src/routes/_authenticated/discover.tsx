@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { Globe, UserPlus, Users, Search, CheckCircle, Clock, X, UserCheck, MessageSquare, Bell } from "lucide-react";
 import { PageTransition } from "../../components/shell/PageTransition";
 import {
@@ -13,6 +13,8 @@ import {
   useDiscoverUsers,
   useNetworkUser,
 } from "../../lib/hooks/use-network";
+import { useStartConversation, useUnreadNotifications } from "../../lib/hooks/use-messaging";
+import { FeedSection } from "../../components/feed/FeedSection";
 import { networkStore, type NetworkUser, type Connection } from "../../lib/store/network";
 import { useAuth } from "../../lib/auth-context";
 import { toast } from "sonner";
@@ -31,6 +33,8 @@ function ProfileCard({ user }: { user: any }) {
   const send = useSendConnectionRequest();
   const remove = useRemoveConnection();
   const connections = useConnections();
+  const navigate = useNavigate();
+  const startConv = useStartConversation();
 
   const handleConnect = () => {
     if (connStatus.status === "none") {
@@ -143,17 +147,36 @@ function ProfileCard({ user }: { user: any }) {
           >
             View
           </Link>
-          <button
-            onClick={handleConnect}
-            disabled={send.isPending || remove.isPending || connStatus.status === "outgoing_pending" || connStatus.status === "blocked"}
-            className={connStatus.status === "connected" ? "ss-btn ss-btn-outline" : "ss-btn ss-btn-primary"}
-            style={{ padding: "6px 10px", fontSize: "0.72rem", borderRadius: 8 }}
-          >
-            {connStatus.status === "connected" ? <><UserCheck size={12} /> Connected</> :
-             connStatus.status === "outgoing_pending" ? <><Clock size={12} /> Sent</> :
-             connStatus.status === "incoming_pending" ? <><CheckCircle size={12} /> Accept</> :
-             <><UserPlus size={12} /> Connect</>}
-          </button>
+          {connStatus.status === "connected" ? (
+            <button
+              disabled={startConv.isPending}
+              onClick={() => {
+                startConv.mutate(user.id, {
+                  onSuccess: (c) => {
+                    navigate({ to: "/messages/dm/$id", params: { id: c.id } });
+                  },
+                  onError: () => {
+                    toast.error("Failed to open chat");
+                  }
+                });
+              }}
+              className="ss-btn ss-btn-primary"
+              style={{ padding: "6px 10px", fontSize: "0.72rem", borderRadius: 8, display: "flex", gap: 4, alignItems: "center" }}
+            >
+              <MessageSquare size={12} /> Message
+            </button>
+          ) : (
+            <button
+              onClick={handleConnect}
+              disabled={send.isPending || remove.isPending || connStatus.status === "outgoing_pending" || connStatus.status === "blocked"}
+              className="ss-btn ss-btn-primary"
+              style={{ padding: "6px 10px", fontSize: "0.72rem", borderRadius: 8 }}
+            >
+              {connStatus.status === "outgoing_pending" ? <><Clock size={12} /> Sent</> :
+               connStatus.status === "incoming_pending" ? <><CheckCircle size={12} /> Accept</> :
+               <><UserPlus size={12} /> Connect</>}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -643,6 +666,7 @@ function DiscoverPage() {
   const [query, setQuery] = useState("");
   const { user: currentUser } = useAuth();
   const connections = useConnections();
+  const { data: unreadCount = 0 } = useUnreadNotifications();
 
   const search = useSearchUsers(query);
   const forYou = useForYouUsers();
@@ -858,12 +882,29 @@ function DiscoverPage() {
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <Link
+              to="/messages"
+              className="ss-btn ss-btn-outline"
+              style={{ width: 38, height: 38, padding: 0, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center" }}
+              aria-label="Messages"
+            >
+              <MessageSquare size={16} />
+            </Link>
+            <Link
               to="/notifications"
               className="ss-btn ss-btn-outline"
-              style={{ width: 38, height: 38, padding: 0, borderRadius: 999 }}
+              style={{ width: 38, height: 38, padding: 0, borderRadius: 999, position: "relative" }}
               aria-label="Notifications"
             >
               <Bell size={16} />
+              {unreadCount > 0 && (
+                <span style={{
+                  position: "absolute", top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 999,
+                  background: "var(--color-primary)", color: "#060606", fontSize: "0.55rem", fontWeight: 800,
+                  display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px",
+                }}>
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
             </Link>
           </div>
         </div>
@@ -994,36 +1035,16 @@ function DiscoverPage() {
 
         {/* ─── FEED TAB ─── */}
         {tab === "feed" && (
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <CreatePostCard user={currentUser} onAddPost={handleAddPost} />
-
-            {/* Suggested Friends Carousel (similar interests or characteristics) */}
-            {suggestedUsers.length > 0 && (
-              <div style={{
-                marginBottom: 20,
-                borderBottom: "1px solid var(--color-border)",
-                paddingBottom: 16
-              }}>
-                <div style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "0 4px 10px 4px",
-                }}>
+          <FeedSection
+            suggestedSlot={suggestedUsers.length > 0 ? (
+              <div style={{ marginBottom: 20, borderBottom: "1px solid var(--color-border)", paddingBottom: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 4px 10px 4px" }}>
                   <span className="ss-mono" style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--color-primary)", letterSpacing: "0.05em", textTransform: "uppercase" }}>
                     Suggested for You
                   </span>
-                  <span style={{ fontSize: "0.65rem", color: "var(--color-muted-foreground)" }}>
-                    Based on similar interests
-                  </span>
+                  <span style={{ fontSize: "0.65rem", color: "var(--color-muted-foreground)" }}>Based on similar interests</span>
                 </div>
-                <div style={{
-                  display: "flex",
-                  gap: 12,
-                  overflowX: "auto",
-                  padding: "4px 2px",
-                  scrollbarWidth: "none",
-                }} className="hide-scrollbar">
+                <div style={{ display: "flex", gap: 12, overflowX: "auto", padding: "4px 2px", scrollbarWidth: "none" }} className="hide-scrollbar">
                   {suggestedUsers.map((su: any) => {
                     const currentUserProfile = currentUser as any;
                     const common = su.interests?.filter((i: string) => currentUserProfile?.interests?.includes(i)) || [];
@@ -1032,28 +1053,12 @@ function DiscoverPage() {
                       : su.school === currentUserProfile?.school
                         ? `Same School: ${su.school}`
                         : `${su.year} · ${su.school}`;
-
-                    return (
-                      <SuggestedFriendCard
-                        key={su.id}
-                        user={su}
-                        matchText={matchText}
-                      />
-                    );
+                    return <SuggestedFriendCard key={su.id} user={su} matchText={matchText} />;
                   })}
                 </div>
               </div>
-            )}
-
-            {posts.map((post) => (
-              <FeedPostCard 
-                key={post.id} 
-                post={post} 
-                onLike={() => handleLikePost(post.id)}
-                onAddComment={(text) => handleAddComment(post.id, text)}
-              />
-            ))}
-          </div>
+            ) : undefined}
+          />
         )}
 
         {/* ─── SEARCH / DISCOVER TAB ─── */}
