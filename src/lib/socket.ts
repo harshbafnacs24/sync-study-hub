@@ -39,6 +39,10 @@ class SocketBus {
 export const socketBus = new SocketBus();
 
 export function connectSocket(token: string) {
+  if (typeof window !== "undefined" && window.localStorage.getItem("sas.demo_mode") === "true") {
+    console.log("[socket] running in offline demo mode, skipping server connection");
+    return;
+  }
   if (socket?.connected) socket.disconnect();
 
   socket = ioClient(API_BASE_URL, {

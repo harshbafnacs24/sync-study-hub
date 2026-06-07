@@ -1,6 +1,7 @@
 import type { AuthResponse, Profile, ProfilePatch, AuthUser } from "./types";
 import { DEV_OFFLINE_MODE } from "./dev-mode";
 import { storage } from "./store/storage";
+import { SEED_NETWORK_USERS } from "./store/seed-archive";
 
 /**
  * Base URL of the Sync & Study Express + MongoDB backend.
@@ -27,6 +28,13 @@ export const tokenStore = {
   },
 };
 
+const MOCK_USER: AuthUser = {
+  id: "dev-user",
+  email: "dev@syncandstudy.local",
+  name: "Dev User",
+  createdAt: new Date().toISOString(),
+} as AuthUser;
+
 class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -35,10 +43,94 @@ class ApiError extends Error {
   }
 }
 
+function handleOfflineRequest(path: string, init: any): any {
+  console.log(`[offline-api] Intercepted: ${init.method ?? "GET"} ${path}`);
+  if (path.startsWith("/api/auth/me")) {
+    return { user: MOCK_USER };
+  }
+  if (path.startsWith("/api/auth/login") || path.startsWith("/api/auth/signup") || path.startsWith("/api/auth/google")) {
+    return { token: "mock-token", user: MOCK_USER };
+  }
+  if (path.startsWith("/api/profile/me")) {
+    const profileKey = "sas.mock_profile";
+    if (init.method === "PATCH") {
+      const patch = JSON.parse(init.body || "{}");
+      const current = window.localStorage.getItem(profileKey);
+      const profile = current ? JSON.parse(current) : {
+        name: MOCK_USER.name,
+        email: MOCK_USER.email,
+        bio: "Focused student | Sync & Study",
+        school: "LMN Tech",
+        year: "Sophomore",
+        subjects: ["DSA", "React"],
+        goals: "Crack summer internship!",
+        timezone: "UTC"
+      };
+      const updated = { ...profile, ...patch, updatedAt: new Date().toISOString() };
+      window.localStorage.setItem(profileKey, JSON.stringify(updated));
+      return { profile: updated };
+    } else {
+      const current = window.localStorage.getItem(profileKey);
+      const profile = current ? JSON.parse(current) : {
+        name: MOCK_USER.name,
+        email: MOCK_USER.email,
+        bio: "Focused student | Sync & Study",
+        school: "LMN Tech",
+        year: "Sophomore",
+        subjects: ["DSA", "React"],
+        goals: "Crack summer internship!",
+        timezone: "UTC"
+      };
+      return { profile };
+    }
+  }
+  if (path.startsWith("/api/v1/network/discover")) {
+    return { users: SEED_NETWORK_USERS, hasMore: false, nextSkip: null };
+  }
+  if (path.startsWith("/api/v1/network/for-you")) {
+    return { users: SEED_NETWORK_USERS.slice(0, 3) };
+  }
+  if (path.startsWith("/api/v1/network/user/")) {
+    const userId = path.split("/").pop();
+    const user = SEED_NETWORK_USERS.find(u => u.userId === userId) ?? {
+      id: userId,
+      userId,
+      username: "MockUser",
+      handle: "mock_user",
+      name: "Mock User",
+      initials: "MU",
+      avatar: null,
+      online: true,
+      bio: "Doing deep work together.",
+      interests: ["DSA"],
+      school: "XYZ Univ",
+      year: "Junior",
+      goals: "Improve focus."
+    };
+    return { user };
+  }
+  if (path.startsWith("/api/v1/network/connections")) {
+    return { connections: [] };
+  }
+  if (path.startsWith("/api/v1/network/blocks")) {
+    return { blockedIds: [] };
+  }
+  if (path.startsWith("/api/v1/conversations")) {
+    if (path.includes("/messages")) {
+      return { messages: [] };
+    }
+    return { conversations: [] };
+  }
+  return { ok: true };
+}
+
 async function request<T>(
   path: string,
   init: RequestInit & { auth?: boolean } = {},
 ): Promise<T> {
+  if (typeof window !== "undefined" && window.localStorage.getItem("sas.demo_mode") === "true") {
+    return handleOfflineRequest(path, init) as T;
+  }
   const { auth = false, headers, ...rest } = init;
   const finalHeaders: Record<string, string> = {
     "Content-Type": "application/json",

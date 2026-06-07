@@ -1,4 +1,5 @@
 import { API_BASE_URL, tokenStore } from "../api-client";
+import { streamSageReply } from "./mock-stream";
 
 export interface SageStreamHandle {
   cancel: () => void;
@@ -14,6 +15,10 @@ export function streamSage(
   payload: { messages: SageMessageInput[]; context?: unknown },
   handlers: { onToken: (text: string) => void; onError?: (message: string) => void },
 ): SageStreamHandle {
+  if (typeof window !== "undefined" && window.localStorage.getItem("sas.demo_mode") === "true") {
+    const userPrompt = payload.messages.filter(m => m.role === "user").at(-1)?.text ?? "";
+    return streamSageReply(userPrompt, handlers.onToken);
+  }
   const controller = new AbortController();
   let cancelled = false;
 

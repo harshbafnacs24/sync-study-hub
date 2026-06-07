@@ -73,7 +73,7 @@ function TermsModal({ onClose }: { onClose: () => void }) {
 // ─── Login Page ───────────────────────────────────────────────────────────────
 
 function LoginPage() {
-  const { user, loading, loginEmail, loginGoogle } = useAuth();
+  const { user, loading, loginEmail, loginGoogle, loginDemo } = useAuth();
   const navigate = useNavigate();
   const [showEmail, setShowEmail] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
@@ -85,6 +85,11 @@ function LoginPage() {
   useEffect(() => {
     if (!loading && user) navigate({ to: "/home" });
   }, [loading, user, navigate]);
+
+  function enterDemoMode() {
+    loginDemo();
+    navigate({ to: "/home" });
+  }
 
   async function onGoogle() {
     setError(null);
@@ -283,6 +288,12 @@ function LoginPage() {
             transform: translateY(0);
           }
         }
+
+        .demo-btn:hover {
+          background: rgba(255,255,255,0.08) !important;
+          border-color: rgba(232, 255, 71, 0.3) !important;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
       `}</style>
 
       <div className="login-container">
@@ -423,6 +434,33 @@ function LoginPage() {
                 </svg>
                 
                 <span>Continue with Email</span>
+                
+                {/* ArrowRight SVG */}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+                </svg>
+              </button>
+
+              {/* Demo Mode CTA */}
+              <button 
+                onClick={enterDemoMode} 
+                style={{
+                  width: "100%", padding: "14px 18px", borderRadius: 14,
+                  background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
+                  color: "#ffffff", fontSize: "0.88rem", fontWeight: "600", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  fontFamily: "var(--font-body)",
+                  marginTop: 12,
+                  transition: "all 0.2s ease"
+                }}
+                className="demo-btn"
+              >
+                {/* Shield Icon SVG */}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                
+                <span>Enter Demo Mode (Offline)</span>
                 
                 {/* ArrowRight SVG */}
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
