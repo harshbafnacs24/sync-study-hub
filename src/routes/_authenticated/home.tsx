@@ -56,7 +56,7 @@ function HomePage() {
     postsCount: posts.length,
   });
   const unlocked = achievements.filter((x) => x.unlocked);
-  const totalSessions = sessionsStore.logs().filter((s) => s.kind === "focus" && s.state === "completed").length;
+  const totalSessions = (sessionsStore.logs() ?? []).filter((s) => s.kind === "focus" && s.state === "completed").length;
   const streakBadges = a ? computeStreakBadges(a, totalSessions) : [];
   const unlockedStreaks = streakBadges.filter((b) => b.unlocked);
 
@@ -159,7 +159,7 @@ function HomePage() {
         </div>
 
         {/* Trending */}
-        {trending && (
+        {trending && (trending.topics?.length ?? 0) > 0 && (
           <>
             <SectionHeader eyebrow="Trending" title="What's Hot" />
             <Card style={{ marginBottom: 16 }}>
@@ -168,7 +168,7 @@ function HomePage() {
                 <span className="ss-mono" style={{ fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>Topics</span>
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {trending.topics.map((t) => (
+                {(trending.topics ?? []).map((t) => (
                   <Link key={t} to="/sage" search={{ prompt: `Explain ${t} for engineering students` }} style={{ padding: "4px 10px", borderRadius: 999, fontSize: "0.68rem", background: "var(--bg-3)", border: "1px solid var(--color-border)", color: "var(--color-primary)", textDecoration: "none" }}>
                     #{t}
                   </Link>
@@ -177,7 +177,7 @@ function HomePage() {
               {trending.hackathons?.length > 0 && (
                 <div style={{ marginTop: 12 }}>
                   <div className="ss-mono" style={{ fontSize: "0.6rem", color: "var(--color-muted-foreground)", marginBottom: 6 }}>Featured Hackathons</div>
-                  {trending.hackathons.map((h: any) => (
+                  {(trending.hackathons ?? []).map((h: any) => (
                     <Link key={h.id} to="/tech-feed" style={{ display: "block", fontSize: "0.78rem", color: "var(--color-foreground)", textDecoration: "none", padding: "4px 0" }}>
                       🚀 {h.title}
                     </Link>

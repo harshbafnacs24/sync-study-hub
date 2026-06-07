@@ -452,6 +452,32 @@ function handleOfflineRequest(path: string, init: any): any {
     }
   }
 
+  if (path.startsWith("/api/v1/platform/trending")) {
+    return { topics: ["DSA", "React", "AI/ML", "DBMS"], hackathons: [], posts: [] };
+  }
+  if (path.startsWith("/api/v1/platform/stats")) {
+    return { stats: { studentsRegistered: 1200, universitiesConnected: 48, friendConnections: 320 } };
+  }
+  if (path.startsWith("/api/v1/tech-feed")) {
+    if (path.includes("bookmarks")) return { items: [] };
+    return { items: [] };
+  }
+  if (path.startsWith("/api/v1/posts")) {
+    if (path.includes("/feed")) return { posts: [] };
+    if (method === "POST" && !path.includes("/comments") && !path.includes("/like")) {
+      const body = JSON.parse(init.body || "{}");
+      return { post: { id: "post-demo", content: body.content, createdAt: new Date().toISOString(), author: { id: currentUserId, name: currentUser.name, avatar: currentUser.avatar, school: currentUser.school ?? "" }, likeCount: 0, liked: false, commentCount: 0 } };
+    }
+    return { posts: [], comments: [], ok: true };
+  }
+  if (path.startsWith("/api/v1/notifications")) {
+    if (path.includes("unread-count")) return { count: 0 };
+    return { notifications: [] };
+  }
+  if (path.startsWith("/api/v1/sessions")) {
+    return { sessions: [] };
+  }
+
   return { ok: true };
 }
 

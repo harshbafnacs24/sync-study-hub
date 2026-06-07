@@ -34,7 +34,7 @@ export const networkStore = {
   async allUsers(): Promise<NetworkUser[]> {
     try {
       const { users } = await api.discoverUsers();
-      return users;
+      return users ?? [];
     } catch (e) {
       console.error("Error fetching users:", e);
       return [];
@@ -54,7 +54,7 @@ export const networkStore = {
     if (!query.trim()) return this.allUsers();
     try {
       const { users } = await api.searchUsers(query);
-      return users;
+      return users ?? [];
     } catch (e) {
       console.error("Error searching users:", e);
       return [];
@@ -64,7 +64,7 @@ export const networkStore = {
   async friends(): Promise<NetworkUser[]> {
     try {
       const { users } = await api.getFriends();
-      return users;
+      return users ?? [];
     } catch (e) {
       console.error("Error fetching friends:", e);
       return [];
@@ -74,7 +74,7 @@ export const networkStore = {
   async forYouUsers(): Promise<NetworkUser[]> {
     try {
       const { users } = await api.forYouUsers();
-      return users;
+      return users ?? [];
     } catch (e) {
       console.error("Error fetching for-you users:", e);
       return [];
@@ -89,7 +89,7 @@ export const networkStore = {
   async connections(): Promise<Connection[]> {
     try {
       const { connections } = await api.getConnections();
-      return connections;
+      return connections ?? [];
     } catch (e) {
       console.error("Error fetching connections:", e);
       return [];

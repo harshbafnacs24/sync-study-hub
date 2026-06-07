@@ -37,10 +37,12 @@ const PLANNED_KEY = "planned_study_goals";
 
 export const sessionsStore = {
   list(): FocusSession[] {
-    return storage.get<FocusSession[]>(KEY, []);
+    const raw = storage.get<FocusSession[] | null>(KEY, []);
+    return Array.isArray(raw) ? raw : [];
   },
   logs(): SessionLog[] {
-    return storage.get<SessionLog[]>(LOG_KEY, []);
+    const raw = storage.get<SessionLog[] | null>(LOG_KEY, []);
+    return Array.isArray(raw) ? raw : [];
   },
   active(): FocusSession | null {
     return storage.get<FocusSession | null>(ACTIVE_KEY, null);

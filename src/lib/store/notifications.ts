@@ -5,7 +5,7 @@ export const notificationsStore = {
   async list(): Promise<AppNotification[]> {
     try {
       const { notifications } = await api.getNotifications();
-      return notifications.map((n: any) => ({
+      return (notifications ?? []).map((n: any) => ({
         id: n.id,
         kind: n.kind,
         title: n.title,

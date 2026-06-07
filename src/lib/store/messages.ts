@@ -6,7 +6,7 @@ export const messagesStore = {
   async conversations(): Promise<Conversation[]> {
     try {
       const { conversations } = await api.request<{ conversations: any[] }>("/api/v1/conversations", { auth: true });
-      return conversations.map(mapConversation);
+      return (conversations ?? []).map(mapConversation);
     } catch (e) {
       console.error("Error loading conversations:", e);
       return [];
@@ -25,7 +25,7 @@ export const messagesStore = {
   async messages(conversationId: string): Promise<DirectMessage[]> {
     try {
       const { messages } = await api.request<{ messages: any[] }>(`/api/v1/conversations/${conversationId}/messages`, { auth: true });
-      return messages.map(mapMessage);
+      return (messages ?? []).map(mapMessage);
     } catch (e) {
       console.error("Error loading messages:", e);
       return [];

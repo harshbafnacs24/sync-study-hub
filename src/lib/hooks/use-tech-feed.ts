@@ -5,7 +5,7 @@ import type { TechFeedItem } from "../types";
 export function useTechFeed(type?: string, category?: string) {
   return useQuery({
     queryKey: ["tech-feed", type, category],
-    queryFn: () => api.getTechFeed(type, category).then((r) => r.items),
+    queryFn: () => api.getTechFeed(type, category).then((r) => r.items ?? []),
     staleTime: 60_000,
   });
 }
@@ -13,7 +13,7 @@ export function useTechFeed(type?: string, category?: string) {
 export function useTechBookmarks() {
   return useQuery({
     queryKey: ["tech-feed", "bookmarks"],
-    queryFn: () => api.getTechBookmarks().then((r) => r.items),
+    queryFn: () => api.getTechBookmarks().then((r) => r.items ?? []),
   });
 }
 
@@ -47,7 +47,11 @@ export function usePlatformStats() {
 export function useTrending() {
   return useQuery({
     queryKey: ["platform-trending"],
-    queryFn: () => api.getTrending(),
+    queryFn: () => api.getTrending().then((r) => ({
+      topics: r.topics ?? [],
+      hackathons: r.hackathons ?? [],
+      posts: r.posts ?? [],
+    })),
     staleTime: 120_000,
   });
 }

@@ -42,7 +42,7 @@ export function CommunityCard({
             <span className="ss-mono" style={{ fontSize: "0.65rem", color: "var(--color-muted-foreground)", display: "inline-flex", alignItems: "center", gap: 4 }}>
               <Users size={11} /> {community.members.toLocaleString()}
             </span>
-            {community.tags.slice(0, 2).map((t) => (
+            {(community.tags ?? []).slice(0, 2).map((t) => (
               <span key={t} className="ss-chip" style={{ fontSize: "0.62rem", padding: "2px 7px" }}>{t}</span>
             ))}
           </div>

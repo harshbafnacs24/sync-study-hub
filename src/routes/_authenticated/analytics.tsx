@@ -43,7 +43,7 @@ function AnalyticsPage() {
                 Last 7 Days
               </div>
               <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 140, marginTop: 14 }}>
-                {a.byDay.map((d) => (
+                {(a.byDay ?? []).map((d) => (
                   <div key={d.date} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                     <div
                       title={`${d.minutes}m`}
@@ -64,10 +64,10 @@ function AnalyticsPage() {
               </div>
             </Card>
 
-            {a.bySubject.length > 0 && (
+            {(a.bySubject ?? []).length > 0 && (
               <Card style={{ marginBottom: 12 }}>
                 <div className="ss-mono" style={{ fontSize: "0.62rem", color: "var(--color-muted-foreground)", textTransform: "uppercase", marginBottom: 12 }}>By Subject</div>
-                {a.bySubject.map((s) => (
+                {(a.bySubject ?? []).map((s) => (
                   <div key={s.subject} style={{ marginBottom: 8 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem", marginBottom: 4 }}>
                       <span>{s.subject}</span>

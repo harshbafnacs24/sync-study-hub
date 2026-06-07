@@ -19,7 +19,8 @@ const KEY = "tasks";
 
 export const tasksStore = {
   list(): Task[] {
-    return storage.get<Task[]>(KEY, []);
+    const raw = storage.get<Task[] | null>(KEY, []);
+    return Array.isArray(raw) ? raw : [];
   },
   create(input: Omit<Task, "id" | "createdAt" | "status" | "completedAt"> & { status?: TaskStatus }): Task {
     const t: Task = {

@@ -54,7 +54,7 @@ function CommunityDetailPage() {
             {c.description}
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 }}>
-            {c.tags.map((t) => <span key={t} className="ss-chip" style={{ fontSize: "0.65rem" }}>{t}</span>)}
+            {(c.tags ?? []).map((t) => <span key={t} className="ss-chip" style={{ fontSize: "0.65rem" }}>{t}</span>)}
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
             <button
