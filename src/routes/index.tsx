@@ -1,4 +1,5 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { useAuth } from "../lib/auth-context";
 
 export const Route = createFileRoute("/")({
@@ -7,16 +8,22 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const { user, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="ss-frame">
-        <div className="ss-shell" style={{ alignItems: "center", justifyContent: "center" }}>
-          <span className="ss-mono" style={{ color: "var(--color-muted-foreground)", fontSize: "0.75rem", letterSpacing: "0.08em" }}>
-            loading…
-          </span>
-        </div>
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading) {
+      navigate({ to: user ? "/home" : "/login", replace: true });
+    }
+  }, [loading, user, navigate]);
+
+  return (
+    <div className="ss-frame">
+      <div className="ss-shell" style={{ alignItems: "center", justifyContent: "center" }}>
+        <span className="ss-mono" style={{ color: "var(--color-muted-foreground)", fontSize: "0.75rem", letterSpacing: "0.08em" }}>
+          loading…
+        </span>
       </div>
-    );
-  }
-  return <Navigate to={user ? "/home" : "/login"} />;
+    </div>
+  );
 }
+
