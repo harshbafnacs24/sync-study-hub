@@ -505,6 +505,7 @@ async function request<T>(
       console.warn(`[api-client] API unreachable, using offline demo mode.`, err);
       return handleOfflineRequest(path, init) as T;
     }
+    console.error(`[API Connection Error] Failed to fetch: ${API_BASE_URL}${path}`, err);
     throw new ApiError(`Cannot reach server at ${API_BASE_URL}. Check your connection.`, 0);
   }
   const text = await res.text();
@@ -513,6 +514,7 @@ async function request<T>(
     const msg =
       (data && typeof data === "object" && "error" in data && (data as any).error) ||
       `Request failed (${res.status})`;
+    console.error(`[API Response Error] ${res.status} for ${path}:`, msg);
     throw new ApiError(String(msg), res.status);
   }
   return data as T;

@@ -13,6 +13,7 @@ import {
   type SageLearningMode, type SageDifficulty, type SageTool,
 } from "../../lib/sage/modes";
 import { trackSageSession } from "../../lib/achievements";
+import { useCommunities } from "../../lib/hooks/use-messaging";
 
 export const Route = createFileRoute("/_authenticated/sage")({
   head: () => ({ meta: [{ title: "Sage — Sync & Study" }] }),
@@ -41,7 +42,9 @@ function SagePage() {
   const [showTools, setShowTools] = useState(false);
   const handleRef = useRef<SageStreamHandle | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const ctx = useMemo<SageContext>(() => buildSageContext(), [activeId, turns.length]);
+  const { data: communities = [] } = useCommunities();
+  const joined = useMemo(() => communities.filter((c) => c.joined).map((c) => c.name), [communities]);
+  const ctx = useMemo<SageContext>(() => buildSageContext(joined), [activeId, turns.length, joined]);
 
   useEffect(() => () => handleRef.current?.cancel(), []);
   useEffect(() => {

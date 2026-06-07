@@ -91,7 +91,7 @@ function HomePage() {
         </div>
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Link to="/sage" className="ss-btn ss-btn-primary" style={{ padding: "8px 14px", fontSize: "0.78rem" }}>
+          <Link to="/sage" search={{ prompt: undefined }} className="ss-btn ss-btn-primary" style={{ padding: "8px 14px", fontSize: "0.78rem" }}>
             <Sparkles size={14} /> Talk to Sage
           </Link>
           <Link to="/discover" className="ss-btn ss-btn-outline" style={{ padding: "8px 14px", fontSize: "0.78rem" }}>

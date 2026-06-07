@@ -18,11 +18,11 @@ export function FriendStudyActivity() {
   useEffect(() => {
     const offStart = socketBus.on("study:started", (p: any) => {
       if (p.userId === user?.id) return;
-      setEvents((prev) => [{ type: "started", name: p.name, taskGoal: p.taskGoal, subject: p.subject, at: new Date().toISOString() }, ...prev].slice(0, 5));
+      setEvents((prev) => [{ type: "started" as const, name: p.name, taskGoal: p.taskGoal, subject: p.subject, at: new Date().toISOString() }, ...prev].slice(0, 5));
     });
     const offDone = socketBus.on("study:completed", (p: any) => {
       if (p.userId === user?.id) return;
-      setEvents((prev) => [{ type: "completed", name: p.name, taskGoal: p.taskGoal, minutes: p.minutes, at: new Date().toISOString() }, ...prev].slice(0, 5));
+      setEvents((prev) => [{ type: "completed" as const, name: p.name, taskGoal: p.taskGoal, minutes: p.minutes, at: new Date().toISOString() }, ...prev].slice(0, 5));
     });
     return () => { offStart(); offDone(); };
   }, [user?.id]);

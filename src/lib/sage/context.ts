@@ -6,7 +6,6 @@
  */
 import { tasksStore } from "../store/tasks";
 import { sessionsStore, computeAnalytics } from "../store/sessions";
-import { communitiesStore } from "../store/communities";
 import { storage } from "../store/storage";
 import type { Profile } from "../types";
 
@@ -20,7 +19,7 @@ export interface SageContext {
   joinedCommunities: string[];
 }
 
-export function buildSageContext(): SageContext {
+export function buildSageContext(joinedCommunities: string[] = []): SageContext {
   const profile = storage.get<Profile | null>("profile", null);
   const openTasks = tasksStore.list()
     .filter((t) => t.status !== "done")
@@ -42,8 +41,6 @@ export function buildSageContext(): SageContext {
         .map((s) => s.subject as string),
     ),
   );
-
-  const joinedCommunities = communitiesStore.list().filter((c) => c.joined).map((c) => c.name);
 
   return {
     profile: profile

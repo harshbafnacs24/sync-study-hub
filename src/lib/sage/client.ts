@@ -24,7 +24,7 @@ export function streamSage(
 ): SageStreamHandle {
   if (typeof window !== "undefined" && (window.localStorage.getItem("sas.demo_mode") === "true" || window.sessionStorage.getItem("sas.demo_mode") === "true")) {
     const userPrompt = payload.messages.filter((m) => m.role === "user").at(-1)?.text ?? "";
-    return streamSageReply(userPrompt, handlers.onToken, payload.mode);
+    return streamSageReply(userPrompt, handlers.onToken);
   }
   const controller = new AbortController();
   let cancelled = false;

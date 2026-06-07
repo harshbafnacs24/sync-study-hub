@@ -255,11 +255,11 @@ export const STREAK_BADGES = [
 ];
 
 export function computeStreakBadges(analytics: AnalyticsSummary, totalSessions: number) {
-  return STREAK_BADGES.map((b) => ({
+  return STREAK_BADGES.map((b: any) => ({
     ...b,
     unlocked:
-      ("days" in b && analytics.streakDays >= b.days) ||
-      ("hours" in b && analytics.totalHours >= b.hours) ||
-      ("sessions" in b && totalSessions >= b.sessions),
+      (b.days !== undefined && analytics.streakDays >= b.days) ||
+      (b.hours !== undefined && analytics.totalHours >= b.hours) ||
+      (b.sessions !== undefined && totalSessions >= b.sessions),
   }));
 }
