@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { Globe, UserPlus, Users, Search, CheckCircle, Clock, X, UserCheck, MessageSquare, Bell } from "lucide-react";
 import { PageTransition } from "../../components/shell/PageTransition";
@@ -18,11 +18,11 @@ import { useAuth } from "../../lib/auth-context";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/discover")({
-  head: () => ({ meta: [{ title: "Discover People — Sync & Study" }] }),
+  head: () => ({ meta: [{ title: "Friends — Sync & Study" }] }),
   component: DiscoverPage,
 });
 
-type DiscoverTab = "search" | "foryou" | "network";
+type DiscoverTab = "feed" | "search" | "foryou" | "network";
 
 /* ─── Profile Card ──────────────────────────────────────────────────────── */
 
@@ -238,16 +238,293 @@ function PendingRequestCard({ conn, onAcceptSuccess }: { conn: any; onAcceptSucc
   );
 }
 
+/* ─── Instagram-Style Stories Overlay Modal ──────────────────────────────── */
+
+interface Story {
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  mediaUrl: string;
+  caption: string;
+  viewed: boolean;
+}
+
+function StoryModal({ stories, initialIndex, onClose }: { stories: Story[]; initialIndex: number; onClose: () => void }) {
+  const [index, setIndex] = useState(initialIndex);
+  const [progress, setProgress] = useState(0);
+  const story = stories[index];
+
+  useEffect(() => {
+    setProgress(0);
+    const interval = setInterval(() => {
+      setProgress((p) => {
+        if (p >= 100) {
+          if (index < stories.length - 1) {
+            setIndex((idx) => idx + 1);
+            return 0;
+          } else {
+            onClose();
+            return 100;
+          }
+        }
+        return p + 2.5; // Fills in 4 seconds (40 steps of 2.5% every 100ms)
+      });
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [index, stories.length, onClose]);
+
+  if (!story) return null;
+
+  return (
+    <div style={{
+      position: "absolute", inset: 0, zIndex: 9999,
+      background: "rgba(0,0,0,0.97)", display: "flex", flexDirection: "column",
+      justifyContent: "space-between", padding: 16
+    }}>
+      {/* Top Bar with progress indicators */}
+      <div style={{ position: "relative", zIndex: 10 }}>
+        <div style={{ display: "flex", gap: 4, marginBottom: 14 }}>
+          {stories.map((_, i) => {
+            let widthPercent = 0;
+            if (i < index) widthPercent = 100;
+            else if (i === index) widthPercent = progress;
+            return (
+              <div key={i} style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.2)", borderRadius: 2, overflow: "hidden" }}>
+                <div style={{ width: `${widthPercent}%`, height: "100%", background: "#fff", transition: i === index ? "width 0.1s linear" : "none" }} />
+              </div>
+            );
+          })}
+        </div>
+        {/* User Info */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <img src={story.userAvatar} alt="" style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #fff", objectFit: "cover" }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ color: "#fff", fontWeight: 700, fontSize: "0.85rem" }}>{story.userName}</div>
+            <div style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.68rem" }}>Active Study Story</div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#fff", fontSize: "1.5rem", fontWeight: 300, cursor: "pointer", padding: "0 8px" }}>×</button>
+        </div>
+      </div>
+
+      {/* Media Image/GIF */}
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", margin: "10px 0", overflow: "hidden", position: "relative" }}>
+        <img src={story.mediaUrl} alt="" style={{ maxWidth: "100%", maxHeight: "60vh", borderRadius: 12, objectFit: "contain", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }} />
+      </div>
+
+      {/* Caption card */}
+      <div style={{
+        background: "rgba(255,255,255,0.06)", backdropFilter: "blur(16px)",
+        borderRadius: 14, padding: "12px 18px", marginBottom: 10,
+        border: "1px solid rgba(255,255,255,0.1)", zIndex: 10
+      }}>
+        <p style={{ color: "#fff", fontSize: "0.82rem", margin: 0, lineHeight: 1.5, textAlign: "center" }}>
+          {story.caption}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Instagram-Style Feed Post Card ─────────────────────────────────────── */
+
+interface FeedPost {
+  id: string;
+  userId: string;
+  userName: string;
+  userHandle: string;
+  userAvatar: string;
+  mediaUrl: string;
+  caption: string;
+  likes: number;
+  hasLiked: boolean;
+  comments: { userName: string; text: string }[];
+  createdAt: string;
+}
+
+function FeedPostCard({ post, onLike, onAddComment }: { post: FeedPost; onLike: () => void; onAddComment: (text: string) => void }) {
+  const [commentText, setCommentText] = useState("");
+  const [showComments, setShowComments] = useState(false);
+
+  const handleSubmitComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!commentText.trim()) return;
+    onAddComment(commentText);
+    setCommentText("");
+  };
+
+  return (
+    <div className="ss-card ss-card-anim" style={{ padding: 0, overflow: "hidden", background: "var(--bg-2)", border: "1px solid var(--color-border)", borderRadius: 16, marginBottom: 14 }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: 12 }}>
+        <img src={post.userAvatar} alt="" style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid var(--color-primary)", objectFit: "cover" }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--color-foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{post.userName}</div>
+          <div style={{ fontSize: "0.7rem", color: "var(--color-primary)", fontFamily: "var(--font-mono)" }}>@{post.userHandle}</div>
+        </div>
+        <span className="ss-mono" style={{ fontSize: "0.6rem", color: "var(--color-muted-foreground)" }}>{post.createdAt}</span>
+      </div>
+
+      {/* Media Content */}
+      <div style={{ width: "100%", background: "#060606", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", borderTop: "1px solid var(--color-border)", borderBottom: "1px solid var(--color-border)" }}>
+        <img src={post.mediaUrl} alt="Post content" style={{ width: "100%", height: "auto", display: "block", maxHeight: 300, objectFit: "cover" }} />
+      </div>
+
+      {/* Actions */}
+      <div style={{ display: "flex", gap: 16, alignItems: "center", padding: "10px 14px 6px" }}>
+        <button onClick={onLike} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 6, color: post.hasLiked ? "#ff4d6d" : "var(--color-muted-foreground)" }}>
+          {post.hasLiked ? (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+            </svg>
+          ) : (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+            </svg>
+          )}
+          <span className="ss-mono" style={{ fontSize: "0.75rem", color: post.hasLiked ? "#ff4d6d" : "var(--color-muted-foreground)", fontWeight: 700 }}>{post.likes}</span>
+        </button>
+        <button onClick={() => setShowComments(!showComments)} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 6, color: "var(--color-muted-foreground)" }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span className="ss-mono" style={{ fontSize: "0.75rem", color: "var(--color-muted-foreground)", fontWeight: 700 }}>{post.comments.length}</span>
+        </button>
+      </div>
+
+      {/* Caption */}
+      <div style={{ padding: "0 14px 10px", fontSize: "0.8rem", lineHeight: 1.5, color: "var(--color-foreground)" }}>
+        <span style={{ fontWeight: 800, color: "var(--color-foreground)", marginRight: 6 }}>@{post.userHandle}</span>
+        {post.caption}
+      </div>
+
+      {/* Comments section */}
+      {showComments && (
+        <div style={{ borderTop: "1px solid var(--color-border)", background: "rgba(255,255,255,0.01)", padding: 10 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 120, overflowY: "auto", marginBottom: 10 }}>
+            {post.comments.map((c, idx) => (
+              <div key={idx} style={{ fontSize: "0.75rem", lineHeight: 1.4, color: "var(--color-muted-foreground)" }}>
+                <span style={{ fontWeight: 700, color: "var(--color-foreground)", marginRight: 5 }}>@{c.userName}</span>
+                {c.text}
+              </div>
+            ))}
+          </div>
+          <form onSubmit={handleSubmitComment} style={{ display: "flex", gap: 8 }}>
+            <input
+              type="text"
+              placeholder="Add a comment..."
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              style={{
+                flex: 1, background: "var(--bg-3)", border: "1px solid var(--color-border)",
+                borderRadius: 20, padding: "5px 12px", color: "var(--color-foreground)", fontSize: "0.75rem", outline: "none"
+              }}
+            />
+            <button type="submit" style={{ background: "none", border: "none", color: "var(--color-primary)", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>Post</button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Suggested Friend Card (similar interests or characteristics) ────────── */
+
+function SuggestedFriendCard({ user, matchText }: { user: any; matchText: string }) {
+  const connStatus = useConnectionStatus(user.id);
+  const send = useSendConnectionRequest();
+
+  const handleConnect = () => {
+    if (connStatus.status === "none") {
+      send.mutate(user.id, {
+        onSuccess: () => toast.success(`Connection request sent to ${user.name}`),
+        onError: () => toast.error("Failed to send request"),
+      });
+    }
+  };
+
+  return (
+    <div style={{
+      width: 140,
+      flexShrink: 0,
+      background: "var(--bg-2)",
+      border: "1px solid var(--color-border)",
+      borderRadius: 12,
+      padding: 12,
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      textAlign: "center",
+      gap: 8,
+      position: "relative"
+    }}>
+      {/* Avatar */}
+      <div style={{
+        width: 50, height: 50, borderRadius: "50%",
+        background: avatarGradient(user.id),
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontWeight: 800, fontSize: "1.1rem", color: "#0c0c0c",
+        border: "2px solid var(--color-border)",
+        overflow: "hidden"
+      }}>
+        {user.avatar ? (
+          <img src={user.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        ) : (
+          user.initials
+        )}
+      </div>
+
+      {/* Info */}
+      <div style={{ minWidth: 0, width: "100%" }}>
+        <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "var(--color-foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {user.name}
+        </div>
+        <div style={{ fontSize: "0.65rem", color: "var(--color-primary)", fontFamily: "var(--font-mono)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          @{user.handle}
+        </div>
+        <div style={{ fontSize: "0.6rem", color: "var(--color-muted-foreground)", marginTop: 4, height: 16, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {matchText}
+        </div>
+      </div>
+
+      {/* Connect Button */}
+      <button
+        onClick={handleConnect}
+        disabled={send.isPending || connStatus.status === "outgoing_pending"}
+        className="ss-btn ss-btn-primary"
+        style={{
+          width: "100%",
+          padding: "5px 0",
+          fontSize: "0.68rem",
+          borderRadius: 6,
+          marginTop: 2
+        }}
+      >
+        {connStatus.status === "outgoing_pending" ? "Sent" : "Connect"}
+      </button>
+    </div>
+  );
+}
+
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
 
 function DiscoverPage() {
-  const [tab, setTab] = useState<DiscoverTab>("search");
+  const [tab, setTab] = useState<DiscoverTab>("feed"); // Feed is now the default tab
   const [query, setQuery] = useState("");
   const { user: currentUser } = useAuth();
   const connections = useConnections();
 
   const search = useSearchUsers(query);
   const forYou = useForYouUsers();
+
+  const suggestedUsers = (forYou.data ?? []).filter((u: any) => {
+    if (u.id === currentUser?.id) return false;
+    const isConn = (connections.data ?? []).some((c: any) =>
+      (c.fromUserId === currentUser?.id && c.toUserId === u.id) ||
+      (c.fromUserId === u.id && c.toUserId === currentUser?.id)
+    );
+    return !isConn;
+  });
 
   const accepted = (connections.data ?? []).filter((c: any) => c.status === "accepted");
   const pending  = (connections.data ?? []).filter((c: any) => c.status === "pending");
@@ -258,16 +535,159 @@ function DiscoverPage() {
     c.fromUserId === currentUser?.id ? c.toUserId : c.fromUserId
   );
 
+  // --- Instagram Stories State ---
+  const [stories, setStories] = useState<Story[]>([
+    {
+      userId: "kabir_id",
+      userName: "Kabir Singh",
+      userAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80",
+      mediaUrl: "https://images.unsplash.com/photo-1542831371-29b0f74f9713?auto=format&fit=crop&w=600&q=80",
+      caption: "Setting up the new IDE theme. Custom keyboard is feeling crisp! ⌨️💻",
+      viewed: false
+    },
+    {
+      userId: "aanya_id",
+      userName: "Aanya Mehta",
+      userAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80",
+      mediaUrl: "https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&w=600&q=80",
+      caption: "Cracking binary tree traversals before coffee gets cold. ☕🌳",
+      viewed: false
+    },
+    {
+      userId: "riya_id",
+      userName: "Riya Sharma",
+      userAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&h=150&q=80",
+      mediaUrl: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmtlbjNuZnoxOHl6aThnZTR3cnR5bGVsbGlqZWV4ZXplMW13bzdhOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/13HgwGsXF0aiGY/giphy.gif",
+      caption: "Sage AI has some suggestions. Study grind on AI models! 🤖✨",
+      viewed: false
+    },
+    {
+      userId: "arjun_id",
+      userName: "Arjun Verma",
+      userAvatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&h=150&q=80",
+      mediaUrl: "https://images.unsplash.com/photo-1607799279861-4dd421887fb3?auto=format&fit=crop&w=600&q=80",
+      caption: "SQL query optimization is an art form. DB is running 10x faster now! 💾📊",
+      viewed: false
+    },
+    {
+      userId: "meera_id",
+      userName: "Meera Iyer",
+      userAvatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=150&h=150&q=80",
+      mediaUrl: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbDVtcXZjNm04ejRxamRjcmtyaTBpcnM5YnhoYzAwMjdvdzM5eXphOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/V4aB3p69rlY9q/giphy.gif",
+      caption: "Focusing on operating system threads. Keep grinding! ☕⚙️",
+      viewed: false
+    }
+  ]);
+
+  const [activeStoryIdx, setActiveStoryIdx] = useState<number | null>(null);
+
+  const handleOpenStory = (index: number) => {
+    setActiveStoryIdx(index);
+    setStories((prev) =>
+      prev.map((s, idx) => (idx === index ? { ...s, viewed: true } : s))
+    );
+  };
+
+  // --- Instagram Feed State ---
+  const [posts, setPosts] = useState<FeedPost[]>([
+    {
+      id: "post-1",
+      userId: "aanya_id",
+      userName: "Aanya Mehta",
+      userHandle: "aanya_mehta",
+      userAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80",
+      mediaUrl: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80",
+      caption: "Midterm prep has officially begun. Sliding window problems are starting to click! Who's up for a focus room session tonight? 📚🚀",
+      likes: 12,
+      hasLiked: false,
+      comments: [
+        { userName: "kabir_singh", text: "I'm down for a study room at 8 PM!" },
+        { userName: "arjun_verma", text: "Need help with sliding window. Count me in!" }
+      ],
+      createdAt: "2h ago"
+    },
+    {
+      id: "post-2",
+      userId: "kabir_id",
+      userName: "Kabir Singh",
+      userHandle: "kabir_singh",
+      userAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80",
+      mediaUrl: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3BndmdmM283OHZpdHhvbTh0cnNscjR2OHU3bzY2dnN6aWRnbWNnayZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/33OrjzUFwkwEg/giphy.gif",
+      caption: "Me writing React form hooks at 2 AM. Hydrated and locked in! 🐱💻☕",
+      likes: 28,
+      hasLiked: false,
+      comments: [
+        { userName: "aanya_mehta", text: "Accurate! Go sleep Kabir 😂" },
+        { userName: "meera_iyer", text: "React 19 forms are super clean though!" }
+      ],
+      createdAt: "4h ago"
+    },
+    {
+      id: "post-3",
+      userId: "riya_id",
+      userName: "Riya Sharma",
+      userHandle: "riya_sharma",
+      userAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&h=150&q=80",
+      mediaUrl: "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80",
+      caption: "Cozy vibes only for tonight's machine learning model training. Sage AI is helping debug my loss function. 💡🤖🌌",
+      likes: 19,
+      hasLiked: false,
+      comments: [
+        { userName: "kabir_singh", text: "That workspace setup looks incredible." }
+      ],
+      createdAt: "1d ago"
+    }
+  ]);
+
+  const handleLikePost = (postId: string) => {
+    setPosts((prevPosts) =>
+      prevPosts.map((p) => {
+        if (p.id === postId) {
+          const nextLiked = !p.hasLiked;
+          return {
+            ...p,
+            hasLiked: nextLiked,
+            likes: p.likes + (nextLiked ? 1 : -1)
+          };
+        }
+        return p;
+      })
+    );
+  };
+
+  const handleAddComment = (postId: string, commentText: string) => {
+    setPosts((prevPosts) =>
+      prevPosts.map((p) => {
+        if (p.id === postId) {
+          return {
+            ...p,
+            comments: [...p.comments, { userName: currentUser?.name?.toLowerCase().replace(/\s+/g, "_") || "me", text: commentText }]
+          };
+        }
+        return p;
+      })
+    );
+  };
+
   return (
     <PageTransition>
+      {/* Stories Overlay */}
+      {activeStoryIdx !== null && (
+        <StoryModal
+          stories={stories}
+          initialIndex={activeStoryIdx}
+          onClose={() => setActiveStoryIdx(null)}
+        />
+      )}
+
       {/* Header */}
       <div className="ss-ph" style={{ paddingBottom: 14 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Globe size={18} style={{ color: "var(--color-primary)" }} />
+            <UserCheck size={18} style={{ color: "var(--color-primary)" }} />
             <div>
-              <div className="ss-ph-label">GLOBAL NETWORK</div>
-              <h1 className="ss-ph-title" style={{ fontSize: "1.3rem" }}>Discover People</h1>
+              <div className="ss-ph-label">PRODUCTIVITY FEED</div>
+              <h1 className="ss-ph-title" style={{ fontSize: "1.3rem" }}>Friends &amp; Circles</h1>
             </div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
@@ -290,7 +710,7 @@ function DiscoverPage() {
           }} />
           <input
             className="ss-input"
-            placeholder="Search by name, @handle, or interest..."
+            placeholder="Search friends by name, @handle, or interest..."
             value={query}
             onChange={(e) => { setQuery(e.target.value); setTab("search"); }}
             style={{ paddingLeft: 36, width: "100%" }}
@@ -308,6 +728,7 @@ function DiscoverPage() {
         {/* Tabs */}
         <div style={{ display: "flex", gap: 4, marginTop: 14, background: "rgba(255,255,255,0.03)", padding: 3, borderRadius: 8, border: "1px solid rgba(255,255,255,0.05)" }}>
           {([
+            { key: "feed", label: "Feed" },
             { key: "search", label: "Discover" },
             { key: "foryou", label: "For You" },
             { key: "network", label: `Network ${accepted.length > 0 ? `(${accepted.length})` : ""}` },
@@ -330,7 +751,138 @@ function DiscoverPage() {
         </div>
       </div>
 
-      <div className="ss-body" style={{ paddingBottom: 80 }}>
+      <div className="ss-body" style={{ paddingBottom: 80, paddingTop: 10 }}>
+
+        {/* ─── Stories Bar ─── */}
+        <div style={{
+          display: "flex",
+          gap: 12,
+          overflowX: "auto",
+          padding: "4px 4px 12px 4px",
+          borderBottom: "1px solid var(--color-border)",
+          marginBottom: 16,
+          scrollbarWidth: "none"
+        }} className="hide-scrollbar">
+          <style>{`
+            .hide-scrollbar::-webkit-scrollbar {
+              display: none;
+            }
+          `}</style>
+          {stories.map((story, i) => (
+            <div 
+              key={i} 
+              onClick={() => handleOpenStory(i)}
+              style={{ 
+                display: "flex", 
+                flexDirection: "column", 
+                alignItems: "center", 
+                cursor: "pointer", 
+                flexShrink: 0 
+              }}
+            >
+              {/* Outer ring border representing active/viewed story */}
+              <div style={{
+                width: 54, height: 54, borderRadius: "50%",
+                background: story.viewed 
+                  ? "var(--color-border)" 
+                  : "linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                padding: story.viewed ? 1.5 : 2,
+                boxShadow: story.viewed ? "none" : "0 0 6px rgba(220,39,67,0.3)"
+              }}>
+                <div style={{
+                  width: "100%", height: "100%", borderRadius: "50%",
+                  background: "var(--color-background)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  padding: 2
+                }}>
+                  <img 
+                    src={story.userAvatar} 
+                    alt="" 
+                    style={{ 
+                      width: "100%", height: "100%", borderRadius: "50%", 
+                      objectFit: "cover" 
+                    }} 
+                  />
+                </div>
+              </div>
+              <span className="ss-mono" style={{ 
+                fontSize: "0.6rem", 
+                color: story.viewed ? "var(--color-muted-foreground)" : "var(--color-foreground)", 
+                marginTop: 6,
+                fontWeight: story.viewed ? 500 : 700,
+                maxWidth: 60,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap"
+              }}>
+                {story.userName.split(" ")[0]}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* ─── FEED TAB ─── */}
+        {tab === "feed" && (
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {/* Suggested Friends Carousel (similar interests or characteristics) */}
+            {suggestedUsers.length > 0 && (
+              <div style={{
+                marginBottom: 20,
+                borderBottom: "1px solid var(--color-border)",
+                paddingBottom: 16
+              }}>
+                <div style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "0 4px 10px 4px",
+                }}>
+                  <span className="ss-mono" style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--color-primary)", letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                    Suggested for You
+                  </span>
+                  <span style={{ fontSize: "0.65rem", color: "var(--color-muted-foreground)" }}>
+                    Based on similar interests
+                  </span>
+                </div>
+                <div style={{
+                  display: "flex",
+                  gap: 12,
+                  overflowX: "auto",
+                  padding: "4px 2px",
+                  scrollbarWidth: "none",
+                }} className="hide-scrollbar">
+                  {suggestedUsers.map((su: any) => {
+                    const currentUserProfile = currentUser as any;
+                    const common = su.interests?.filter((i: string) => currentUserProfile?.interests?.includes(i)) || [];
+                    const matchText = common.length > 0
+                      ? `Similar interest: ${common[0]}`
+                      : su.school === currentUserProfile?.school
+                        ? `Same School: ${su.school}`
+                        : `${su.year} · ${su.school}`;
+
+                    return (
+                      <SuggestedFriendCard
+                        key={su.id}
+                        user={su}
+                        matchText={matchText}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {posts.map((post) => (
+              <FeedPostCard 
+                key={post.id} 
+                post={post} 
+                onLike={() => handleLikePost(post.id)}
+                onAddComment={(text) => handleAddComment(post.id, text)}
+              />
+            ))}
+          </div>
+        )}
 
         {/* ─── SEARCH / DISCOVER TAB ─── */}
         {tab === "search" && (
