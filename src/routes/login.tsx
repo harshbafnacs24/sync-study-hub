@@ -72,6 +72,20 @@ function TermsModal({ onClose }: { onClose: () => void }) {
 
 // ─── Login Page ───────────────────────────────────────────────────────────────
 
+const AVATAR_COLORS = [
+  "linear-gradient(135deg,#E8FF47,#c6e600)",
+  "linear-gradient(135deg,#4a9eff,#2575ff)",
+  "linear-gradient(135deg,#aa66ff,#7722ee)",
+  "linear-gradient(135deg,#3ddc84,#00aa55)",
+  "linear-gradient(135deg,#ff6b6b,#ee2244)",
+  "linear-gradient(135deg,#ffb347,#ff7700)",
+];
+function avatarGradient(id: string) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xffff;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
 function LoginPage() {
   const { user, loading, loginEmail, loginGoogle, loginDemo } = useAuth();
   const navigate = useNavigate();
@@ -81,13 +95,33 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [demoUsers, setDemoUsers] = useState<any[]>([]);
 
   useEffect(() => {
     if (!loading && user) navigate({ to: "/home" });
   }, [loading, user, navigate]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const raw = window.localStorage.getItem("sas.demo_users");
+      if (raw) {
+        setDemoUsers(JSON.parse(raw));
+      } else {
+        const SEED_USERS = [
+          { id: "dev-user", initials: "DU", name: "Dev User", handle: "dev_user" },
+          { id: "aanya_id", initials: "AM", name: "Aanya Mehta", handle: "aanya_mehta" },
+          { id: "kabir_id", initials: "KS", name: "Kabir Singh", handle: "kabir_singh" },
+          { id: "riya_id", initials: "RS", name: "Riya Sharma", handle: "riya_sharma" },
+          { id: "arjun_id", initials: "AV", name: "Arjun Verma", handle: "arjun_verma" },
+          { id: "meera_id", initials: "MI", name: "Meera Iyer", handle: "meera_iyer" },
+        ];
+        setDemoUsers(SEED_USERS);
+      }
+    }
+  }, [user]);
+
   function enterDemoMode() {
-    loginDemo();
+    loginDemo("dev-user");
     navigate({ to: "/home" });
   }
 
@@ -441,32 +475,57 @@ function LoginPage() {
                 </svg>
               </button>
 
-              {/* Demo Mode CTA */}
-              <button 
-                onClick={enterDemoMode} 
-                style={{
-                  width: "100%", padding: "14px 18px", borderRadius: 14,
-                  background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
-                  color: "#ffffff", fontSize: "0.88rem", fontWeight: "600", cursor: "pointer",
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  fontFamily: "var(--font-body)",
-                  marginTop: 12,
-                  transition: "all 0.2s ease"
-                }}
-                className="demo-btn"
-              >
-                {/* Shield Icon SVG */}
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                </svg>
-                
-                <span>Enter Demo Mode (Offline)</span>
-                
-                {/* ArrowRight SVG */}
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
-                </svg>
-              </button>
+              {/* Quick Login Accounts Grid */}
+              <div style={{ marginTop: 18 }}>
+                <div className="ss-mono" style={{ fontSize: "0.62rem", letterSpacing: "0.08em", color: "var(--color-primary)", textTransform: "uppercase", marginBottom: 10, textAlign: "center", fontWeight: 700 }}>
+                  Quick Sign-In (Demo Mode)
+                </div>
+                <div style={{ 
+                  display: "grid", 
+                  gridTemplateColumns: "repeat(3, 1fr)", 
+                  gap: 8,
+                  maxHeight: 180,
+                  overflowY: "auto",
+                  padding: "2px 0",
+                  marginBottom: 12
+                }}>
+                  {demoUsers.map((du) => (
+                    <button
+                      key={du.id}
+                      onClick={() => {
+                        loginDemo(du.id);
+                        navigate({ to: "/home" });
+                      }}
+                      style={{
+                        background: "rgba(255,255,255,0.03)",
+                        border: "1px solid rgba(255,255,255,0.06)",
+                        borderRadius: 12,
+                        padding: "10px 4px",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 6,
+                        cursor: "pointer",
+                        transition: "all 0.2s"
+                      }}
+                      className="demo-account-chip"
+                    >
+                      {/* Initials Circle */}
+                      <div style={{
+                        width: 32, height: 32, borderRadius: "50%",
+                        background: avatarGradient(du.id),
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontWeight: 800, fontSize: "0.78rem", color: "#0c0c0c"
+                      }}>
+                        {du.initials || du.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
+                      </div>
+                      <span style={{ fontSize: "0.68rem", fontWeight: "600", color: "#f0f0f0", textAlign: "center", width: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {du.name.split(" ")[0]}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               {/* Separator Divider */}
               <div style={{ display: "flex", alignItems: "center", gap: 14, margin: "24px 0 14px" }}>

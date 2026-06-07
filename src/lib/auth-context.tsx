@@ -9,8 +9,8 @@ interface AuthState {
   loginEmail: (email: string, password: string) => Promise<void>;
   signupEmail: (email: string, password: string, name: string) => Promise<void>;
   loginGoogle: () => Promise<void>;
-  loginDemo: () => void;
   logout: () => void;
+  loginDemo: (userId?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -81,31 +81,26 @@ function getGoogleIdToken(): Promise<string> {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    if (DEV_BYPASS_AUTH) return MOCK_USER;
-    if (typeof window !== "undefined" && window.localStorage.getItem("sas.demo_mode") === "true") {
-      return MOCK_USER;
-    }
-    return null;
-  });
-  const [loading, setLoading] = useState(() => {
-    if (DEV_BYPASS_AUTH) return false;
-    if (typeof window !== "undefined" && window.localStorage.getItem("sas.demo_mode") === "true") {
-      return false;
-    }
-    return true;
-  });
+  const [user, setUser] = useState<AuthUser | null>(DEV_BYPASS_AUTH ? MOCK_USER : null);
+  const [loading, setLoading] = useState(!DEV_BYPASS_AUTH);
 
   useEffect(() => {
     if (DEV_BYPASS_AUTH) return;
-    if (typeof window !== "undefined" && window.localStorage.getItem("sas.demo_mode") === "true") {
-      setLoading(false);
-      setUser(MOCK_USER);
-      return;
-    }
     let alive = true;
     const t = tokenStore.get();
     if (!t) { setLoading(false); return; }
+
+    if (typeof window !== "undefined" && window.localStorage.getItem("sas.demo_mode") === "true") {
+      const rawUsers = window.localStorage.getItem("sas.demo_users");
+      const users = rawUsers ? JSON.parse(rawUsers) : [];
+      const u = users.find((x: any) => x.id === t) || MOCK_USER;
+      if (alive) {
+        setUser(u);
+        setLoading(false);
+      }
+      return;
+    }
+
     api.me()
       .then((r) => { if (alive) { setUser(r.user); connectSocket(t); } })
       .catch(() => tokenStore.clear())
@@ -127,11 +122,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await handleAuth(api.google(idToken));
   };
 
-  const loginDemo = () => {
+  const loginDemo = async (userId: string = "dev-user") => {
     if (typeof window !== "undefined") {
       window.localStorage.setItem("sas.demo_mode", "true");
     }
-    setUser(MOCK_USER);
+    tokenStore.set(userId);
+    let u = MOCK_USER;
+    if (typeof window !== "undefined") {
+      const rawUsers = window.localStorage.getItem("sas.demo_users");
+      const users = rawUsers ? JSON.parse(rawUsers) : [];
+      u = users.find((x: any) => x.id === userId) || MOCK_USER;
+    }
+    setUser(u);
   };
 
   const value: AuthState = {

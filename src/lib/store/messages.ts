@@ -60,18 +60,33 @@ export const messagesStore = {
   async togglePin(conversationId: string): Promise<void> {
     await api.toggleConversationPin(conversationId);
   },
+
+  async sendAs(conversationId: string, senderId: string, text: string, options?: { read?: boolean }): Promise<DirectMessage> {
+    const { message } = await api.request<{ message: any }>(`/api/v1/conversations/${conversationId}/messages/send-as`, {
+      method: "POST",
+      auth: true,
+      body: JSON.stringify({ senderId, text, read: options?.read }),
+    });
+    const msg = mapMessage(message);
+    socketBus.emit(SocketEvents.MessageNew, { conversationId, message: msg });
+    socketBus.emit(SocketEvents.ConversationUpdated, { conversationId });
+    return msg;
+  },
 };
 
 function getLoggedInUserId(): string {
   try {
-    const token = localStorage.getItem("sas.auth_token");
+    const token = localStorage.getItem("ss.token") || localStorage.getItem("sas.auth_token");
     if (!token) return "";
+    if (!token.includes('.')) {
+      return token; // simple token is just the user ID in demo mode!
+    }
     const base64Url = token.split('.')[1];
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
     const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
         return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
     }).join(''));
-    return JSON.parse(jsonPayload).sub || "";
+    return JSON.parse(jsonPayload).sub || JSON.parse(jsonPayload).id || "";
   } catch {
     return "";
   }

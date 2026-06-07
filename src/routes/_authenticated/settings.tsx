@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { LogOut } from "lucide-react";
 import { PageHeader, Card, SectionHeader } from "../../components/ui-kit/Card";
 import { useAuth } from "../../lib/auth-context";
+import { THEMES, useTheme } from "../../lib/theme";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({ meta: [{ title: "Settings — Sync & Study" }] }),
@@ -11,6 +12,7 @@ export const Route = createFileRoute("/_authenticated/settings")({
 function SettingsPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { theme, setTheme } = useTheme();
 
   return (
     <>
@@ -20,6 +22,47 @@ function SettingsPage() {
         <Card>
           <Row label="Email" value={user?.email ?? "—"} />
           <Row label="Display name" value={user?.name ?? "Set in Profile"} />
+        </Card>
+
+        <SectionHeader eyebrow="Appearance" title="Theme Options" />
+        <Card>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "4px 0" }}>
+            {THEMES.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTheme(t.id)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "12px 14px",
+                  borderRadius: 10,
+                  border: theme === t.id ? "1.5px solid var(--color-primary)" : "1px solid var(--color-border)",
+                  background: "var(--bg-2)",
+                  cursor: "pointer",
+                  color: "var(--color-foreground)",
+                  transition: "all 0.2s",
+                  width: "100%",
+                  textAlign: "left",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{
+                    width: 20, height: 20, borderRadius: "50%",
+                    background: `linear-gradient(135deg, ${t.primary}, ${t.bg})`,
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    boxShadow: theme === t.id ? `0 0 10px ${t.primary}66` : "none"
+                  }} />
+                  <span style={{ fontSize: "0.85rem", fontWeight: theme === t.id ? 700 : 500 }}>{t.name}</span>
+                </div>
+                {theme === t.id && (
+                  <span className="ss-mono" style={{ fontSize: "0.6rem", color: "var(--color-primary)", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 700 }}>
+                    Active
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </Card>
 
         <SectionHeader eyebrow="Focus" title="Pomodoro defaults" />

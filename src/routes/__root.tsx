@@ -92,8 +92,11 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+import { useTheme } from "../lib/theme";
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  useTheme();
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
