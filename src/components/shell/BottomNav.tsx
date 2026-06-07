@@ -1,14 +1,14 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { LayoutGrid, Timer, Users, UserCheck, Sparkles, User } from "lucide-react";
+import { LayoutGrid, Timer, Rocket, UserCheck, Sparkles, User } from "lucide-react";
 import { useAuth } from "../../lib/auth-context";
 
 const items = [
-  { to: "/home" as const,        label: "Home",     Icon: LayoutGrid,    match: ["/home"], color: "#ff4d6d" },      // Vibrant Instagram Pink-Red
-  { to: "/focus" as const,       label: "Focus",    Icon: Timer,         match: ["/focus"], color: "#ffb703" },     // Focus Amber Gold
-  { to: "/communities" as const, label: "Community", Icon: Users,        match: ["/communities"], color: "#7209b7" }, // Deep Violet Purple
-  { to: "/discover" as const,    label: "Friends",  Icon: UserCheck,     match: ["/discover", "/network"], color: "#06d6a0" }, // Emerald Mint
-  { to: "/sage" as const,        label: "Sage",     Icon: Sparkles,      match: ["/sage"], color: "#4361ee" },      // Royal Blue
-  { to: "/profile" as const,     label: "Profile",  Icon: User,          match: ["/profile"], color: "#f72585" },   // Magenta
+  { to: "/home" as const,        label: "Home",     Icon: LayoutGrid,    match: ["/home"], color: "#ff4d6d" },
+  { to: "/focus" as const,       label: "Focus",    Icon: Timer,         match: ["/focus"], color: "#ffb703" },
+  { to: "/tech-feed" as const,   label: "Tech",     Icon: Rocket,        match: ["/tech-feed"], color: "#7209b7" },
+  { to: "/discover" as const,    label: "Friends",  Icon: UserCheck,     match: ["/discover", "/network"], color: "#06d6a0" },
+  { to: "/sage" as const,        label: "Sage",     Icon: Sparkles,      match: ["/sage"], color: "#4361ee" },
+  { to: "/profile" as const,     label: "Profile",  Icon: User,          match: ["/profile"], color: "#f72585" },
 ];
 
 export function BottomNav() {

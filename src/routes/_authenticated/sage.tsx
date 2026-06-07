@@ -8,6 +8,11 @@ import { PageTransition } from "../../components/shell/PageTransition";
 import { streamSage, type SageStreamHandle } from "../../lib/sage/client";
 import { buildSageContext, type SageContext } from "../../lib/sage/context";
 import { sageStore, type SageThread, type SageTurn } from "../../lib/store/sage";
+import {
+  LEARNING_MODES, SAGE_TOOLS, DIFFICULTY_LEVELS, ENGINEERING_PROMPTS,
+  type SageLearningMode, type SageDifficulty, type SageTool,
+} from "../../lib/sage/modes";
+import { trackSageSession } from "../../lib/achievements";
 
 export const Route = createFileRoute("/_authenticated/sage")({
   head: () => ({ meta: [{ title: "Sage — Sync & Study" }] }),
@@ -17,12 +22,7 @@ export const Route = createFileRoute("/_authenticated/sage")({
   component: SagePage,
 });
 
-const PROMPTS = [
-  "Plan my next 3 hours around my open tasks",
-  "Quiz me on the subject I focused on most this week",
-  "What did I work on yesterday?",
-  "What's the smallest next step I should take right now?",
-];
+const PROMPTS = ENGINEERING_PROMPTS;
 
 function SagePage() {
   const { prompt } = Route.useSearch();
@@ -35,6 +35,10 @@ function SagePage() {
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [mode, setMode] = useState<SageLearningMode>("general");
+  const [difficulty, setDifficulty] = useState<SageDifficulty>("intermediate");
+  const [activeTool, setActiveTool] = useState<SageTool>("chat");
+  const [showTools, setShowTools] = useState(false);
   const handleRef = useRef<SageStreamHandle | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const ctx = useMemo<SageContext>(() => buildSageContext(), [activeId, turns.length]);
@@ -105,9 +109,12 @@ function SagePage() {
     handleRef.current = streamSage(
       {
         messages: allTurns
-          .filter((t) => t.id !== sageTurn.id) // exclude empty placeholder
+          .filter((t) => t.id !== sageTurn.id)
           .map((t) => ({ role: t.role, text: t.text })),
         context: ctx,
+        mode,
+        difficulty,
+        tool: activeTool,
       },
       {
         onToken: (chunk) => {
@@ -122,6 +129,7 @@ function SagePage() {
     );
     handleRef.current.done.then(() => {
       setStreaming(false);
+      trackSageSession();
       refreshThreads();
     });
 
@@ -133,9 +141,9 @@ function SagePage() {
   return (
     <PageTransition>
       <PageHeader
-        eyebrow="AI Companion"
+        eyebrow="AI Learning Mentor"
         title="Sage"
-        sub="Grounded in your tasks, focus history, and goals"
+        sub="Engineering tutor · OS · DSA · AI/ML · Aptitude & more"
         right={
           <div style={{ display: "flex", gap: 4 }}>
             <button
@@ -183,10 +191,74 @@ function SagePage() {
         </div>
 
         <div style={{ borderTop: "1px solid var(--color-border)", padding: "10px 14px", background: "var(--bg-2)", flexShrink: 0 }}>
+          {/* Learning modes */}
+          <div style={{ display: "flex", gap: 6, marginBottom: 8, overflowX: "auto", scrollbarWidth: "none" }} className="hide-scrollbar">
+            {LEARNING_MODES.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setMode(m.id)}
+                style={{
+                  padding: "4px 10px", borderRadius: 999, fontSize: "0.65rem", cursor: "pointer", flexShrink: 0,
+                  border: mode === m.id ? "1.5px solid var(--color-primary)" : "1px solid var(--color-border)",
+                  background: mode === m.id ? "rgba(232,255,71,0.1)" : "var(--bg-3)",
+                  color: mode === m.id ? "var(--color-primary)" : "var(--color-muted-foreground)",
+                }}
+              >
+                {m.icon} {m.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Difficulty + tools */}
+          <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center", flexWrap: "wrap" }}>
+            {DIFFICULTY_LEVELS.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => setDifficulty(d.id)}
+                style={{
+                  padding: "3px 8px", borderRadius: 6, fontSize: "0.62rem", cursor: "pointer",
+                  border: difficulty === d.id ? "1px solid var(--color-primary)" : "1px solid var(--color-border)",
+                  background: difficulty === d.id ? "rgba(232,255,71,0.08)" : "transparent",
+                  color: difficulty === d.id ? "var(--color-primary)" : "var(--color-muted-foreground)",
+                }}
+              >
+                {d.label}
+              </button>
+            ))}
+            <button type="button" onClick={() => setShowTools((v) => !v)} className="ss-btn ss-btn-ghost" style={{ padding: "3px 8px", fontSize: "0.62rem", marginLeft: "auto" }}>
+              🛠 Tools
+            </button>
+          </div>
+
+          {showTools && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+              {SAGE_TOOLS.map((tool) => (
+                <button
+                  key={tool.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveTool(tool.id);
+                    setInput(tool.promptPrefix);
+                    setShowTools(false);
+                  }}
+                  style={{
+                    padding: "6px 10px", borderRadius: 8, fontSize: "0.68rem", cursor: "pointer",
+                    border: "1px solid var(--color-border)", background: "var(--bg-3)",
+                  }}
+                >
+                  {tool.icon} {tool.label}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div style={{ display: "flex", gap: 6, marginBottom: 8, overflowX: "auto", scrollbarWidth: "none" }}>
             <ContextChip icon={<ListChecks size={11} />} label={`${ctx.openTasks.length} open`} />
             <ContextChip icon={<Flame size={11} />} label={`${ctx.streakDays}d streak`} />
             <ContextChip icon={<Database size={11} />} label={`${ctx.weeklyFocusMinutes}m / wk`} />
+            <ContextChip icon={<Sparkles size={11} />} label={LEARNING_MODES.find((m) => m.id === mode)?.label ?? mode} />
           </div>
           <form onSubmit={(e) => { e.preventDefault(); ask(input); }} style={{ display: "flex", gap: 8 }}>
             <input
@@ -216,9 +288,9 @@ function Welcome({ onPick }: { onPick: (s: string) => void }) {
             <Sparkles size={16} />
           </div>
           <div>
-            <div className="ss-display" style={{ fontWeight: 700, fontSize: "1rem" }}>Hey, I'm Sage.</div>
+            <div className="ss-display" style={{ fontWeight: 700, fontSize: "1rem" }}>Hey, I'm Sage — your engineering mentor.</div>
             <p style={{ fontSize: "0.85rem", color: "var(--color-muted-foreground)", marginTop: 6, lineHeight: 1.5 }}>
-              I can plan your day, quiz you on weak topics, summarize your week, and nudge accountability — grounded in your tasks and focus history.
+              I teach CS, Electronics, Mechanical, Civil, AI/ML, DBMS, OS, CN, aptitude, and more. Pick a learning mode, set your difficulty, and ask anything — I remember our conversation.
             </p>
           </div>
         </div>

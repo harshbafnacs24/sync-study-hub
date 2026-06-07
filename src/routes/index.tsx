@@ -12,7 +12,7 @@ function Index() {
 
   useEffect(() => {
     if (!loading) {
-      navigate({ to: user ? "/home" : "/login", replace: true });
+      navigate({ to: user ? "/home" : "/welcome", replace: true });
     }
   }, [loading, user, navigate]);
 

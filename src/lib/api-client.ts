@@ -1,4 +1,4 @@
-import type { AuthResponse, Profile, ProfilePatch, ProfileSetupInput, AuthUser, FeedPost, FeedComment } from "./types";
+import type { AuthResponse, Profile, ProfilePatch, ProfileSetupInput, AuthUser, FeedPost, FeedComment, TechFeedItem, PlatformStats } from "./types";
 import { DEV_OFFLINE_MODE } from "./dev-mode";
 import { storage } from "./store/storage";
 import { SEED_NETWORK_USERS } from "./store/seed-archive";
@@ -674,6 +674,30 @@ export const api = {
     if (!res.ok) throw new ApiError(data?.error ?? "Upload failed", res.status);
     return data as { file: { id: string; url: string; kind: string; name: string; size: number; mimeType: string } };
   },
+
+  // Tech Feed
+  getTechFeed: (type?: string, category?: string) => {
+    const params = new URLSearchParams();
+    if (type) params.set("type", type);
+    if (category) params.set("category", category);
+    const q = params.toString();
+    return request<{ items: TechFeedItem[] }>(`/api/v1/tech-feed${q ? `?${q}` : ""}`, { auth: true });
+  },
+
+  getTechBookmarks: () =>
+    request<{ items: TechFeedItem[] }>("/api/v1/tech-feed/bookmarks", { auth: true }),
+
+  toggleTechLike: (id: string) =>
+    request<{ item: TechFeedItem }>(`/api/v1/tech-feed/${id}/like`, { method: "POST", auth: true }),
+
+  toggleTechBookmark: (id: string) =>
+    request<{ item: TechFeedItem }>(`/api/v1/tech-feed/${id}/bookmark`, { method: "POST", auth: true }),
+
+  getPlatformStats: () =>
+    request<{ stats: PlatformStats }>("/api/v1/platform/stats"),
+
+  getTrending: () =>
+    request<{ topics: string[]; hackathons: any[]; posts: any[] }>("/api/v1/platform/trending"),
 
   request: <T>(path: string, init?: RequestInit & { auth?: boolean }) =>
     request<T>(path, init),

@@ -9,11 +9,13 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiSageRouteImport } from './routes/api/sage'
+import { Route as AuthenticatedTechFeedRouteImport } from './routes/_authenticated/tech-feed'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedSageRouteImport } from './routes/_authenticated/sage'
@@ -35,6 +37,11 @@ import { Route as AuthenticatedCommunitiesIdRouteImport } from './routes/_authen
 import { Route as AuthenticatedMessagesDmIdRouteImport } from './routes/_authenticated/messages.dm.$id'
 import { Route as AuthenticatedCommunitiesIdChannelRouteImport } from './routes/_authenticated/communities_.$id.$channel'
 
+const WelcomeRoute = WelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
@@ -58,6 +65,11 @@ const ApiSageRoute = ApiSageRouteImport.update({
   id: '/api/sage',
   path: '/api/sage',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedTechFeedRoute = AuthenticatedTechFeedRouteImport.update({
+  id: '/tech-feed',
+  path: '/tech-feed',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
   id: '/tasks',
@@ -172,6 +184,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/welcome': typeof WelcomeRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/communities': typeof AuthenticatedCommunitiesRoute
   '/discover': typeof AuthenticatedDiscoverRoute
@@ -186,6 +199,7 @@ export interface FileRoutesByFullPath {
   '/sage': typeof AuthenticatedSageRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/tasks': typeof AuthenticatedTasksRoute
+  '/tech-feed': typeof AuthenticatedTechFeedRoute
   '/api/sage': typeof ApiSageRoute
   '/communities/$id': typeof AuthenticatedCommunitiesIdRouteWithChildren
   '/communities/new': typeof AuthenticatedCommunitiesNewRoute
@@ -198,6 +212,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/welcome': typeof WelcomeRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/communities': typeof AuthenticatedCommunitiesRoute
   '/discover': typeof AuthenticatedDiscoverRoute
@@ -212,6 +227,7 @@ export interface FileRoutesByTo {
   '/sage': typeof AuthenticatedSageRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/tasks': typeof AuthenticatedTasksRoute
+  '/tech-feed': typeof AuthenticatedTechFeedRoute
   '/api/sage': typeof ApiSageRoute
   '/communities/$id': typeof AuthenticatedCommunitiesIdRouteWithChildren
   '/communities/new': typeof AuthenticatedCommunitiesNewRoute
@@ -226,6 +242,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/welcome': typeof WelcomeRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/communities': typeof AuthenticatedCommunitiesRoute
   '/_authenticated/discover': typeof AuthenticatedDiscoverRoute
@@ -240,6 +257,7 @@ export interface FileRoutesById {
   '/_authenticated/sage': typeof AuthenticatedSageRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
+  '/_authenticated/tech-feed': typeof AuthenticatedTechFeedRoute
   '/api/sage': typeof ApiSageRoute
   '/_authenticated/communities_/$id': typeof AuthenticatedCommunitiesIdRouteWithChildren
   '/_authenticated/communities_/new': typeof AuthenticatedCommunitiesNewRoute
@@ -254,6 +272,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/signup'
+    | '/welcome'
     | '/analytics'
     | '/communities'
     | '/discover'
@@ -268,6 +287,7 @@ export interface FileRouteTypes {
     | '/sage'
     | '/settings'
     | '/tasks'
+    | '/tech-feed'
     | '/api/sage'
     | '/communities/$id'
     | '/communities/new'
@@ -280,6 +300,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/signup'
+    | '/welcome'
     | '/analytics'
     | '/communities'
     | '/discover'
@@ -294,6 +315,7 @@ export interface FileRouteTypes {
     | '/sage'
     | '/settings'
     | '/tasks'
+    | '/tech-feed'
     | '/api/sage'
     | '/communities/$id'
     | '/communities/new'
@@ -307,6 +329,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/login'
     | '/signup'
+    | '/welcome'
     | '/_authenticated/analytics'
     | '/_authenticated/communities'
     | '/_authenticated/discover'
@@ -321,6 +344,7 @@ export interface FileRouteTypes {
     | '/_authenticated/sage'
     | '/_authenticated/settings'
     | '/_authenticated/tasks'
+    | '/_authenticated/tech-feed'
     | '/api/sage'
     | '/_authenticated/communities_/$id'
     | '/_authenticated/communities_/new'
@@ -335,12 +359,20 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
+  WelcomeRoute: typeof WelcomeRoute
   ApiSageRoute: typeof ApiSageRoute
   AuthGoogleCallbackRoute: typeof AuthGoogleCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/welcome': {
+      id: '/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/signup': {
       id: '/signup'
       path: '/signup'
@@ -375,6 +407,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/sage'
       preLoaderRoute: typeof ApiSageRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/tech-feed': {
+      id: '/_authenticated/tech-feed'
+      path: '/tech-feed'
+      fullPath: '/tech-feed'
+      preLoaderRoute: typeof AuthenticatedTechFeedRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/tasks': {
       id: '/_authenticated/tasks'
@@ -562,6 +601,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedSageRoute: typeof AuthenticatedSageRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
+  AuthenticatedTechFeedRoute: typeof AuthenticatedTechFeedRoute
   AuthenticatedCommunitiesIdRoute: typeof AuthenticatedCommunitiesIdRouteWithChildren
   AuthenticatedCommunitiesNewRoute: typeof AuthenticatedCommunitiesNewRoute
   AuthenticatedNetworkUserIdRoute: typeof AuthenticatedNetworkUserIdRoute
@@ -582,6 +622,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSageRoute: AuthenticatedSageRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
+  AuthenticatedTechFeedRoute: AuthenticatedTechFeedRoute,
   AuthenticatedCommunitiesIdRoute: AuthenticatedCommunitiesIdRouteWithChildren,
   AuthenticatedCommunitiesNewRoute: AuthenticatedCommunitiesNewRoute,
   AuthenticatedNetworkUserIdRoute: AuthenticatedNetworkUserIdRoute,
@@ -596,6 +637,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
+  WelcomeRoute: WelcomeRoute,
   ApiSageRoute: ApiSageRoute,
   AuthGoogleCallbackRoute: AuthGoogleCallbackRoute,
 }

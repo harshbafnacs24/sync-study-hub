@@ -168,3 +168,32 @@ export interface AppNotification {
   createdAt: string;
   read: boolean;
 }
+
+export interface TechFeedItem {
+  id: string;
+  type: "hackathon" | "internship" | "job" | "news" | "competition" | "scholarship";
+  category: string;
+  title: string;
+  summary: string;
+  url?: string | null;
+  company?: string | null;
+  location?: string | null;
+  deadline?: string | null;
+  prizePool?: string | null;
+  eligibility?: string | null;
+  tags: string[];
+  featured: boolean;
+  source: string;
+  createdAt: string;
+  liked: boolean;
+  bookmarked: boolean;
+  likeCount: number;
+}
+
+export interface PlatformStats {
+  studentsRegistered: number;
+  universitiesConnected: number;
+  postsShared: number;
+  friendConnections: number;
+  sageSessions: number;
+}
