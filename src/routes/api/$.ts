@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { API_BASE_URL } from "../../lib/api-client";
+import { BACKEND_URL } from "../../lib/api-client";
 
 async function handleProxy(request: Request): Promise<Response> {
   const url = new URL(request.url);
@@ -9,8 +9,8 @@ async function handleProxy(request: Request): Promise<Response> {
     return new Response("Not found", { status: 404 });
   }
 
-  // Construct target URL using the server-side API_BASE_URL
-  const targetUrl = `${API_BASE_URL}${url.pathname}${url.search}`;
+  // Construct target URL using the server-side BACKEND_URL
+  const targetUrl = `${BACKEND_URL}${url.pathname}${url.search}`;
 
   // Check for WebSocket upgrade request
   const upgradeHeader = request.headers.get("Upgrade");
