@@ -23,7 +23,7 @@ export const Route = createFileRoute("/_authenticated/home")({
 const FEATURES = [
   { icon: Sparkles, label: "Sage AI Mentor", desc: "Engineering tutor with 7 learning modes", to: "/sage", color: "#4361ee" },
   { icon: Users, label: "Friend Network", desc: "Connect with study partners", to: "/discover", color: "#06d6a0" },
-  { icon: MessageSquare, label: "Real-Time Chat", desc: "Message friends instantly", to: "/messages", color: "#f72585" },
+  { icon: MessageSquare, label: "Real-Time Chat", desc: "Message friends instantly", to: "/discover" as const, search: { tab: "dms" }, color: "#f72585" },
   { icon: Rocket, label: "Tech Feed", desc: "Hackathons, jobs & internships", to: "/tech-feed", color: "#ffb703" },
   { icon: BookOpen, label: "Study Groups", desc: "Join learning communities", to: "/communities", color: "#7209b7" },
   { icon: Timer, label: "Focus Timer", desc: "Pomodoro study sessions", to: "/focus", color: "#ff4d6d" },
@@ -79,7 +79,7 @@ function HomePage() {
             </p>
           </div>
           <div style={{ display: "flex", gap: 6 }}>
-            <Link to="/messages" className="ss-btn ss-btn-outline" style={{ width: 36, height: 36, padding: 0, borderRadius: 999, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Link to="/discover" search={{ tab: "dms" } as any} className="ss-btn ss-btn-outline" style={{ width: 36, height: 36, padding: 0, borderRadius: 999, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <MessageSquare size={15} />
               {unreadMsgs > 0 && <Badge count={unreadMsgs} />}
             </Link>
@@ -148,7 +148,7 @@ function HomePage() {
         <SectionHeader eyebrow="Explore" title="Features" />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
           {FEATURES.map((f) => (
-            <Link key={f.to} to={f.to} style={{ textDecoration: "none", color: "inherit" }}>
+            <Link key={f.label} to={f.to} search={(f as any).search} style={{ textDecoration: "none", color: "inherit" }}>
               <div className="ss-card" style={{ padding: 12, height: "100%", transition: "border-color 0.2s" }}>
                 <f.icon size={18} style={{ color: f.color, marginBottom: 8 }} />
                 <div style={{ fontWeight: 700, fontSize: "0.82rem" }}>{f.label}</div>

@@ -18,7 +18,7 @@ function getProvider(): AiProvider {
   const key = process.env.GEMINI_API_KEY ?? "";
   if (!key) return mockProvider();
   if (key !== _cachedKey) {
-    _cachedProvider = geminiProvider(key, "gemini-1.5-flash-8b");
+    _cachedProvider = geminiProvider(key, "gemini-1.5-flash");
     _cachedKey = key;
   }
   return _cachedProvider!;

@@ -61,6 +61,25 @@ export function MessageComposer({
     }
   };
 
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteTitle, setInviteTitle] = useState("Joint Study Session");
+  const [inviteSubjects, setInviteSubjects] = useState("");
+  const [inviteLink, setInviteLink] = useState("https://meet.google.com/xyz-abc-123");
+  const [inviteTime, setInviteTime] = useState(new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16));
+
+  const handleSendInvite = () => {
+    if (!inviteTitle.trim() || !inviteLink.trim()) return;
+    const payload = {
+      type: "invite",
+      title: inviteTitle.trim(),
+      subjects: inviteSubjects.trim(),
+      link: inviteLink.trim(),
+      scheduledAt: new Date(inviteTime).toISOString()
+    };
+    onSend(JSON.stringify(payload));
+    setShowInviteModal(false);
+  };
+
   return (
     <form
       onSubmit={(e) => { e.preventDefault(); submit(); }}
@@ -74,6 +93,45 @@ export function MessageComposer({
         alignItems: "center",
       }}
     >
+      {showInviteModal && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 10000,
+          background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center",
+          padding: 16
+        }}>
+          <div className="ss-card" style={{ width: "100%", maxWidth: 360, background: "var(--bg-2)", border: "1px solid var(--color-border)", padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span className="ss-mono" style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-primary)" }}>CREATE STUDY INVITE</span>
+              <button type="button" onClick={() => setShowInviteModal(false)} className="ss-btn ss-btn-ghost" style={{ padding: 4 }}>×</button>
+            </div>
+            
+            <div>
+              <label style={{ fontSize: "0.65rem", color: "#888", display: "block", marginBottom: 4 }}>INVITE TITLE</label>
+              <input className="ss-input" value={inviteTitle} onChange={(e) => setInviteTitle(e.target.value)} placeholder="Let's study!" />
+            </div>
+
+            <div>
+              <label style={{ fontSize: "0.65rem", color: "#888", display: "block", marginBottom: 4 }}>SUBJECTS</label>
+              <input className="ss-input" value={inviteSubjects} onChange={(e) => setInviteSubjects(e.target.value)} placeholder="e.g. DSA, Operating Systems" />
+            </div>
+
+            <div>
+              <label style={{ fontSize: "0.65rem", color: "#888", display: "block", marginBottom: 4 }}>MEETING LINK</label>
+              <input className="ss-input" type="url" value={inviteLink} onChange={(e) => setInviteLink(e.target.value)} placeholder="https://meet.google.com/..." />
+            </div>
+
+            <div>
+              <label style={{ fontSize: "0.65rem", color: "#888", display: "block", marginBottom: 4 }}>TIME</label>
+              <input className="ss-input" type="datetime-local" value={inviteTime} onChange={(e) => setInviteTime(e.target.value)} />
+            </div>
+
+            <button type="button" onClick={handleSendInvite} className="ss-btn ss-btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: 4 }}>
+              Send Invite Card
+            </button>
+          </div>
+        </div>
+      )}
+
       {(conversationId || channelId) && (
         <>
           <input ref={fileRef} type="file" accept={ALLOWED_EXTENSIONS.join(",")} style={{ display: "none" }} onChange={handleFile} />
@@ -86,6 +144,16 @@ export function MessageComposer({
             aria-label="Attach file"
           >
             <Paperclip size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowInviteModal(true)}
+            disabled={disabled || uploading}
+            className="ss-btn ss-btn-outline"
+            style={{ padding: "0 10px", height: 38, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--color-primary)" }}
+            aria-label="Send study invite"
+          >
+            📅
           </button>
         </>
       )}

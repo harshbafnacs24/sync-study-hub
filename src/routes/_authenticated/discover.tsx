@@ -12,19 +12,33 @@ import {
   useConnectionStatus,
   useDiscoverUsers,
   useNetworkUser,
+  useQuickMeets,
 } from "../../lib/hooks/use-network";
-import { useStartConversation, useUnreadNotifications } from "../../lib/hooks/use-messaging";
+import {
+  useStartConversation,
+  useUnreadNotifications,
+  useConversations,
+  useCommunities,
+  useToggleJoin,
+  useLiveInbox
+} from "../../lib/hooks/use-messaging";
 import { FeedSection } from "../../components/feed/FeedSection";
 import { networkStore, type NetworkUser, type Connection } from "../../lib/store/network";
 import { useAuth } from "../../lib/auth-context";
 import { toast } from "sonner";
+import { Avatar, UnreadBadge, timeAgo } from "../../components/messaging/Avatar";
+import { Compass, Pin, ExternalLink, CalendarDays, MessageCircleCode } from "lucide-react";
+import { CommunityCard } from "../../components/messaging/CommunityCard";
 
 export const Route = createFileRoute("/_authenticated/discover")({
   head: () => ({ meta: [{ title: "Friends — Sync & Study" }] }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    tab: typeof search.tab === "string" ? (search.tab as DiscoverTab) : undefined,
+  }),
   component: DiscoverPage,
 });
 
-type DiscoverTab = "feed" | "search" | "foryou" | "network";
+export type DiscoverTab = "dms" | "friends" | "communities" | "groups" | "activity";
 
 /* ─── Profile Card ──────────────────────────────────────────────────────── */
 
@@ -667,11 +681,18 @@ function CreatePostCard({ onAddPost, user }: CreatePostCardProps) {
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
 
 function DiscoverPage() {
-  const [tab, setTab] = useState<DiscoverTab>("feed"); // Feed is now the default tab
+  const { tab: urlTab } = Route.useSearch();
+  const [tab, setTab] = useState<DiscoverTab>(urlTab ?? "dms");
   const [query, setQuery] = useState("");
   const { user: currentUser } = useAuth();
   const connections = useConnections();
   const { data: unreadCount = 0 } = useUnreadNotifications();
+
+  // Conversations & Communities data
+  const conversations = useConversations();
+  const communities = useCommunities();
+  const join = useToggleJoin();
+  useLiveInbox();
 
   const search = useSearchUsers(query);
   const discover = useDiscoverUsers();
@@ -874,22 +895,14 @@ function DiscoverPage() {
             <UserCheck size={18} style={{ color: "var(--color-primary)" }} />
             <div>
               <div className="ss-ph-label">PRODUCTIVITY FEED</div>
-              <h1 className="ss-ph-title" style={{ fontSize: "1.3rem" }}>Friends &amp; Circles</h1>
+              <h1 className="ss-ph-title" style={{ fontSize: "1.3rem" }}>Friends &amp; Social Hub</h1>
             </div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <Link
-              to="/messages"
-              className="ss-btn ss-btn-outline"
-              style={{ width: 38, height: 38, padding: 0, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center" }}
-              aria-label="Messages"
-            >
-              <MessageSquare size={16} />
-            </Link>
-            <Link
               to="/notifications"
               className="ss-btn ss-btn-outline"
-              style={{ width: 38, height: 38, padding: 0, borderRadius: 999, position: "relative" }}
+              style={{ width: 38, height: 38, padding: 0, borderRadius: 999, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}
               aria-label="Notifications"
             >
               <Bell size={16} />
@@ -906,59 +919,247 @@ function DiscoverPage() {
           </div>
         </div>
 
-        {/* Search bar */}
-        <div style={{ position: "relative" }}>
-          <Search size={14} style={{
-            position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
-            color: "#666", pointerEvents: "none",
-          }} />
-          <input
-            className="ss-input"
-            placeholder="Search friends by name, @handle, or interest..."
-            value={query}
-            onChange={(e) => { setQuery(e.target.value); setTab("search"); }}
-            style={{ paddingLeft: 36, width: "100%" }}
-          />
-          {query && (
-            <button
-              onClick={() => setQuery("")}
-              style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#555", cursor: "pointer" }}
-            >
-              <X size={14} />
-            </button>
-          )}
-        </div>
-
         {/* Tabs */}
-        <div style={{ display: "flex", gap: 4, marginTop: 14, background: "rgba(255,255,255,0.03)", padding: 3, borderRadius: 8, border: "1px solid rgba(255,255,255,0.05)" }}>
+        <div style={{ display: "flex", gap: 4, marginTop: 14, background: "rgba(255,255,255,0.03)", padding: 3, borderRadius: 8, border: "1px solid rgba(255,255,255,0.05)", overflowX: "auto", scrollbarWidth: "none" }} className="hide-scrollbar">
           {([
-            { key: "feed", label: "Feed" },
-            { key: "search", label: "Discover" },
-            { key: "foryou", label: "For You" },
-            { key: "network", label: `Network ${accepted.length > 0 ? `(${accepted.length})` : ""}` },
-          ] as { key: DiscoverTab; label: string }[]).map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className="ss-mono"
-              style={{
-                flex: 1, padding: "8px 4px", fontSize: "0.62rem",
-                textTransform: "uppercase", letterSpacing: "0.05em",
-                borderRadius: 6, border: "none", cursor: "pointer",
-                background: tab === key ? "rgba(232,255,71,0.08)" : "transparent",
-                color: tab === key ? "var(--color-primary)" : "#666",
-                fontWeight: tab === key ? "bold" : "normal",
-                transition: "all 0.15s ease",
-              }}
-            >{label}</button>
-          ))}
+            { key: "dms", label: "DMs" },
+            { key: "friends", label: "Friends" },
+            { key: "communities", label: "Communities" },
+            { key: "groups", label: "Group Chats" },
+            { key: "activity", label: "Activity" },
+          ] as { key: DiscoverTab; label: string }[]).map(({ key, label }) => {
+            const active = tab === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setTab(key)}
+                className="ss-mono"
+                style={{
+                  flex: 1, padding: "8px 6px", fontSize: "0.58rem",
+                  textTransform: "uppercase", letterSpacing: "0.05em",
+                  borderRadius: 6, border: "none", cursor: "pointer",
+                  background: active ? "rgba(232,255,71,0.08)" : "transparent",
+                  color: active ? "var(--color-primary)" : "#666",
+                  fontWeight: active ? "bold" : "normal",
+                  transition: "all 0.15s ease",
+                  whiteSpace: "nowrap"
+                }}
+              >{label}</button>
+            );
+          })}
         </div>
       </div>
 
       <div className="ss-body" style={{ paddingBottom: 80, paddingTop: 10 }}>
 
-        {/* ─── FEED TAB ─── */}
-        {tab === "feed" && (
+        {/* ─── DIRECT MESSAGES (DMs) TAB ─── */}
+        {tab === "dms" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ position: "relative" }}>
+              <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#666", pointerEvents: "none" }} />
+              <input
+                className="ss-input"
+                placeholder="Search conversations..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                style={{ paddingLeft: 36, width: "100%" }}
+              />
+            </div>
+            {conversations.isLoading ? (
+              <div style={{ textAlign: "center", color: "#555", padding: 40 }}>Loading chats…</div>
+            ) : (conversations.data ?? []).length === 0 ? (
+              <div style={{ padding: 16 }}>
+                <div style={{ textAlign: "center", border: "1px dashed rgba(255,255,255,0.06)", borderRadius: 12, padding: 32 }}>
+                  <div style={{ fontSize: "1.5rem", marginBottom: 8 }}>💬</div>
+                  <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#fff" }}>No conversations</div>
+                  <div style={{ fontSize: "0.75rem", color: "#555", marginTop: 4 }}>
+                    Start a chat by clicking "Message" on any friend's profile.
+                  </div>
+                  <button onClick={() => setTab("friends")} className="ss-btn ss-btn-outline" style={{ marginTop: 14, fontSize: "0.75rem" }}>
+                    Find friends to chat with
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {(conversations.data ?? []).map((c: any) => {
+                  return <DMRowWrapper key={c.id} conv={c} query={query} />;
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─── FRIENDS TAB ─── */}
+        {tab === "friends" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Search Input */}
+            <div style={{ position: "relative" }}>
+              <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#666", pointerEvents: "none" }} />
+              <input
+                className="ss-input"
+                placeholder="Search friends by name, @handle, or interest..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                style={{ paddingLeft: 36, width: "100%" }}
+              />
+            </div>
+
+            {query.trim() ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <span className="ss-mono" style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--color-primary)", letterSpacing: "0.05em", textTransform: "uppercase" }}>Search Results</span>
+                {search.isLoading ? (
+                  <div style={{ textAlign: "center", color: "#555", padding: 20 }}>Searching students…</div>
+                ) : (search.data ?? []).length === 0 ? (
+                  <div style={{ textAlign: "center", color: "#555", padding: 20, fontSize: "0.85rem" }}>
+                    No results for "{query}"
+                  </div>
+                ) : (
+                  (search.data ?? []).map((u) => <ProfileCard key={u.id} user={u} />)
+                )}
+              </div>
+            ) : (
+              <>
+                {/* Pending requests */}
+                {pending.length > 0 && (
+                  <div>
+                    <div className="ss-mono" style={{ fontSize: "0.6rem", letterSpacing: "0.08em", color: "var(--color-primary)", textTransform: "uppercase", marginBottom: 10 }}>
+                      Pending Requests ({pending.length})
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {pending.map((c) => (
+                        <PendingRequestCard 
+                          key={c.id} 
+                          conn={c} 
+                          onAcceptSuccess={() => connections.refetch()} 
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Suggested for You */}
+                {suggestedUsers.length > 0 && (
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 4px 10px 4px" }}>
+                      <span className="ss-mono" style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--color-primary)", letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                        Suggested for You
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", gap: 12, overflowX: "auto", padding: "4px 2px", scrollbarWidth: "none" }} className="hide-scrollbar">
+                      {suggestedUsers.map((su: any) => {
+                        const currentUserProfile = currentUser as any;
+                        const common = su.interests?.filter((i: string) => currentUserProfile?.interests?.includes(i)) || [];
+                        const matchText = common.length > 0
+                          ? `Similar interest: ${common[0]}`
+                          : su.school === currentUserProfile?.school
+                            ? `Same School: ${su.school}`
+                            : `${su.year} · ${su.school}`;
+                        return <SuggestedFriendCard key={su.id} user={su} matchText={matchText} />;
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Connections list */}
+                <div>
+                  <div className="ss-mono" style={{ fontSize: "0.6rem", letterSpacing: "0.08em", color: "#666", textTransform: "uppercase", marginBottom: 10 }}>
+                    My Friends ({accepted.length})
+                  </div>
+                  {connectedIds.length === 0 ? (
+                    <div style={{
+                      padding: 32, textAlign: "center", border: "1px dashed rgba(255,255,255,0.06)", borderRadius: 12
+                    }}>
+                      <Users size={28} style={{ color: "#333", marginBottom: 10 }} />
+                      <div style={{ fontSize: "0.85rem", color: "#555" }}>No friends connected yet</div>
+                      <div style={{ fontSize: "0.75rem", color: "#444", marginTop: 4 }}>
+                        Search for students above or accept pending invites.
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {connectedIds.map((uid) => <ResolvedNetworkUserCard key={uid} userId={uid} />)}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ─── COMMUNITIES TAB ─── */}
+        {tab === "communities" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span className="ss-mono" style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--color-primary)" }}>EXPLORE COMMUNITIES</span>
+              <Link to="/communities/new" className="ss-btn ss-btn-primary" style={{ padding: "6px 10px", fontSize: "0.7rem" }}>
+                + Create
+              </Link>
+            </div>
+            
+            <div style={{ position: "relative" }}>
+              <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#666", pointerEvents: "none" }} />
+              <input
+                className="ss-input"
+                placeholder="Search by subject, tag, or name..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                style={{ paddingLeft: 36, width: "100%" }}
+              />
+            </div>
+
+            {communities.isLoading ? (
+              <div style={{ textAlign: "center", color: "#555", padding: 40 }}>Loading communities…</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {(communities.data ?? [])
+                  .filter((c: any) => !query || `${c.name} ${c.description}`.toLowerCase().includes(query.toLowerCase()))
+                  .map((c: any) => (
+                    <CommunityCardWrapper key={c.id} c={c} onJoin={() => join.mutate(c.id)} />
+                  ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─── GROUP CHATS & ACTIVE SESSIONS TAB ─── */}
+        {tab === "groups" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            {/* Joined Community Channels */}
+            <div>
+              <div className="ss-mono" style={{ fontSize: "0.6rem", letterSpacing: "0.08em", color: "var(--color-primary)", textTransform: "uppercase", marginBottom: 10 }}>
+                Community Channels
+              </div>
+              
+              {communities.isLoading ? (
+                <div style={{ color: "#555", fontSize: "0.78rem" }}>Loading channels…</div>
+              ) : (communities.data ?? []).filter((c: any) => c.joined).length === 0 ? (
+                <div style={{ padding: 16, textAlign: "center", border: "1px dashed rgba(255,255,255,0.06)", borderRadius: 10, fontSize: "0.78rem", color: "#555" }}>
+                  Join a community to access group channels here.<br/>
+                  <span onClick={() => setTab("communities")} style={{ color: "var(--color-primary)", cursor: "pointer", marginTop: 4, display: "inline-block" }}>Browse Communities →</span>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {(communities.data ?? []).filter((c: any) => c.joined).map((c: any) => (
+                    <div key={c.id} style={{ background: "rgba(255,255,255,0.01)", border: "1px solid var(--color-border)", borderRadius: 10, padding: 10 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: 6, marginBottom: 6 }}>
+                        <span style={{ fontSize: "1.1rem" }}>{c.iconChar}</span>
+                        <span className="ss-display" style={{ fontWeight: 700, fontSize: "0.85rem" }}>{c.name}</span>
+                      </div>
+                      <ChannelsList communityId={c.id} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Quick Meets */}
+            <QuickMeetsList />
+          </div>
+        )}
+
+        {/* ─── SHARED ACTIVITY / FEED TAB ─── */}
+        {tab === "activity" && (
           <FeedSection
             suggestedSlot={suggestedUsers.length > 0 ? (
               <div style={{ marginBottom: 20, borderBottom: "1px solid var(--color-border)", paddingBottom: 16 }}>
@@ -966,7 +1167,6 @@ function DiscoverPage() {
                   <span className="ss-mono" style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--color-primary)", letterSpacing: "0.05em", textTransform: "uppercase" }}>
                     Suggested for You
                   </span>
-                  <span style={{ fontSize: "0.65rem", color: "var(--color-muted-foreground)" }}>Based on similar interests</span>
                 </div>
                 <div style={{ display: "flex", gap: 12, overflowX: "auto", padding: "4px 2px", scrollbarWidth: "none" }} className="hide-scrollbar">
                   {suggestedUsers.map((su: any) => {
@@ -984,108 +1184,126 @@ function DiscoverPage() {
             ) : undefined}
           />
         )}
-
-        {/* ─── SEARCH / DISCOVER TAB ─── */}
-        {tab === "search" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {!query.trim() && (
-              <div style={{
-                padding: "10px 14px",
-                background: "rgba(232,255,71,0.04)",
-                border: "1px solid rgba(232,255,71,0.08)",
-                borderRadius: 10,
-                fontSize: "0.75rem",
-                color: "#888",
-                lineHeight: 1.5,
-              }}>
-                Browse students with completed profiles. Use search to filter by name, school, or interests.
-              </div>
-            )}
-            {(query.trim() ? search.isLoading : discover.isLoading) ? (
-              <div style={{ textAlign: "center", color: "#555", padding: 40 }}>Loading students…</div>
-            ) : (query.trim() ? (search.data ?? []) : (discover.data ?? [])).length === 0 ? (
-              <div style={{ textAlign: "center", color: "#555", padding: 40, fontSize: "0.85rem" }}>
-                {query ? `No results for "${query}"` : "No students found yet. Complete your profile and check back soon!"}
-              </div>
-            ) : (
-              (query.trim() ? (search.data ?? []) : (discover.data ?? [])).map((u) => <ProfileCard key={u.id} user={u} />)
-            )}
-          </div>
-        )}
-
-        {/* ─── FOR YOU TAB ─── */}
-        {tab === "foryou" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{
-              padding: "10px 14px",
-              background: "rgba(232,255,71,0.04)",
-              border: "1px solid rgba(232,255,71,0.08)",
-              borderRadius: 10,
-              fontSize: "0.75rem",
-              color: "#888",
-              lineHeight: 1.5,
-            }}>
-              ✦ Recommendations based on your <span style={{ color: "var(--color-primary)" }}>study interests</span> and <span style={{ color: "var(--color-primary)" }}>school</span>.
-            </div>
-            {forYou.isLoading ? (
-              <div style={{ textAlign: "center", color: "#555", padding: 40 }}>Loading…</div>
-            ) : (forYou.data ?? []).length === 0 ? (
-              <div style={{ textAlign: "center", color: "#555", padding: 40, fontSize: "0.85rem" }}>
-                Add subjects to your profile to get personalized recommendations.
-              </div>
-            ) : (
-              (forYou.data ?? []).map((u) => <ProfileCard key={u.id} user={u} />)
-            )}
-          </div>
-        )}
-
-        {/* ─── MY NETWORK TAB ─── */}
-        {tab === "network" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-
-            {/* Pending requests */}
-            {pending.length > 0 && (
-              <div>
-                <div className="ss-mono" style={{ fontSize: "0.6rem", letterSpacing: "0.08em", color: "var(--color-primary)", textTransform: "uppercase", marginBottom: 10 }}>
-                  Pending ({pending.length})
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {pending.map((c) => (
-                    <PendingRequestCard 
-                      key={c.id} 
-                      conn={c} 
-                      onAcceptSuccess={() => connections.refetch()} 
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Connected */}
-            <div>
-              <div className="ss-mono" style={{ fontSize: "0.6rem", letterSpacing: "0.08em", color: "#666", textTransform: "uppercase", marginBottom: 10 }}>
-                Connections ({accepted.length})
-              </div>
-              {connectedIds.length === 0 ? (
-                <div style={{
-                  padding: 32, textAlign: "center", border: "1px dashed rgba(255,255,255,0.06)", borderRadius: 12
-                }}>
-                  <Users size={28} style={{ color: "#333", marginBottom: 10 }} />
-                  <div style={{ fontSize: "0.85rem", color: "#555" }}>No connections yet</div>
-                  <div style={{ fontSize: "0.75rem", color: "#444", marginTop: 4 }}>
-                    Go to Discover or For You to connect with students.
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {connectedIds.map((uid) => <ResolvedNetworkUserCard key={uid} userId={uid} />)}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </PageTransition>
+  );
+}
+
+/* ─── Subcomponents for the social hub ─── */
+
+function DMRowWrapper({ conv, query }: { conv: any; query: string }) {
+  const { data: peer, isLoading } = useNetworkUser(conv.peerId);
+  if (isLoading || !peer) return null;
+  if (query && !peer.name.toLowerCase().includes(query.toLowerCase())) return null;
+
+  return (
+    <Link
+      to="/messages/dm/$id"
+      params={{ id: conv.id }}
+      style={{ display: "block", textDecoration: "none", color: "inherit" }}
+    >
+      <div style={{ display: "flex", gap: 12, padding: "10px 12px", borderRadius: 8, alignItems: "center", transition: "background 0.2s" }} className="ss-card-anim">
+        <Avatar peer={peer} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+              {conv.pinned && <Pin size={11} style={{ color: "var(--color-primary)", flexShrink: 0 }} />}
+              <span className="ss-display" style={{ fontWeight: 700, fontSize: "0.92rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {peer.name}
+              </span>
+            </div>
+            <span className="ss-mono" style={{ fontSize: "0.62rem", color: "var(--color-muted-foreground)", flexShrink: 0 }}>{timeAgo(conv.lastMessageAt)}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 2 }}>
+            <span style={{
+              fontSize: "0.78rem",
+              color: conv.unread > 0 ? "var(--color-foreground)" : "var(--color-muted-foreground)",
+              fontWeight: conv.unread > 0 ? 600 : 400,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>{conv.lastPreview || "Say hi"}</span>
+            <UnreadBadge count={conv.unread} />
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function ChannelsList({ communityId }: { communityId: string }) {
+  const { data: channels = [], isLoading } = useChannels(communityId);
+  if (isLoading) return <div style={{ fontSize: "0.7rem", color: "#555" }}>Loading channels…</div>;
+  if (channels.length === 0) return <div style={{ fontSize: "0.7rem", color: "#555" }}>No channels yet</div>;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      {channels.map((ch: any) => (
+        <Link
+          key={ch.id}
+          to="/communities/$id"
+          params={{ id: communityId }}
+          search={{ channel: ch.id } as any}
+          style={{
+            display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", borderRadius: 6,
+            background: "rgba(255,255,255,0.02)", textDecoration: "none", color: "var(--color-muted-foreground)"
+          }}
+          className="ss-card-anim"
+        >
+          <span style={{ color: "var(--color-primary)" }}>#</span>
+          <span style={{ fontSize: "0.78rem" }}>{ch.name}</span>
+          <span style={{ flex: 1 }} />
+          {ch.unread > 0 && <span style={{ background: "var(--color-primary)", color: "#000", borderRadius: 99, fontSize: "0.55rem", fontWeight: 800, padding: "1px 5px" }}>{ch.unread}</span>}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function QuickMeetsList() {
+  const meets = useQuickMeets();
+  const { data: list = [] } = useDiscoverUsers();
+  if ((meets.data ?? []).length === 0) return null;
+  return (
+    <div>
+      <div className="ss-mono" style={{ fontSize: "0.6rem", letterSpacing: "0.08em", color: "#666", textTransform: "uppercase", marginBottom: 10 }}>
+        Upcoming Quick Meets ({(meets.data ?? []).length})
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {(meets.data ?? []).map((meet: any) => {
+          const invitedUser = list?.find(u => u.id === meet.invitedUserId);
+          return (
+            <div key={meet.id} style={{
+              background: "rgba(20,20,20,0.8)",
+              border: "1px solid rgba(255,255,255,0.06)",
+              borderRadius: 12, padding: 14,
+              display: "flex", flexDirection: "column", gap: 6,
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#f0f0f0" }}>{meet.title}</div>
+                  <div style={{ fontSize: "0.68rem", color: "#666", marginTop: 2 }}>
+                    with {invitedUser?.name ?? meet.invitedUserId}
+                  </div>
+                </div>
+              </div>
+              <div style={{ fontSize: "0.7rem", color: "var(--color-primary)", fontFamily: "var(--font-mono)" }}>
+                {new Date(meet.scheduledAt).toLocaleString(undefined, {
+                  weekday: "short", month: "short", day: "numeric",
+                  hour: "2-digit", minute: "2-digit",
+                })}
+              </div>
+              <a
+                href={meet.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ss-btn ss-btn-outline"
+                style={{ fontSize: "0.72rem", gap: 6, justifyContent: "center", padding: "6px 0" }}
+              >
+                <ExternalLink size={12} /> Join Session
+              </a>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

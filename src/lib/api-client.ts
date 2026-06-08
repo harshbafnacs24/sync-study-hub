@@ -8,10 +8,13 @@ import { SEED_NETWORK_USERS } from "./store/seed-archive";
  * Defaults to http://localhost:4000 for local dev. Override with
  * VITE_API_BASE_URL when deploying.
  */
+export const BACKEND_URL =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://localhost:4000";
+
 export const API_BASE_URL =
   typeof window !== "undefined"
     ? ""
-    : ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://localhost:4000");
+    : BACKEND_URL;
 
 const TOKEN_KEY = "ss.token";
 

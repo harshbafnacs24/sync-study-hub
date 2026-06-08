@@ -1,5 +1,5 @@
 import { io as ioClient, type Socket } from "socket.io-client";
-import { API_BASE_URL } from "./api-client";
+import { BACKEND_URL } from "./api-client";
 
 type Listener = (...args: any[]) => void;
 
@@ -41,7 +41,7 @@ export function connectSocket(token: string) {
   }
   if (socket?.connected) socket.disconnect();
 
-  socket = ioClient(API_BASE_URL, {
+  socket = ioClient(BACKEND_URL, {
     auth: { token },
     transports: ["websocket", "polling"],
     reconnection: true,
