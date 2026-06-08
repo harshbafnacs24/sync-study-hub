@@ -9,7 +9,9 @@ import { SEED_NETWORK_USERS } from "./store/seed-archive";
  * VITE_API_BASE_URL when deploying.
  */
 export const API_BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://localhost:4000";
+  typeof window !== "undefined"
+    ? ""
+    : ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://localhost:4000");
 
 const TOKEN_KEY = "ss.token";
 
