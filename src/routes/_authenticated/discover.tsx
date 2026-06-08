@@ -1307,20 +1307,23 @@ function QuickMeetsList() {
   );
 }
 
-/* ─── Helpers ────────────────────────────────────────────────────────────── */
-
-const AVATAR_COLORS = [
-  "linear-gradient(135deg,#E8FF47,#c6e600)",
-  "linear-gradient(135deg,#4a9eff,#2575ff)",
-  "linear-gradient(135deg,#aa66ff,#7722ee)",
-  "linear-gradient(135deg,#3ddc84,#00aa55)",
-  "linear-gradient(135deg,#ff6b6b,#ee2244)",
-  "linear-gradient(135deg,#ffb347,#ff7700)",
-];
-
-function avatarGradient(id: string): string {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+function CommunityCardWrapper({ c, onJoin }: { c: any; onJoin: () => void }) {
+  return (
+    <Link to="/communities/$id" params={{ id: c.id }} style={{ textDecoration: "none", color: "inherit" }}>
+      <CommunityCard
+        community={c}
+        action={
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onJoin(); }}
+            className={`ss-btn ${c.joined ? "ss-btn-outline" : "ss-btn-primary"}`}
+            style={{ padding: "5px 10px", fontSize: "0.7rem", flexShrink: 0 }}
+          >
+            {c.joined ? "Joined" : "Join"}
+          </button>
+        }
+      />
+    </Link>
+  );
 }
+
 export { DiscoverPage };
