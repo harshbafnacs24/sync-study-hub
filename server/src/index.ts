@@ -119,7 +119,7 @@ async function main() {
   httpServer.listen(env.port, () => {
     console.log(`[server] listening on http://localhost:${env.port}`);
     console.log(`[server] CORS origins: ${env.corsOrigins.join(", ")}`);
-    console.log(`[server] Sage provider: ${process.env.GEMINI_API_KEY ? "gemini" : "mock"}`);
+    console.log(`[server] Sage provider: ${process.env.GROQ_API_KEY ? "groq" : "mock"}`);
   });
 }
 

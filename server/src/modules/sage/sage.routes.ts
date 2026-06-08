@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
 import { asyncHandler, validate } from "../../middleware/validate.js";
-import { geminiProvider } from "../../ai/providers/gemini.js";
+import { groqProvider } from "../../ai/providers/groq.js";
 import { mockProvider } from "../../ai/providers/mock.js";
 import { buildContext } from "../../ai/context-builder.js";
 import type { AiProvider } from "../../ai/provider.js";
@@ -15,10 +15,10 @@ sageRouter.use(requireAuth);
 let _cachedProvider: AiProvider | null = null;
 let _cachedKey = "";
 function getProvider(): AiProvider {
-  const key = process.env.GEMINI_API_KEY ?? "";
+  const key = process.env.GROQ_API_KEY ?? "";
   if (!key) return mockProvider();
   if (key !== _cachedKey) {
-    _cachedProvider = geminiProvider(key, "gemini-1.5-flash");
+    _cachedProvider = groqProvider(key, "llama-3.3-70b-versatile");
     _cachedKey = key;
   }
   return _cachedProvider!;
@@ -115,7 +115,7 @@ sageRouter.post("/chat", validate(chatSchema), asyncHandler(async (req: AuthedRe
     return;
   }
 
-  const key = process.env.GEMINI_API_KEY;
+  const key = process.env.GROQ_API_KEY;
   if (!key) {
     res.write(`data: ${JSON.stringify({ error: "Sage AI is not configured on the server yet." })}\n\n`);
     res.end();

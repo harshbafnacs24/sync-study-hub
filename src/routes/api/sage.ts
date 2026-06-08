@@ -4,7 +4,7 @@
  * POST /api/sage
  * Body: { messages: {role:"user"|"sage", text:string}[], context?: SageContext }
  *
- * Proxies a streaming Gemini response back to the client as Server-Sent Events.
+ * Proxies a streaming Groq response back to the client as Server-Sent Events.
  * The client just appends each `data:` payload's text fragment to the current
  * assistant turn. Errors are emitted as `event: error\n` SSE frames so the UI
  * can surface them inline instead of silently hanging.
@@ -14,8 +14,8 @@
  */
 import { createFileRoute } from "@tanstack/react-router";
 
-const GEMINI_MODEL = "gemini-2.5-flash";
-const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+const GROQ_MODEL = "llama-3.3-70b-versatile";
+const GROQ_BASE = "https://api.groq.com/openai/v1/chat/completions";
 
 interface IncomingMessage { role: "user" | "sage"; text: string }
 interface SageContext {
@@ -86,10 +86,10 @@ export const Route = createFileRoute("/api/sage")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apiKey = process.env.GEMINI_API_KEY;
+        const apiKey = process.env.GROQ_API_KEY;
         if (!apiKey) {
           return new Response(
-            sseFrameText(JSON.stringify({ message: "GEMINI_API_KEY is not configured" }), "error"),
+            sseFrameText(JSON.stringify({ message: "GROQ_API_KEY is not configured" }), "error"),
             { status: 200, headers: sseHeaders() },
           );
         }
@@ -112,41 +112,40 @@ export const Route = createFileRoute("/api/sage")({
           );
         }
 
-        const contents = messages.map((m) => ({
-          role: m.role === "sage" ? "model" : "user",
-          parts: [{ text: m.text }],
+        const formattedMessages = messages.map((m) => ({
+          role: m.role === "sage" ? "assistant" : "user",
+          content: m.text,
         }));
 
         const systemText = `${SYSTEM_INSTRUCTION}\n\n${buildContextBlock(body.context)}`;
+        const contents = [
+          { role: "system", content: systemText },
+          ...formattedMessages
+        ];
 
-        const upstreamUrl =
-          `${GEMINI_BASE}/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`;
-
-        const upstream = await fetch(upstreamUrl, {
+        const upstream = await fetch(GROQ_BASE, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`
+          },
           body: JSON.stringify({
-            contents,
-            systemInstruction: { parts: [{ text: systemText }] },
-            generationConfig: {
-              temperature: 0.7,
-              topP: 0.95,
-              maxOutputTokens: 1024,
-            },
-            safetySettings: [],
+            model: GROQ_MODEL,
+            messages: contents,
+            temperature: 0.7,
+            max_tokens: 1024,
+            stream: true,
           }),
         });
 
         if (!upstream.ok || !upstream.body) {
           const errText = await upstream.text().catch(() => "Upstream error");
           return new Response(
-            sseFrameText(JSON.stringify({ message: `Gemini ${upstream.status}: ${errText.slice(0, 400)}` }), "error"),
+            sseFrameText(JSON.stringify({ message: `Groq ${upstream.status}: ${errText.slice(0, 400)}` }), "error"),
             { status: 200, headers: sseHeaders() },
           );
         }
 
-        // Transform Gemini SSE → our simplified SSE: each `data:` is the raw
-        // text fragment (or empty when only metadata). Final `event: done`.
         const reader = upstream.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
@@ -161,35 +160,24 @@ export const Route = createFileRoute("/api/sage")({
                 return;
               }
               buffer += decoder.decode(value, { stream: true });
-              const events = buffer.split("\n\n");
-              buffer = events.pop() ?? "";
-              for (const evt of events) {
-                const dataLines = evt
-                  .split("\n")
-                  .filter((l) => l.startsWith("data:"))
-                  .map((l) => l.slice(5).trim());
-                if (dataLines.length === 0) continue;
-                const payload = dataLines.join("");
-                if (!payload || payload === "[DONE]") continue;
+              const lines = buffer.split("\n");
+              buffer = lines.pop() ?? "";
+              for (const line of lines) {
+                const cleanLine = line.trim();
+                if (!cleanLine.startsWith("data:")) continue;
+                const dataStr = cleanLine.slice(5).trim();
+                if (!dataStr) continue;
+                if (dataStr === "[DONE]") continue;
                 try {
-                  const json = JSON.parse(payload) as {
-                    candidates?: { content?: { parts?: { text?: string }[] } }[];
-                    promptFeedback?: { blockReason?: string };
-                  };
-                  if (json.promptFeedback?.blockReason) {
-                    controller.enqueue(sseFrameBytes(JSON.stringify({ message: `Blocked: ${json.promptFeedback.blockReason}` }), "error"),
-                    );
-                    continue;
-                  }
-                  const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+                  const json = JSON.parse(dataStr);
+                  const text = json?.choices?.[0]?.delta?.content ?? "";
                   if (text) controller.enqueue(sseFrameBytes(text));
                 } catch {
                   // Ignore malformed chunks rather than blowing up the stream
                 }
               }
             } catch (err) {
-              controller.enqueue(sseFrameBytes(JSON.stringify({ message: (err as Error).message ?? "Stream error" }), "error"),
-              );
+              controller.enqueue(sseFrameBytes(JSON.stringify({ message: (err as Error).message ?? "Stream error" }), "error"));
               controller.close();
             }
           },
