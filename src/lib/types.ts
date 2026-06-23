@@ -63,11 +63,15 @@ export interface Peer {
 
 export interface Conversation {
   id: string;
-  peerId: string;
+  peerId?: string | null;
   pinned: boolean;
   unread: number;
   lastMessageAt: string;
   lastPreview: string;
+  isGroup?: boolean;
+  groupName?: string;
+  groupAvatar?: string;
+  createdBy?: string | null;
 }
 
 export interface MessageAttachment {
@@ -85,6 +89,14 @@ export interface DirectMessage {
   createdAt: string;
   read: boolean;
   attachments?: MessageAttachment[];
+  replyToMessageId?: string | null;
+  isAnnouncement?: boolean;
+  reactions?: Record<string, string[]>;
+  poll?: {
+    question: string;
+    options: string[];
+    votes: Record<number, string[]>;
+  } | null;
 }
 
 export type CommunityRole = "owner" | "admin" | "moderator" | "member";
@@ -139,7 +151,7 @@ export interface FeedPost {
   authorId: string;
   content: string;
   mediaUrl?: string | null;
-  mediaType?: "image" | "gif" | null;
+  mediaType?: "image" | "gif" | "video" | null;
   createdAt: string;
   editedAt?: string | null;
   author: {

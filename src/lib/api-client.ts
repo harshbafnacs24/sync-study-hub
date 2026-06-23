@@ -196,6 +196,107 @@ function getDemoMessages(): any[] {
   return seedMsgs;
 }
 
+function getDemoPosts(): any[] {
+  if (typeof window === "undefined") return [];
+  const raw = window.localStorage.getItem("sas.feed_posts");
+  if (raw) return JSON.parse(raw);
+  
+  const seed = [
+    {
+      id: "post-1",
+      authorId: "aanya_id",
+      content: "Midterm prep has officially begun. Sliding window problems are starting to click! Who's up for a focus room session tonight? 📚🚀",
+      mediaUrl: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80",
+      mediaType: "image",
+      type: "post",
+      createdAt: new Date(Date.now() - 7200000).toISOString(),
+      author: { id: "aanya_id", name: "Aanya Mehta", avatar: "👩‍🎓", school: "LMN Tech" },
+      likeCount: 12,
+      liked: false,
+      commentCount: 2,
+      savesCount: 0,
+      sharesCount: 0,
+      viewsCount: 0,
+      saved: false,
+      shared: false
+    },
+    {
+      id: "post-2",
+      authorId: "kabir_id",
+      content: "Me writing React form hooks at 2 AM. Hydrated and locked in! 🐱💻☕",
+      mediaUrl: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3BndmdmM283OHZpdHhvbTh0cnNscjR2OHU3bzY2dnN6aWRnbWNnayZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/33OrjzUFwkwEg/giphy.gif",
+      mediaType: "gif",
+      type: "post",
+      createdAt: new Date(Date.now() - 14400000).toISOString(),
+      author: { id: "kabir_id", name: "Kabir Singh", avatar: "👨‍🎓", school: "LMN Tech" },
+      likeCount: 28,
+      liked: false,
+      commentCount: 2,
+      savesCount: 0,
+      sharesCount: 0,
+      viewsCount: 0,
+      saved: false,
+      shared: false
+    },
+    {
+      id: "story-1",
+      authorId: "kabir_id",
+      content: "Setting up the new IDE theme. Custom keyboard is feeling crisp! ⌨️💻",
+      mediaUrl: "https://images.unsplash.com/photo-1542831371-29b0f74f9713?auto=format&fit=crop&w=600&q=80",
+      mediaType: "image",
+      type: "story",
+      createdAt: new Date(Date.now() - 3600000).toISOString(),
+      author: { id: "kabir_id", name: "Kabir Singh", avatar: "👨‍🎓", school: "LMN Tech" },
+      likeCount: 0,
+      liked: false,
+      commentCount: 0,
+      savesCount: 0,
+      sharesCount: 0,
+      viewsCount: 2,
+      saved: false,
+      shared: false
+    },
+    {
+      id: "story-2",
+      authorId: "aanya_id",
+      content: "Cracking binary tree traversals before coffee gets cold. ☕🌳",
+      mediaUrl: "https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&w=600&q=80",
+      mediaType: "image",
+      type: "story",
+      createdAt: new Date(Date.now() - 7200000).toISOString(),
+      author: { id: "aanya_id", name: "Aanya Mehta", avatar: "👩‍🎓", school: "LMN Tech" },
+      likeCount: 0,
+      liked: false,
+      commentCount: 0,
+      savesCount: 0,
+      sharesCount: 0,
+      viewsCount: 1,
+      saved: false,
+      shared: false
+    },
+    {
+      id: "reel-1",
+      authorId: "riya_id",
+      content: "Sage AI has some suggestions. Study grind on AI models! 🤖✨",
+      mediaUrl: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmtlbjNuZnoxOHl6aThnZTR3cnR5bGVsbGlqZWV4ZXplMW13bzdhOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/13HgwGsXF0aiGY/giphy.gif",
+      mediaType: "gif",
+      type: "reel",
+      createdAt: new Date(Date.now() - 86400000).toISOString(),
+      author: { id: "riya_id", name: "Riya Sharma", avatar: "👩‍🏫", school: "ABC College" },
+      likeCount: 15,
+      liked: false,
+      commentCount: 1,
+      savesCount: 0,
+      sharesCount: 0,
+      viewsCount: 0,
+      saved: false,
+      shared: false
+    }
+  ];
+  window.localStorage.setItem("sas.feed_posts", JSON.stringify(seed));
+  return seed;
+}
+
 function handleOfflineRequest(path: string, init: any): any {
   console.log(`[offline-api] Intercepted: ${init.method ?? "GET"} ${path}`);
   
@@ -283,11 +384,85 @@ function handleOfflineRequest(path: string, init: any): any {
   }
 
   if (path.startsWith("/api/v1/posts")) {
-    if (path.includes("/feed")) return { posts: [] };
-    if (method === "POST" && !path.includes("/comments") && !path.includes("/like")) {
-      return { post: { id: "post-demo", authorId: currentUserId, content: JSON.parse(init.body || "{}").content, createdAt: new Date().toISOString(), author: { id: currentUserId, name: currentUser.name, avatar: currentUser.avatar, school: currentUser.school ?? "" }, likeCount: 0, liked: false, commentCount: 0 } };
+    const demoPosts = getDemoPosts();
+    if (path.includes("/feed")) {
+      return { posts: demoPosts.filter((p) => p.type === "post") };
     }
-    return { posts: [], comments: [], ok: true };
+    if (path.includes("/stories")) {
+      return { stories: demoPosts.filter((p) => p.type === "story") };
+    }
+    if (path.includes("/reels")) {
+      return { reels: demoPosts.filter((p) => p.type === "reel") };
+    }
+    if (path.includes("/saved")) {
+      return { posts: demoPosts.filter((p) => p.saves?.includes(currentUserId) || p.saved) };
+    }
+    if (method === "POST" && path.includes("/like")) {
+      const parts = path.split("/");
+      const postId = parts[parts.indexOf("posts") + 1];
+      const idx = demoPosts.findIndex((p) => p.id === postId);
+      if (idx !== -1) {
+        demoPosts[idx].liked = !demoPosts[idx].liked;
+        demoPosts[idx].likeCount += demoPosts[idx].liked ? 1 : -1;
+        window.localStorage.setItem("sas.feed_posts", JSON.stringify(demoPosts));
+        return { post: demoPosts[idx] };
+      }
+    }
+    if (method === "POST" && path.includes("/save")) {
+      const parts = path.split("/");
+      const postId = parts[parts.indexOf("posts") + 1];
+      const idx = demoPosts.findIndex((p) => p.id === postId);
+      if (idx !== -1) {
+        demoPosts[idx].saved = !demoPosts[idx].saved;
+        demoPosts[idx].savesCount = (demoPosts[idx].savesCount ?? 0) + (demoPosts[idx].saved ? 1 : -1);
+        if (!demoPosts[idx].saves) demoPosts[idx].saves = [];
+        if (demoPosts[idx].saved) {
+          demoPosts[idx].saves.push(currentUserId);
+        } else {
+          demoPosts[idx].saves = demoPosts[idx].saves.filter((id: string) => id !== currentUserId);
+        }
+        window.localStorage.setItem("sas.feed_posts", JSON.stringify(demoPosts));
+        return { post: demoPosts[idx] };
+      }
+    }
+    if (method === "POST" && path.includes("/share")) {
+      const parts = path.split("/");
+      const postId = parts[parts.indexOf("posts") + 1];
+      const idx = demoPosts.findIndex((p) => p.id === postId);
+      if (idx !== -1) {
+        demoPosts[idx].shared = true;
+        demoPosts[idx].sharesCount = (demoPosts[idx].sharesCount ?? 0) + 1;
+        if (!demoPosts[idx].shares) demoPosts[idx].shares = [];
+        demoPosts[idx].shares.push(currentUserId);
+        window.localStorage.setItem("sas.feed_posts", JSON.stringify(demoPosts));
+        return { post: demoPosts[idx] };
+      }
+    }
+    if (method === "POST" && !path.includes("/comments")) {
+      const body = JSON.parse(init.body || "{}");
+      const newPost = {
+        id: "post-" + Date.now(),
+        authorId: currentUserId,
+        content: body.content,
+        mediaUrl: body.mediaUrl ?? null,
+        mediaType: body.mediaType ?? null,
+        type: body.type ?? "post",
+        createdAt: new Date().toISOString(),
+        author: { id: currentUserId, name: currentUser.name, avatar: currentUser.avatar ?? "🧑‍🎓", school: currentUser.school ?? "" },
+        likeCount: 0,
+        liked: false,
+        commentCount: 0,
+        savesCount: 0,
+        sharesCount: 0,
+        viewsCount: 0,
+        saved: false,
+        shared: false
+      };
+      demoPosts.unshift(newPost);
+      window.localStorage.setItem("sas.feed_posts", JSON.stringify(demoPosts));
+      return { post: newPost };
+    }
+    return { posts: demoPosts, comments: [], ok: true };
   }
 
   if (path.startsWith("/api/v1/notifications")) {
@@ -394,66 +569,196 @@ function handleOfflineRequest(path: string, init: any): any {
   if (path.startsWith("/api/v1/conversations")) {
     if (path.includes("/messages")) {
       const parts = path.split("/");
-      const convId = parts[parts.length - 2];
-      
+      const convId = parts[parts.indexOf("conversations") + 1];
+      const subpath = parts.slice(parts.indexOf("conversations") + 2).join("/");
+
+      // Delete message: /api/v1/conversations/:id/messages/:messageId
+      if (method === "DELETE" && subpath.startsWith("messages/")) {
+        const msgId = subpath.split("/")[1];
+        const index = msgs.findIndex((m) => m._id === msgId || m.id === msgId);
+        if (index !== -1) {
+          msgs.splice(index, 1);
+          window.localStorage.setItem("sas.messages", JSON.stringify(msgs));
+          return { ok: true };
+        }
+        throw new ApiError("Message not found", 404);
+      }
+
+      // React to message: /api/v1/conversations/:id/messages/:messageId/react
+      if (method === "POST" && subpath.startsWith("messages/") && subpath.endsWith("/react")) {
+        const msgId = subpath.split("/")[1];
+        const { emoji } = JSON.parse(init.body || "{}");
+        const idx = msgs.findIndex((m) => m._id === msgId || m.id === msgId);
+        if (idx !== -1) {
+          if (!msgs[idx].reactions) msgs[idx].reactions = {};
+          if (!msgs[idx].reactions[emoji]) msgs[idx].reactions[emoji] = [];
+          
+          const users = msgs[idx].reactions[emoji];
+          if (users.includes(currentUserId)) {
+            msgs[idx].reactions[emoji] = users.filter((u: string) => u !== currentUserId);
+            if (msgs[idx].reactions[emoji].length === 0) {
+              delete msgs[idx].reactions[emoji];
+            }
+          } else {
+            msgs[idx].reactions[emoji].push(currentUserId);
+          }
+          window.localStorage.setItem("sas.messages", JSON.stringify(msgs));
+          return { message: msgs[idx] };
+        }
+        throw new ApiError("Message not found", 404);
+      }
+
+      // Poll voting: /api/v1/conversations/:id/messages/:messageId/poll/vote
+      if (method === "POST" && subpath.startsWith("messages/") && subpath.endsWith("/poll/vote")) {
+        const msgId = subpath.split("/")[1];
+        const { optionIndex } = JSON.parse(init.body || "{}");
+        const idx = msgs.findIndex((m) => m._id === msgId || m.id === msgId);
+        if (idx !== -1) {
+          const msgObj = msgs[idx];
+          if (!msgObj.poll) throw new ApiError("Not a poll message", 400);
+          
+          msgObj.poll.options.forEach((opt: any, index: number) => {
+            if (!opt.votes) opt.votes = [];
+            if (index === optionIndex) {
+              if (opt.votes.includes(currentUserId)) {
+                opt.votes = opt.votes.filter((v: string) => v !== currentUserId);
+              } else {
+                opt.votes.push(currentUserId);
+              }
+            } else {
+              opt.votes = opt.votes.filter((v: string) => v !== currentUserId);
+            }
+          });
+          window.localStorage.setItem("sas.messages", JSON.stringify(msgs));
+          return { message: msgObj };
+        }
+        throw new ApiError("Message not found", 404);
+      }
+
       if (method === "POST") {
-        const { text, senderId, read } = JSON.parse(init.body || "{}");
-        const finalSenderId = senderId || currentUserId;
+        const body = JSON.parse(init.body || "{}");
+        const finalSenderId = body.senderId || currentUserId;
+        
+        let pollData = undefined;
+        if (body.poll) {
+          pollData = {
+            question: body.poll.question,
+            options: body.poll.options.map((o: string) => ({ text: o, votes: [] })),
+            expiresAt: body.poll.expiresAt ? new Date(body.poll.expiresAt).toISOString() : undefined,
+          };
+        }
+
         const newMsg = {
           _id: "msg-" + Math.random().toString(36).slice(2, 9),
+          id: "msg-" + Math.random().toString(36).slice(2, 9),
           conversationId: convId,
           senderId: finalSenderId,
-          text,
+          text: body.text,
+          attachments: body.attachments ?? [],
           createdAt: new Date().toISOString(),
-          readBy: read ? [finalSenderId] : []
+          readBy: [finalSenderId],
+          replyToMessageId: body.replyToMessageId ?? null,
+          isAnnouncement: body.isAnnouncement ?? false,
+          reactions: {},
+          poll: pollData,
         };
         msgs.push(newMsg);
         window.localStorage.setItem("sas.messages", JSON.stringify(msgs));
         
         // Update conversation preview
-        const convIndex = convs.findIndex(c => c._id === convId);
+        const convIndex = convs.findIndex(c => c._id === convId || c.id === convId);
         if (convIndex !== -1) {
-          convs[convIndex].lastPreview = text;
+          convs[convIndex].lastPreview = body.text;
           convs[convIndex].lastMessageAt = new Date().toISOString();
-          // increment unread for other participants
-          const peerId = convs[convIndex].participants.find((p: string) => p !== finalSenderId);
-          if (peerId) {
+          
+          const otherParticipants = convs[convIndex].participants.filter((p: string) => p !== finalSenderId);
+          if (otherParticipants.length > 0) {
             if (!convs[convIndex].unread) convs[convIndex].unread = {};
-            convs[convIndex].unread[peerId] = (convs[convIndex].unread[peerId] ?? 0) + 1;
+            for (const peer of otherParticipants) {
+              convs[convIndex].unread[peer] = (convs[convIndex].unread[peer] ?? 0) + 1;
+            }
           }
           window.localStorage.setItem("sas.conversations", JSON.stringify(convs));
         }
         return { message: newMsg };
       } else {
-        // GET messages
         const filtered = msgs.filter(m => m.conversationId === convId);
         return { messages: filtered };
       }
     }
     
-    // Conversations root endpoint
     if (method === "GET") {
       const userConvs = convs.filter(c => c.participants.includes(currentUserId));
       return { conversations: userConvs };
     }
+    if (method === "POST" && path.endsWith("/group")) {
+      const { name, participants, avatar } = JSON.parse(init.body || "{}");
+      const allParticipants = Array.from(new Set([...participants, currentUserId]));
+      const newConv = {
+        _id: "conv-group-" + Math.random().toString(36).slice(2, 9),
+        id: "conv-group-" + Math.random().toString(36).slice(2, 9),
+        participants: allParticipants,
+        pinnedBy: [],
+        unread: {},
+        lastMessageAt: new Date().toISOString(),
+        lastPreview: "Group created",
+        isGroup: true,
+        groupName: name,
+        groupAvatar: avatar ?? "",
+        createdBy: currentUserId,
+      };
+      convs.push(newConv);
+      window.localStorage.setItem("sas.conversations", JSON.stringify(convs));
+      return { conversation: newConv };
+    }
     if (method === "POST") {
       const { peerId } = JSON.parse(init.body || "{}");
       let existing = convs.find(c => 
-        c.participants.includes(currentUserId) && c.participants.includes(peerId)
+        c.participants.includes(currentUserId) && c.participants.includes(peerId) && !c.isGroup
       );
       if (!existing) {
         existing = {
           _id: "conv-" + Math.random().toString(36).slice(2, 9),
+          id: "conv-" + Math.random().toString(36).slice(2, 9),
           participants: [currentUserId, peerId],
           pinnedBy: [],
           unread: {},
           lastMessageAt: new Date().toISOString(),
-          lastPreview: "Say hi!"
+          lastPreview: "Say hi!",
+          isGroup: false,
         };
         convs.push(existing);
         window.localStorage.setItem("sas.conversations", JSON.stringify(convs));
       }
       return { conversation: existing };
+    }
+  }
+
+  if (path.startsWith("/api/v1/communities/channels/")) {
+    if (path.includes("/poll/vote")) {
+      const parts = path.split("/");
+      const msgId = parts[parts.indexOf("messages") + 1];
+      const { optionIndex } = JSON.parse(init.body || "{}");
+      const idx = msgs.findIndex((m) => m._id === msgId || m.id === msgId);
+      if (idx !== -1) {
+        const msgObj = msgs[idx];
+        if (!msgObj.poll) throw new ApiError("Not a poll message", 400);
+        msgObj.poll.options.forEach((opt: any, index: number) => {
+          if (!opt.votes) opt.votes = [];
+          if (index === optionIndex) {
+            if (opt.votes.includes(currentUserId)) {
+              opt.votes = opt.votes.filter((v: string) => v !== currentUserId);
+            } else {
+              opt.votes.push(currentUserId);
+            }
+          } else {
+            opt.votes = opt.votes.filter((v: string) => v !== currentUserId);
+          }
+        });
+        window.localStorage.setItem("sas.messages", JSON.stringify(msgs));
+        return { message: msgObj };
+      }
+      return { ok: true };
     }
   }
 
@@ -467,14 +772,7 @@ function handleOfflineRequest(path: string, init: any): any {
     if (path.includes("bookmarks")) return { items: [] };
     return { items: [] };
   }
-  if (path.startsWith("/api/v1/posts")) {
-    if (path.includes("/feed")) return { posts: [] };
-    if (method === "POST" && !path.includes("/comments") && !path.includes("/like")) {
-      const body = JSON.parse(init.body || "{}");
-      return { post: { id: "post-demo", content: body.content, createdAt: new Date().toISOString(), author: { id: currentUserId, name: currentUser.name, avatar: currentUser.avatar, school: currentUser.school ?? "" }, likeCount: 0, liked: false, commentCount: 0 } };
-    }
-    return { posts: [], comments: [], ok: true };
-  }
+
   if (path.startsWith("/api/v1/notifications")) {
     if (path.includes("unread-count")) return { count: 0 };
     return { notifications: [] };
@@ -506,12 +804,11 @@ async function request<T>(
   try {
     res = await fetch(`${API_BASE_URL}${path}`, { ...rest, headers: finalHeaders });
   } catch (err) {
-    if (DEV_OFFLINE_MODE || (typeof window !== "undefined" && window.localStorage.getItem("sas.demo_mode") === "true")) {
-      console.warn(`[api-client] API unreachable, using offline demo mode.`, err);
-      return handleOfflineRequest(path, init) as T;
+    console.warn(`[api-client] API unreachable at ${API_BASE_URL}, using offline demo mode.`, err);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("sas.demo_mode", "true");
     }
-    console.error(`[API Connection Error] Failed to fetch: ${API_BASE_URL}${path}`, err);
-    throw new ApiError(`Cannot reach server at ${API_BASE_URL}. Check your connection.`, 0);
+    return handleOfflineRequest(path, init) as T;
   }
   const text = await res.text();
   const data = text ? safeJson(text) : null;
@@ -647,14 +944,76 @@ export const api = {
     request<{ users: any[] }>("/api/v1/network/friends", { auth: true }),
 
   // Posts / Feed
-  getFeed: () =>
-    request<{ posts: FeedPost[] }>("/api/v1/posts/feed", { auth: true }),
+  getFeed: (page = 1, limit = 15) =>
+    request<{ posts: FeedPost[] }>(`/api/v1/posts/feed?page=${page}&limit=${limit}`, { auth: true }),
 
-  createPost: (content: string, media?: { mediaUrl: string; mediaType: "image" | "gif" }) =>
+  getStories: () =>
+    request<{ stories: FeedPost[] }>("/api/v1/posts/stories", { auth: true }),
+
+  getReels: () =>
+    request<{ reels: FeedPost[] }>("/api/v1/posts/reels", { auth: true }),
+
+  getSavedPosts: () =>
+    request<{ posts: FeedPost[] }>("/api/v1/posts/saved", { auth: true }),
+
+  createPost: (content: string, media?: { mediaUrl: string; mediaType: "image" | "video" | "gif" }, type?: "post" | "story" | "reel") =>
     request<{ post: FeedPost }>("/api/v1/posts", {
       method: "POST",
       auth: true,
-      body: JSON.stringify({ content, ...media }),
+      body: JSON.stringify({ content, ...media, type }),
+    }),
+
+  toggleSave: (postId: string) =>
+    request<{ post: FeedPost }>(`/api/v1/posts/${postId}/save`, { method: "POST", auth: true }),
+
+  toggleShare: (postId: string) =>
+    request<{ post: FeedPost }>(`/api/v1/posts/${postId}/share`, { method: "POST", auth: true }),
+
+  createGroupChat: (name: string, participants: string[], avatar?: string) =>
+    request<{ conversation: any }>("/api/v1/conversations/group", {
+      method: "POST",
+      auth: true,
+      body: JSON.stringify({ name, participants, avatar }),
+    }),
+
+  deleteMessage: (conversationId: string, messageId: string) =>
+    request<{ ok: boolean }>(`/api/v1/conversations/${conversationId}/messages/${messageId}`, {
+      method: "DELETE",
+      auth: true,
+    }),
+
+  reactToMessage: (conversationId: string, messageId: string, emoji: string) =>
+    request<{ message: any }>(`/api/v1/conversations/${conversationId}/messages/${messageId}/react`, {
+      method: "POST",
+      auth: true,
+      body: JSON.stringify({ emoji }),
+    }),
+
+  votePollMessage: (conversationId: string, messageId: string, optionIndex: number) =>
+    request<{ message: any }>(`/api/v1/conversations/${conversationId}/messages/${messageId}/poll/vote`, {
+      method: "POST",
+      auth: true,
+      body: JSON.stringify({ optionIndex }),
+    }),
+
+  voteChannelPollMessage: (channelId: string, messageId: string, optionIndex: number) =>
+    request<{ message: any }>(`/api/v1/communities/channels/${channelId}/messages/${messageId}/poll/vote`, {
+      method: "POST",
+      auth: true,
+      body: JSON.stringify({ optionIndex }),
+    }),
+
+  updateGroupMemberRole: (groupId: string, userId: string, role: string) =>
+    request<{ ok: boolean }>(`/api/v1/communities/${groupId}/members/${userId}`, {
+      method: "PUT",
+      auth: true,
+      body: JSON.stringify({ role }),
+    }),
+
+  kickGroupMember: (groupId: string, userId: string) =>
+    request<{ ok: boolean }>(`/api/v1/communities/${groupId}/members/${userId}`, {
+      method: "DELETE",
+      auth: true,
     }),
 
   uploadPostMedia: async (file: File) => {
@@ -668,10 +1027,10 @@ export const api = {
     });
     const data = await res.json();
     if (!res.ok) throw new ApiError(data?.error ?? "Upload failed", res.status);
-    return data as { file: { url: string; mediaType: "image" | "gif"; name: string } };
+    return data as { file: { url: string; mediaType: "image" | "video" | "gif"; name: string } };
   },
 
-  updatePost: (id: string, content: string, media?: { mediaUrl: string | null; mediaType: "image" | "gif" | null }) =>
+  updatePost: (id: string, content: string, media?: { mediaUrl: string | null; mediaType: "image" | "video" | "gif" | null }) =>
     request<{ post: FeedPost }>(`/api/v1/posts/${id}`, {
       method: "PATCH",
       auth: true,

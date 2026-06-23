@@ -23,6 +23,9 @@ const ALLOWED_MIME: Record<string, string> = {
   "image/png": "image",
   "image/gif": "image",
   "image/webp": "image",
+  "video/mp4": "video",
+  "video/webm": "video",
+  "video/quicktime": "video",
   "application/zip": "zip",
   "application/x-zip-compressed": "zip",
 };
@@ -69,9 +72,9 @@ uploadRouter.post(
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
     const kind = ALLOWED_MIME[req.file.mimetype] ?? "file";
-    if (!["image", "gif"].includes(kind)) {
+    if (!["image", "gif", "video"].includes(kind)) {
       fs.unlinkSync(req.file.path);
-      return res.status(400).json({ error: "Only images and GIFs are allowed for posts" });
+      return res.status(400).json({ error: "Only images, GIFs, and videos are allowed for posts" });
     }
 
     const doc = await SharedFile.create({
@@ -92,7 +95,7 @@ uploadRouter.post(
         name: doc.originalName,
         size: doc.size,
         mimeType: doc.mimeType,
-        mediaType: kind === "gif" ? "gif" : "image",
+        mediaType: kind === "gif" ? "gif" : kind === "video" ? "video" : "image",
       },
     });
   }),

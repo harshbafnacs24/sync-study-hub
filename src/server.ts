@@ -66,8 +66,61 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   return brandedErrorResponse();
 }
 
+import { API_BASE_URL } from "./lib/api-client";
+
+async function handleProxy(request: Request): Promise<Response | null> {
+  const url = new URL(request.url);
+  const isApi = url.pathname.startsWith("/api/");
+  const isSocket = url.pathname.startsWith("/socket.io/");
+
+  if (!isApi && !isSocket) {
+    return null;
+  }
+
+  const targetUrl = `${API_BASE_URL}${url.pathname}${url.search}`;
+
+  const upgradeHeader = request.headers.get("Upgrade");
+  if (upgradeHeader?.toLowerCase() === "websocket") {
+    try {
+      console.log(`[Proxy WS] Forwarding socket connection to: ${targetUrl}`);
+      return await fetch(targetUrl, {
+        headers: request.headers,
+      });
+    } catch (err: any) {
+      console.error(`[WebSocket Proxy Error] Failed to proxy WS connection to ${targetUrl}:`, err);
+      return new Response("WebSocket proxy failed", { status: 502 });
+    }
+  }
+
+  const headers = new Headers(request.headers);
+  const init: RequestInit = {
+    method: request.method,
+    headers,
+  };
+
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    init.body = request.body;
+  }
+
+  try {
+    return await fetch(targetUrl, init);
+  } catch (error: any) {
+    console.error(`[Proxy Error] Failed to proxy ${url.pathname} to ${targetUrl}:`, error);
+    return new Response(
+      JSON.stringify({ error: `Failed to reach backend: ${error.message}` }),
+      {
+        status: 502,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  }
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
+    const proxyResponse = await handleProxy(request);
+    if (proxyResponse) return proxyResponse;
+
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);

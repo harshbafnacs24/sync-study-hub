@@ -10,6 +10,16 @@ const messageSchema = new Schema(
     reactions: { type: Map, of: [String], default: {} }, // emoji -> userIds
     readBy: { type: [String], default: [] },
     system: { type: Boolean, default: false },
+    replyToMessageId: { type: Schema.Types.ObjectId, ref: "Message", default: null, index: true },
+    isAnnouncement: { type: Boolean, default: false },
+    poll: {
+      question: { type: String },
+      options: [{
+        text: { type: String },
+        votes: { type: [String], default: [] } // userIds
+      }],
+      expiresAt: { type: Date }
+    },
   },
   { timestamps: true },
 );

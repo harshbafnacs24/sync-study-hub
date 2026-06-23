@@ -70,8 +70,8 @@ export function useDMs(conversationId: string) {
 export function useSendDM() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ conversationId, text, attachments }: { conversationId: string; text: string; attachments?: { url: string; kind: string; name: string; size: number }[] }) =>
-      messagesStore.send(conversationId, text, attachments),
+    mutationFn: async ({ conversationId, text, attachments, replyToMessageId, isAnnouncement, poll }: { conversationId: string; text: string; attachments?: { url: string; kind: string; name: string; size: number }[]; replyToMessageId?: string | null; isAnnouncement?: boolean; poll?: { question: string; options: string[] } }) =>
+      messagesStore.send(conversationId, text, attachments, replyToMessageId, isAnnouncement, poll),
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["dms", vars.conversationId] });
       qc.invalidateQueries({ queryKey: ["conversations"] });
@@ -103,6 +103,51 @@ export function useStartConversation() {
   });
 }
 
+export function useCreateGroupChat() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ name, participants, avatar }: { name: string; participants: string[]; avatar?: string }) =>
+      messagesStore.createGroup(name, participants, avatar),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
+}
+
+export function useDeleteMessage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ conversationId, messageId }: { conversationId: string; messageId: string }) =>
+      messagesStore.delete(conversationId, messageId),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["dms", vars.conversationId] });
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
+}
+
+export function useReactToMessage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ conversationId, messageId, emoji }: { conversationId: string; messageId: string; emoji: string }) =>
+      messagesStore.react(conversationId, messageId, emoji),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["dms", vars.conversationId] });
+    },
+  });
+}
+
+export function useVoteDMPoll() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ conversationId, messageId, optionIndex }: { conversationId: string; messageId: string; optionIndex: number }) =>
+      messagesStore.votePoll(conversationId, messageId, optionIndex),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["dms", vars.conversationId] });
+    },
+  });
+}
+
 /* ---------- Communities ---------- */
 
 export function useCommunities() {
@@ -129,9 +174,45 @@ export function useChannelMessages(channelId: string | undefined) {
 export function usePostChannel() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ channelId, text, attachments }: { channelId: string; text: string; attachments?: { url: string; kind: string; name: string; size: number }[] }) =>
-      communitiesStore.postChannel(channelId, text, attachments),
+    mutationFn: async ({ channelId, text, attachments, replyToMessageId, isAnnouncement, poll }: { channelId: string; text: string; attachments?: { url: string; kind: string; name: string; size: number }[]; replyToMessageId?: string | null; isAnnouncement?: boolean; poll?: { question: string; options: string[] } }) =>
+      communitiesStore.postChannel(channelId, text, attachments, replyToMessageId, isAnnouncement, poll),
     onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ["channel-messages", vars.channelId] }),
+  });
+}
+
+export function useVoteChannelPoll() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ channelId, messageId, optionIndex }: { channelId: string; messageId: string; optionIndex: number }) =>
+      communitiesStore.votePoll(channelId, messageId, optionIndex),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["channel-messages", vars.channelId] }),
+      qc.invalidateQueries({ queryKey: ["community", vars.channelId] })
+    },
+  });
+}
+
+export function useUpdateGroupMemberRole() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ groupId, userId, role }: { groupId: string; userId: string; role: string }) =>
+      communitiesStore.updateMemberRole(groupId, userId, role),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["community-members", vars.groupId] });
+      qc.invalidateQueries({ queryKey: ["community", vars.groupId] });
+    },
+  });
+}
+
+export function useKickGroupMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ groupId, userId }: { groupId: string; userId: string }) =>
+      communitiesStore.kickMember(groupId, userId),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["community-members", vars.groupId] });
+      qc.invalidateQueries({ queryKey: ["community", vars.groupId] });
+    },
   });
 }
 
@@ -155,7 +236,7 @@ export function useToggleJoin() {
 export function useCreateCommunity() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { name: string; description: string; category: string; tags: string[] }) =>
+    mutationFn: async (input: { name: string; description: string; category: string; tags: string[]; iconChar?: string }) =>
       communitiesStore.create(input),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["communities"] }),
   });

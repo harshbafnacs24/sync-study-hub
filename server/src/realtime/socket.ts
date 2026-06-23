@@ -69,8 +69,14 @@ export function attachSocket(httpServer: HttpServer) {
       socket.leave(room);
     });
 
-    socket.on("typing:start", (room: string) => socket.to(room).emit("typing:start", { userId, room }));
-    socket.on("typing:stop", (room: string) => socket.to(room).emit("typing:stop", { userId, room }));
+    socket.on("typing:start", (data: any) => {
+      const room = typeof data === "string" ? data : data?.room;
+      if (room) socket.to(room).emit("typing:start", { userId, room });
+    });
+    socket.on("typing:stop", (data: any) => {
+      const room = typeof data === "string" ? data : data?.room;
+      if (room) socket.to(room).emit("typing:stop", { userId, room });
+    });
 
     socket.on("study:started", (data: Record<string, unknown>) => {
       socket.broadcast.emit("study:started", { ...data, userId });

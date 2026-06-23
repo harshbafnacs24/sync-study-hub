@@ -1,6 +1,11 @@
-import { useState, useEffect } from "react";
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { Globe, UserPlus, Users, Search, CheckCircle, Clock, X, UserCheck, MessageSquare, Bell } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import {
+  Globe, UserPlus, Users, Search, CheckCircle, Clock, X, UserCheck, MessageSquare, Bell,
+  Bookmark, Share2, Film, Plus, Sparkles, Pin, Check, Star, Settings, Shield,
+  ChevronRight, AlertCircle, FileText, Heart, PlusCircle, Trash2, Edit2, Play,
+  Send, Image, Video, Compass, Info, MessageCircle, HelpCircle
+} from "lucide-react";
 import { PageTransition } from "../../components/shell/PageTransition";
 import {
   useSearchUsers,
@@ -12,37 +17,256 @@ import {
   useConnectionStatus,
   useDiscoverUsers,
   useNetworkUser,
-  useQuickMeets,
 } from "../../lib/hooks/use-network";
 import {
-  useStartConversation,
-  useUnreadNotifications,
   useConversations,
+  useStartConversation,
+  useCreateGroupChat,
+  useTogglePin,
+  useMarkConversationRead,
+  useUnreadNotifications,
   useCommunities,
   useToggleJoin,
-  useLiveInbox
+  useCreateCommunity
 } from "../../lib/hooks/use-messaging";
-import { FeedSection } from "../../components/feed/FeedSection";
-import { networkStore, type NetworkUser, type Connection } from "../../lib/store/network";
+import {
+  useFeedPosts,
+  useStories,
+  useReels,
+  useSavedPosts,
+  useCreatePost,
+  useToggleLike,
+  useToggleSave,
+  useToggleShare,
+  useAddComment,
+  usePostComments,
+  useDeletePost,
+  useUpdatePost
+} from "../../lib/hooks/use-posts";
+import { api, API_BASE_URL } from "../../lib/api-client";
 import { useAuth } from "../../lib/auth-context";
 import { toast } from "sonner";
-import { Avatar, UnreadBadge, timeAgo } from "../../components/messaging/Avatar";
-import { Compass, Pin, ExternalLink, CalendarDays, MessageCircleCode } from "lucide-react";
-import { CommunityCard } from "../../components/messaging/CommunityCard";
+import { socketBus, SocketEvents } from "../../lib/socket";
 
 export const Route = createFileRoute("/_authenticated/discover")({
-  head: () => ({ meta: [{ title: "Friends — Sync & Study" }] }),
-  validateSearch: (search: Record<string, unknown>) => ({
-    tab: typeof search.tab === "string" ? (search.tab as DiscoverTab) : undefined,
-  }),
+  head: () => ({ meta: [{ title: "Friends & Social — Sync & Study" }] }),
   component: DiscoverPage,
 });
 
-export type DiscoverTab = "dms" | "friends" | "communities" | "groups" | "activity";
+type DiscoverTab = "feed" | "friends" | "messages" | "groups";
 
-/* ─── Profile Card ──────────────────────────────────────────────────────── */
+const AVATAR_COLORS = [
+  "linear-gradient(135deg,#E8FF47,#c6e600)",
+  "linear-gradient(135deg,#4a9eff,#2575ff)",
+  "linear-gradient(135deg,#aa66ff,#7722ee)",
+  "linear-gradient(135deg,#3ddc84,#00aa55)",
+  "linear-gradient(135deg,#ff6b6b,#ee2244)",
+  "linear-gradient(135deg,#ffb347,#ff7700)",
+];
 
-function ProfileCard({ user }: { user: any }) {
+function avatarGradient(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xffff;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+function timeAgo(dateString?: string): string {
+  if (!dateString) return "";
+  try {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    if (seconds < 60) return "just now";
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days === 1) return "yesterday";
+    if (days < 7) return `${days}d ago`;
+    return date.toLocaleDateString();
+  } catch {
+    return "";
+  }
+}
+
+/* ─── Social Empty State ─────────────────────────────────────────────────── */
+function SocialEmptyState({
+  title,
+  description,
+  activeTab,
+  setTab
+}: {
+  title: string;
+  description: string;
+  activeTab: DiscoverTab;
+  setTab: (tab: DiscoverTab) => void;
+}) {
+  return (
+    <div style={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      textAlign: "center",
+      padding: "40px 24px",
+      background: "rgba(20,20,20,0.6)",
+      backdropFilter: "blur(8px)",
+      border: "1px dashed rgba(255,255,255,0.08)",
+      borderRadius: 16,
+      margin: "16px 0",
+      boxShadow: "0 4px 20px rgba(0,0,0,0.2)"
+    }}>
+      <svg width="100" height="100" viewBox="0 0 100 100" fill="none" style={{ marginBottom: 16 }}>
+        <circle cx="50" cy="50" r="42" fill="rgba(232, 255, 71, 0.03)" stroke="var(--color-primary)" strokeWidth="1.5" strokeDasharray="5 5" />
+        <circle cx="38" cy="38" r="10" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.1)" strokeWidth="1.5" />
+        <text x="38" y="42" fontSize="11" textAnchor="middle">🧑‍💻</text>
+        <circle cx="62" cy="42" r="12" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.1)" strokeWidth="1.5" />
+        <text x="62" y="46" fontSize="13" textAnchor="middle">👩‍🎓</text>
+        <circle cx="48" cy="65" r="9" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.1)" strokeWidth="1.5" />
+        <text x="48" y="69" fontSize="10" textAnchor="middle">👨‍🎓</text>
+        <path d="M38 38 L62 42" stroke="var(--color-primary)" strokeWidth="1" strokeDasharray="2 2" opacity="0.5" />
+        <path d="M38 38 L48 65" stroke="var(--color-primary)" strokeWidth="1" strokeDasharray="2 2" opacity="0.5" />
+        <path d="M62 42 L48 65" stroke="var(--color-primary)" strokeWidth="1" strokeDasharray="2 2" opacity="0.5" />
+        <path d="M50 20 L52 24 L56 25 L52 26 L50 30 L48 26 L44 25 L48 24 Z" fill="var(--color-primary)" />
+      </svg>
+      <h3 style={{ margin: "0 0 8px 0", fontSize: "1.05rem", fontWeight: 700, color: "#fff" }}>{title}</h3>
+      <p style={{ margin: "0 0 20px 0", fontSize: "0.8rem", color: "var(--color-muted-foreground)", maxWidth: 300, lineHeight: 1.4 }}>{description}</p>
+      
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+        {activeTab !== "feed" && (
+          <button onClick={() => setTab("feed")} className="ss-btn ss-btn-outline" style={{ fontSize: "0.72rem", padding: "6px 12px", borderRadius: 8 }}>
+            Explore Feed
+          </button>
+        )}
+        {activeTab !== "friends" && (
+          <button onClick={() => setTab("friends")} className="ss-btn ss-btn-outline" style={{ fontSize: "0.72rem", padding: "6px 12px", borderRadius: 8 }}>
+            Find Friends
+          </button>
+        )}
+        {activeTab !== "messages" && (
+          <button onClick={() => setTab("messages")} className="ss-btn ss-btn-outline" style={{ fontSize: "0.72rem", padding: "6px 12px", borderRadius: 8 }}>
+            Start Chat
+          </button>
+        )}
+        {activeTab !== "groups" && (
+          <button onClick={() => setTab("groups")} className="ss-btn ss-btn-outline" style={{ fontSize: "0.72rem", padding: "6px 12px", borderRadius: 8 }}>
+            Create Group
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Story Modal Viewer ─────────────────────────────────────────────────── */
+interface StoryModalProps {
+  stories: any[];
+  onClose: () => void;
+}
+
+function StoryModal({ stories, onClose }: StoryModalProps) {
+  const [index, setIndex] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const story = stories[index];
+
+  useEffect(() => {
+    setProgress(0);
+    const interval = setInterval(() => {
+      setProgress((p) => {
+        if (p >= 100) {
+          if (index < stories.length - 1) {
+            setIndex((idx) => idx + 1);
+            return 0;
+          } else {
+            onClose();
+            return 100;
+          }
+        }
+        return p + 2.5; // Fills in 4 seconds
+      });
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [index, stories.length, onClose]);
+
+  if (!story) return null;
+
+  const mediaSrc = story.mediaUrl?.startsWith("http") ? story.mediaUrl : story.mediaUrl ? `${API_BASE_URL}${story.mediaUrl}` : "";
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 99999,
+      background: "rgba(0,0,0,0.96)", display: "flex", flexDirection: "column",
+      justifyContent: "space-between", padding: 16
+    }}>
+      {/* Progress Bars */}
+      <div>
+        <div style={{ display: "flex", gap: 4, marginBottom: 14 }}>
+          {stories.map((_, i) => (
+            <div key={i} style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.2)", borderRadius: 2, overflow: "hidden" }}>
+              <div style={{
+                width: i < index ? "100%" : i === index ? `${progress}%` : "0%",
+                height: "100%",
+                background: "#fff",
+                transition: i === index ? "width 0.1s linear" : "none"
+              }} />
+            </div>
+          ))}
+        </div>
+        {/* User Info */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: "50%", border: "1.5px solid #fff",
+            background: avatarGradient(story.authorId), display: "flex", alignItems: "center", justifyContent: "center",
+            fontWeight: 800, fontSize: "0.85rem", color: "#0c0c0c"
+          }}>
+            {story.author.avatar && !story.author.avatar.startsWith("http") ? story.author.avatar : story.author.name.slice(0, 2).toUpperCase()}
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ color: "#fff", fontWeight: 700, fontSize: "0.85rem" }}>{story.author.name}</div>
+            <div style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.68rem" }}>{timeAgo(story.createdAt)}</div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#fff", fontSize: "1.5rem", fontWeight: 300, cursor: "pointer", padding: "0 8px" }}>×</button>
+        </div>
+      </div>
+
+      {/* Media Content */}
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", margin: "20px 0", overflow: "hidden" }}>
+        {mediaSrc ? (
+          story.mediaType === "video" ? (
+            <video src={mediaSrc} autoPlay playsInline loop muted style={{ maxWidth: "100%", maxHeight: "70vh", borderRadius: 12 }} />
+          ) : (
+            <img src={mediaSrc} alt="" style={{ maxWidth: "100%", maxHeight: "70vh", borderRadius: 12, objectFit: "contain" }} />
+          )
+        ) : (
+          <div style={{
+            padding: 32, textAlign: "center", color: "#fff", fontSize: "1.1rem", fontStyle: "italic",
+            background: "rgba(255,255,255,0.05)", borderRadius: 16, width: "80%", maxWidth: 300
+          }}>
+            "{story.content}"
+          </div>
+        )}
+      </div>
+
+      {/* Caption text */}
+      {mediaSrc && story.content && (
+        <div style={{
+          background: "rgba(255,255,255,0.08)", backdropFilter: "blur(16px)",
+          borderRadius: 14, padding: "12px 18px", marginBottom: 10,
+          border: "1px solid rgba(255,255,255,0.12)", zIndex: 10
+        }}>
+          <p style={{ color: "#fff", fontSize: "0.82rem", margin: 0, lineHeight: 1.5, textAlign: "center" }}>
+            {story.content}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Profile Card Component ─────────────────────────────────────────────── */
+function ProfileCard({ user, onStartChat }: { user: any; onStartChat?: () => void }) {
   const connStatus = useConnectionStatus(user.id);
   const send = useSendConnectionRequest();
   const accept = useAcceptConnectionRequest();
@@ -82,9 +306,7 @@ function ProfileCard({ user }: { user: any }) {
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = "rgba(232,255,71,0.2)")}
       onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)")}
     >
-      {/* Header row */}
       <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-        {/* Avatar */}
         <div style={{
           width: 46, height: 46, borderRadius: 12, flexShrink: 0,
           background: user.avatar && !(user.avatar.startsWith("http") || user.avatar.startsWith("/") || user.avatar.startsWith("data:")) ? "var(--bg-3)" : avatarGradient(user.id),
@@ -95,7 +317,6 @@ function ProfileCard({ user }: { user: any }) {
         }}>
           {user.avatar && !(user.avatar.startsWith("http") || user.avatar.startsWith("/") || user.avatar.startsWith("data:")) ? user.avatar : user.initials}
         </div>
-        {/* Info */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <div style={{ fontWeight: 700, fontSize: "0.92rem", color: "#f0f0f0" }}>{user.name}</div>
@@ -120,7 +341,6 @@ function ProfileCard({ user }: { user: any }) {
             {user.school} · {user.year}
           </div>
         </div>
-        {/* Online dot */}
         {user.online && (
           <div style={{
             width: 8, height: 8, borderRadius: "50%",
@@ -129,12 +349,10 @@ function ProfileCard({ user }: { user: any }) {
         )}
       </div>
 
-      {/* Bio */}
       <p style={{ fontSize: "0.78rem", color: "#999", margin: 0, lineHeight: 1.5 }}>
         {user.bio}
       </p>
 
-      {/* Interest chips */}
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
         {user.interests?.slice(0, 3).map((i: string) => (
           <span key={i} style={{
@@ -147,7 +365,6 @@ function ProfileCard({ user }: { user: any }) {
         ))}
       </div>
 
-      {/* Stats row */}
       <div style={{ display: "flex", gap: 16, borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 10 }}>
         {(user.mutualFriends ?? 0) > 0 && (
           <div style={{ textAlign: "center" }}>
@@ -156,7 +373,6 @@ function ProfileCard({ user }: { user: any }) {
           </div>
         )}
         <div style={{ flex: 1 }} />
-        {/* Actions */}
         <div style={{ display: "flex", gap: 6 }}>
           <Link
             to="/network/$userId"
@@ -172,6 +388,7 @@ function ProfileCard({ user }: { user: any }) {
               onClick={() => {
                 startConv.mutate(user.id, {
                   onSuccess: (c) => {
+                    if (onStartChat) onStartChat();
                     navigate({ to: "/messages/dm/$id", params: { id: c.id } });
                   },
                   onError: () => {
@@ -203,15 +420,13 @@ function ProfileCard({ user }: { user: any }) {
 }
 
 /* ─── Resolved Network User Card ─────────────────────────────────────────── */
-
-function ResolvedNetworkUserCard({ userId }: { userId: string }) {
+function ResolvedNetworkUserCard({ userId, onStartChat }: { userId: string; onStartChat?: () => void }) {
   const { data: user, isLoading } = useNetworkUser(userId);
   if (isLoading || !user) return null;
-  return <ProfileCard user={user} />;
+  return <ProfileCard user={user} onStartChat={onStartChat} />;
 }
 
 /* ─── Pending Request Card ───────────────────────────────────────────────── */
-
 function PendingRequestCard({ conn, onAcceptSuccess }: { conn: any; onAcceptSuccess: () => void }) {
   const accept = useAcceptConnectionRequest();
   const remove = useRemoveConnection();
@@ -282,220 +497,183 @@ function PendingRequestCard({ conn, onAcceptSuccess }: { conn: any; onAcceptSucc
   );
 }
 
-/* ─── Instagram-Style Stories Overlay Modal ──────────────────────────────── */
+/* ─── Conversation Item ──────────────────────────────────────────────────── */
+function ConversationItem({
+  conversation,
+  typing,
+  onClick
+}: {
+  conversation: any;
+  typing: boolean;
+  onClick: () => void;
+}) {
+  const { user: currentUser } = useAuth();
+  const markRead = useMarkConversationRead();
+  const togglePin = useTogglePin();
 
-interface Story {
-  userId: string;
-  userName: string;
-  userAvatar: string;
-  mediaUrl: string;
-  caption: string;
-  viewed: boolean;
-}
+  if (!conversation.isGroup) {
+    const { data: peer, isLoading } = useNetworkUser(conversation.peerId ?? "");
+    if (isLoading) return <div style={{ height: 68, background: "rgba(255,255,255,0.02)", borderRadius: 12 }} />;
+    if (!peer) return null;
 
-function StoryModal({ stories, initialIndex, onClose }: { stories: Story[]; initialIndex: number; onClose: () => void }) {
-  const [index, setIndex] = useState(initialIndex);
-  const [progress, setProgress] = useState(0);
-  const story = stories[index];
-
-  useEffect(() => {
-    setProgress(0);
-    const interval = setInterval(() => {
-      setProgress((p) => {
-        if (p >= 100) {
-          if (index < stories.length - 1) {
-            setIndex((idx) => idx + 1);
-            return 0;
-          } else {
-            onClose();
-            return 100;
-          }
-        }
-        return p + 2.5; // Fills in 4 seconds (40 steps of 2.5% every 100ms)
-      });
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [index, stories.length, onClose]);
-
-  if (!story) return null;
-
-  return (
-    <div style={{
-      position: "absolute", inset: 0, zIndex: 9999,
-      background: "rgba(0,0,0,0.97)", display: "flex", flexDirection: "column",
-      justifyContent: "space-between", padding: 16
-    }}>
-      {/* Top Bar with progress indicators */}
-      <div style={{ position: "relative", zIndex: 10 }}>
-        <div style={{ display: "flex", gap: 4, marginBottom: 14 }}>
-          {stories.map((_, i) => {
-            let widthPercent = 0;
-            if (i < index) widthPercent = 100;
-            else if (i === index) widthPercent = progress;
-            return (
-              <div key={i} style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.2)", borderRadius: 2, overflow: "hidden" }}>
-                <div style={{ width: `${widthPercent}%`, height: "100%", background: "#fff", transition: i === index ? "width 0.1s linear" : "none" }} />
-              </div>
-            );
-          })}
-        </div>
-        {/* User Info */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {story.userAvatar && (story.userAvatar.startsWith("http") || story.userAvatar.startsWith("/") || story.userAvatar.startsWith("data:")) ? (
-            <img src={story.userAvatar} alt="" style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #fff", objectFit: "cover" }} />
+    return (
+      <div
+        onClick={() => {
+          if (conversation.unread > 0) markRead.mutate(conversation.id);
+          onClick();
+        }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          padding: "12px 14px",
+          borderRadius: 14,
+          background: "var(--bg-2)",
+          border: conversation.pinned ? "1.5px solid var(--color-primary)" : "1px solid var(--color-border)",
+          cursor: "pointer",
+          transition: "all 0.2s ease",
+          position: "relative"
+        }}
+      >
+        <div style={{ position: "relative" }}>
+          {peer.avatar && (peer.avatar.startsWith("http") || peer.avatar.startsWith("/") || peer.avatar.startsWith("data:")) ? (
+            <img src={peer.avatar} alt="" style={{ width: 42, height: 42, borderRadius: 12, objectFit: "cover" }} />
           ) : (
             <div style={{
-              width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #fff",
-              background: "rgba(255, 255, 255, 0.1)",
+              width: 42, height: 42, borderRadius: 12,
+              background: avatarGradient(peer.id),
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: "1.1rem", lineHeight: 1, userSelect: "none"
+              fontWeight: 800, color: "#0c0c0c", fontSize: "0.9rem"
             }}>
-              {story.userAvatar}
+              {peer.avatar ?? peer.initials}
             </div>
           )}
-          <div style={{ flex: 1 }}>
-            <div style={{ color: "#fff", fontWeight: 700, fontSize: "0.85rem" }}>{story.userName}</div>
-            <div style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.68rem" }}>Active Study Story</div>
-          </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#fff", fontSize: "1.5rem", fontWeight: 300, cursor: "pointer", padding: "0 8px" }}>×</button>
-        </div>
-      </div>
-
-      {/* Media Image/GIF */}
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", margin: "10px 0", overflow: "hidden", position: "relative" }}>
-        <img src={story.mediaUrl} alt="" style={{ maxWidth: "100%", maxHeight: "60vh", borderRadius: 12, objectFit: "contain", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }} />
-      </div>
-
-      {/* Caption card */}
-      <div style={{
-        background: "rgba(255,255,255,0.06)", backdropFilter: "blur(16px)",
-        borderRadius: 14, padding: "12px 18px", marginBottom: 10,
-        border: "1px solid rgba(255,255,255,0.1)", zIndex: 10
-      }}>
-        <p style={{ color: "#fff", fontSize: "0.82rem", margin: 0, lineHeight: 1.5, textAlign: "center" }}>
-          {story.caption}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Instagram-Style Feed Post Card ─────────────────────────────────────── */
-
-interface FeedPost {
-  id: string;
-  userId: string;
-  userName: string;
-  userHandle: string;
-  userAvatar: string;
-  mediaUrl: string;
-  caption: string;
-  likes: number;
-  hasLiked: boolean;
-  comments: { userName: string; text: string }[];
-  createdAt: string;
-}
-
-function FeedPostCard({ post, onLike, onAddComment }: { post: FeedPost; onLike: () => void; onAddComment: (text: string) => void }) {
-  const [commentText, setCommentText] = useState("");
-  const [showComments, setShowComments] = useState(false);
-
-  const handleSubmitComment = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!commentText.trim()) return;
-    onAddComment(commentText);
-    setCommentText("");
-  };
-
-  return (
-    <div className="ss-card ss-card-anim" style={{ padding: 0, overflow: "hidden", background: "var(--bg-2)", border: "1px solid var(--color-border)", borderRadius: 16, marginBottom: 14 }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: 12 }}>
-        {post.userAvatar && (post.userAvatar.startsWith("http") || post.userAvatar.startsWith("/") || post.userAvatar.startsWith("data:")) ? (
-          <img src={post.userAvatar} alt="" style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid var(--color-primary)", objectFit: "cover" }} />
-        ) : (
-          <div style={{
-            width: 34, height: 34, borderRadius: "50%", border: "1.5px solid var(--color-primary)",
-            background: "var(--bg-3)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "1.1rem", lineHeight: 1, userSelect: "none"
-          }}>
-            {post.userAvatar}
-          </div>
-        )}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--color-foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{post.userName}</div>
-          <div style={{ fontSize: "0.7rem", color: "var(--color-primary)", fontFamily: "var(--font-mono)" }}>@{post.userHandle}</div>
-        </div>
-        <span className="ss-mono" style={{ fontSize: "0.6rem", color: "var(--color-muted-foreground)" }}>{post.createdAt}</span>
-      </div>
-
-      {/* Media Content */}
-      <div style={{ width: "100%", background: "#060606", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", borderTop: "1px solid var(--color-border)", borderBottom: "1px solid var(--color-border)" }}>
-        <img src={post.mediaUrl} alt="Post content" style={{ width: "100%", height: "auto", display: "block", maxHeight: 300, objectFit: "cover" }} />
-      </div>
-
-      {/* Actions */}
-      <div style={{ display: "flex", gap: 16, alignItems: "center", padding: "10px 14px 6px" }}>
-        <button onClick={onLike} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 6, color: post.hasLiked ? "#ff4d6d" : "var(--color-muted-foreground)" }}>
-          {post.hasLiked ? (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
-            </svg>
-          ) : (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
-            </svg>
+          {peer.online && (
+            <div style={{
+              position: "absolute", bottom: -2, right: -2, width: 11, height: 11,
+              borderRadius: "50%", background: "#3ddc84", border: "2px solid var(--bg-2)"
+            }} />
           )}
-          <span className="ss-mono" style={{ fontSize: "0.75rem", color: post.hasLiked ? "#ff4d6d" : "var(--color-muted-foreground)", fontWeight: 700 }}>{post.likes}</span>
-        </button>
-        <button onClick={() => setShowComments(!showComments)} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 6, color: "var(--color-muted-foreground)" }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-          </svg>
-          <span className="ss-mono" style={{ fontSize: "0.75rem", color: "var(--color-muted-foreground)", fontWeight: 700 }}>{post.comments.length}</span>
-        </button>
-      </div>
-
-      {/* Caption */}
-      <div style={{ padding: "0 14px 10px", fontSize: "0.8rem", lineHeight: 1.5, color: "var(--color-foreground)" }}>
-        <span style={{ fontWeight: 800, color: "var(--color-foreground)", marginRight: 6 }}>@{post.userHandle}</span>
-        {post.caption}
-      </div>
-
-      {/* Comments section */}
-      {showComments && (
-        <div style={{ borderTop: "1px solid var(--color-border)", background: "rgba(255,255,255,0.01)", padding: 10 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 120, overflowY: "auto", marginBottom: 10 }}>
-            {post.comments.map((c, idx) => (
-              <div key={idx} style={{ fontSize: "0.75rem", lineHeight: 1.4, color: "var(--color-muted-foreground)" }}>
-                <span style={{ fontWeight: 700, color: "var(--color-foreground)", marginRight: 5 }}>@{c.userName}</span>
-                {c.text}
-              </div>
-            ))}
-          </div>
-          <form onSubmit={handleSubmitComment} style={{ display: "flex", gap: 8 }}>
-            <input
-              type="text"
-              placeholder="Add a comment..."
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              style={{
-                flex: 1, background: "var(--bg-3)", border: "1px solid var(--color-border)",
-                borderRadius: 20, padding: "5px 12px", color: "var(--color-foreground)", fontSize: "0.75rem", outline: "none"
-              }}
-            />
-            <button type="submit" style={{ background: "none", border: "none", color: "var(--color-primary)", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>Post</button>
-          </form>
         </div>
-      )}
-    </div>
-  );
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "#fff" }}>{peer.name}</span>
+            <span className="ss-mono" style={{ fontSize: "0.6rem", color: "var(--color-muted-foreground)" }}>
+              {timeAgo(conversation.lastMessageAt)}
+            </span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+            {typing ? (
+              <span style={{ fontSize: "0.78rem", color: "var(--color-primary)", fontWeight: "bold" }}>typing...</span>
+            ) : (
+              <p style={{
+                margin: 0, fontSize: "0.78rem",
+                color: conversation.unread > 0 ? "#fff" : "var(--color-muted-foreground)",
+                fontWeight: conversation.unread > 0 ? 600 : 400,
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1
+              }}>
+                {conversation.lastPreview}
+              </p>
+            )}
+            {conversation.unread > 0 && (
+              <span style={{
+                background: "var(--color-primary)", color: "#0c0c0c", fontSize: "0.6rem", fontWeight: 800,
+                borderRadius: 99, padding: "2px 6px", marginLeft: 8, flexShrink: 0
+              }}>
+                {conversation.unread}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <button
+          onClick={(e) => { e.stopPropagation(); togglePin.mutate(conversation.id); }}
+          style={{ background: "none", border: "none", color: conversation.pinned ? "var(--color-primary)" : "var(--color-muted-foreground)", cursor: "pointer", padding: 4 }}
+        >
+          <Pin size={12} fill={conversation.pinned ? "currentColor" : "none"} />
+        </button>
+      </div>
+    );
+  } else {
+    // Group DM
+    return (
+      <div
+        onClick={() => {
+          if (conversation.unread > 0) markRead.mutate(conversation.id);
+          onClick();
+        }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          padding: "12px 14px",
+          borderRadius: 14,
+          background: "var(--bg-2)",
+          border: conversation.pinned ? "1.5px solid var(--color-primary)" : "1px solid var(--color-border)",
+          cursor: "pointer",
+          transition: "all 0.2s ease",
+          position: "relative"
+        }}
+      >
+        <div style={{ position: "relative" }}>
+          {conversation.groupAvatar && (conversation.groupAvatar.startsWith("http") || conversation.groupAvatar.startsWith("/") || conversation.groupAvatar.startsWith("data:")) ? (
+            <img src={conversation.groupAvatar} alt="" style={{ width: 42, height: 42, borderRadius: 12, objectFit: "cover" }} />
+          ) : (
+            <div style={{
+              width: 42, height: 42, borderRadius: 12,
+              background: "linear-gradient(135deg, #aa66ff, #7722ee)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: "1.2rem", fontWeight: 800, color: "#fff"
+            }}>
+              {conversation.groupAvatar || "👥"}
+            </div>
+          )}
+        </div>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "#fff" }}>{conversation.groupName}</span>
+            <span className="ss-mono" style={{ fontSize: "0.6rem", color: "var(--color-muted-foreground)" }}>
+              {timeAgo(conversation.lastMessageAt)}
+            </span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+            {typing ? (
+              <span style={{ fontSize: "0.78rem", color: "var(--color-primary)", fontWeight: "bold" }}>someone is typing...</span>
+            ) : (
+              <p style={{
+                margin: 0, fontSize: "0.78rem",
+                color: conversation.unread > 0 ? "#fff" : "var(--color-muted-foreground)",
+                fontWeight: conversation.unread > 0 ? 600 : 400,
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1
+              }}>
+                {conversation.lastPreview}
+              </p>
+            )}
+            {conversation.unread > 0 && (
+              <span style={{
+                background: "var(--color-primary)", color: "#0c0c0c", fontSize: "0.6rem", fontWeight: 800,
+                borderRadius: 99, padding: "2px 6px", marginLeft: 8, flexShrink: 0
+              }}>
+                {conversation.unread}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <button
+          onClick={(e) => { e.stopPropagation(); togglePin.mutate(conversation.id); }}
+          style={{ background: "none", border: "none", color: conversation.pinned ? "var(--color-primary)" : "var(--color-muted-foreground)", cursor: "pointer", padding: 4 }}
+        >
+          <Pin size={12} fill={conversation.pinned ? "currentColor" : "none"} />
+        </button>
+      </div>
+    );
+  }
 }
 
-/* ─── Suggested Friend Card (similar interests or characteristics) ────────── */
-
+/* ─── Suggested Friend Card (Friends Tab) ────────────────────────────────── */
 function SuggestedFriendCard({ user, matchText }: { user: any; matchText: string }) {
   const connStatus = useConnectionStatus(user.id);
   const send = useSendConnectionRequest();
@@ -511,27 +689,16 @@ function SuggestedFriendCard({ user, matchText }: { user: any; matchText: string
 
   return (
     <div style={{
-      width: 140,
-      flexShrink: 0,
-      background: "var(--bg-2)",
-      border: "1px solid var(--color-border)",
-      borderRadius: 12,
-      padding: 12,
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      textAlign: "center",
-      gap: 8,
-      position: "relative"
+      width: 140, flexShrink: 0, background: "var(--bg-2)", border: "1px solid var(--color-border)",
+      borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", alignItems: "center",
+      textAlign: "center", gap: 8, position: "relative"
     }}>
-      {/* Avatar */}
       <div style={{
         width: 50, height: 50, borderRadius: "50%",
         background: user.avatar && !(user.avatar.startsWith("http") || user.avatar.startsWith("/") || user.avatar.startsWith("data:")) ? "var(--bg-3)" : avatarGradient(user.id),
         display: "flex", alignItems: "center", justifyContent: "center",
         fontWeight: 800, fontSize: user.avatar && !(user.avatar.startsWith("http") || user.avatar.startsWith("/") || user.avatar.startsWith("data:")) ? "1.6rem" : "1.1rem",
-        border: "2px solid var(--color-border)",
-        overflow: "hidden"
+        border: "2px solid var(--color-border)", overflow: "hidden"
       }}>
         {user.avatar ? (
           (user.avatar.startsWith("http") || user.avatar.startsWith("/") || user.avatar.startsWith("data:")) ? (
@@ -544,9 +711,8 @@ function SuggestedFriendCard({ user, matchText }: { user: any; matchText: string
         )}
       </div>
 
-      {/* Info */}
       <div style={{ minWidth: 0, width: "100%" }}>
-        <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "var(--color-foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {user.name}
         </div>
         <div style={{ fontSize: "0.65rem", color: "var(--color-primary)", fontFamily: "var(--font-mono)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -557,18 +723,11 @@ function SuggestedFriendCard({ user, matchText }: { user: any; matchText: string
         </div>
       </div>
 
-      {/* Connect Button */}
       <button
         onClick={handleConnect}
         disabled={send.isPending || connStatus.status === "outgoing_pending"}
         className="ss-btn ss-btn-primary"
-        style={{
-          width: "100%",
-          padding: "5px 0",
-          fontSize: "0.68rem",
-          borderRadius: 6,
-          marginTop: 2
-        }}
+        style={{ width: "100%", padding: "5px 0", fontSize: "0.68rem", borderRadius: 6, marginTop: 2 }}
       >
         {connStatus.status === "outgoing_pending" ? "Sent" : "Connect"}
       </button>
@@ -576,127 +735,23 @@ function SuggestedFriendCard({ user, matchText }: { user: any; matchText: string
   );
 }
 
-/* ─── Create Post Card ────────────────────────────────────────────────────── */
-
-interface CreatePostCardProps {
-  onAddPost: (caption: string, mediaUrl: string) => void;
-  user: any;
-}
-
-function CreatePostCard({ onAddPost, user }: CreatePostCardProps) {
-  const [caption, setCaption] = useState("");
-  const [selectedMedia, setSelectedMedia] = useState("https://images.unsplash.com/photo-1542831371-29b0f74f9713?auto=format&fit=crop&w=600&q=80");
-  const [showForm, setShowForm] = useState(false);
-
-  const presets = [
-    { url: "https://images.unsplash.com/photo-1542831371-29b0f74f9713?auto=format&fit=crop&w=600&q=80", label: "💻 Code" },
-    { url: "https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&w=600&q=80", label: "☕ Cozy Desk" },
-    { url: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80", label: "📚 Library" },
-    { url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3BndmdmM283OHZpdHhvbTh0cnNscjR2OHU3bzY2dnN6aWRnbWNnayZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/33OrjzUFwkwEg/giphy.gif", label: "🐱 Lofi Cat" },
-    { url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmtlbjNuZnoxOHl6aThnZTR3cnR5bGVsbGlqZWV4ZXplMW13bzdhOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/13HgwGsXF0aiGY/giphy.gif", label: "⚡ Matrix" },
-    { url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbDVtcXZjNm04ejRxamRjcmtyaTBpcnM5YnhoYzAwMjdvdzM5eXphOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/V4aB3p69rlY9q/giphy.gif", label: "🌌 Chill GVL" },
-  ];
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!caption.trim()) return;
-    onAddPost(caption, selectedMedia);
-    setCaption("");
-    setShowForm(false);
-  };
-
-  const isUserEmoji = user?.avatar && !(user.avatar.startsWith("http") || user.avatar.startsWith("/") || user.avatar.startsWith("data:"));
-
-  return (
-    <div className="ss-card" style={{ padding: 14, marginBottom: 16, background: "var(--bg-2)", border: "1px solid var(--color-border)", borderRadius: 16 }}>
-      {!showForm ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }} onClick={() => setShowForm(true)}>
-          <div style={{
-            width: 36, height: 36, borderRadius: "50%",
-            background: isUserEmoji ? "var(--bg-3)" : "var(--color-primary)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: isUserEmoji ? "1.25rem" : "0.85rem", fontWeight: "bold"
-          }}>
-            {isUserEmoji ? user.avatar : user?.name?.slice(0, 2).toUpperCase() || "ME"}
-          </div>
-          <div style={{ flex: 1, background: "var(--bg-3)", padding: "8px 14px", borderRadius: 20, color: "var(--color-muted-foreground)", fontSize: "0.78rem" }}>
-            Share your study progress or upload a feed post...
-          </div>
-        </div>
-      ) : (
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span className="ss-mono" style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--color-primary)" }}>NEW STUDY POST</span>
-            <button type="button" onClick={() => setShowForm(false)} style={{ background: "none", border: "none", color: "var(--color-muted-foreground)", cursor: "pointer", fontSize: "0.75rem" }}>Cancel</button>
-          </div>
-
-          <textarea
-            value={caption}
-            onChange={(e) => setCaption(e.target.value)}
-            placeholder="What are you studying or coding right now?"
-            rows={3}
-            required
-            style={{
-              width: "100%", background: "var(--bg-3)", border: "1px solid var(--color-border)",
-              borderRadius: 12, padding: 10, color: "var(--color-foreground)", fontSize: "0.8rem",
-              fontFamily: "var(--font-body)", resize: "none", outline: "none"
-            }}
-          />
-
-          <div>
-            <span className="ss-mono" style={{ fontSize: "0.6rem", color: "var(--color-muted-foreground)", display: "block", marginBottom: 6 }}>SELECT POST MEDIA</span>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
-              {presets.map((p) => (
-                <button
-                  type="button"
-                  key={p.url}
-                  onClick={() => setSelectedMedia(p.url)}
-                  style={{
-                    padding: "6px 2px",
-                    background: selectedMedia === p.url ? "rgba(232, 255, 71, 0.08)" : "var(--bg-3)",
-                    border: selectedMedia === p.url ? "1.5px solid var(--color-primary)" : "1px solid var(--color-border)",
-                    borderRadius: 8,
-                    cursor: "pointer",
-                    fontSize: "0.68rem",
-                    fontWeight: selectedMedia === p.url ? "bold" : "normal",
-                    color: selectedMedia === p.url ? "var(--color-primary)" : "var(--color-muted-foreground)",
-                    transition: "all 0.15s ease"
-                  }}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <button type="submit" className="ss-btn ss-btn-primary" style={{ width: "100%", padding: "8px 0", borderRadius: 8, fontSize: "0.78rem" }}>
-            Share to Feed
-          </button>
-        </form>
-      )}
-    </div>
-  );
-}
-
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
-
 function DiscoverPage() {
-  const { tab: urlTab } = Route.useSearch();
-  const [tab, setTab] = useState<DiscoverTab>(urlTab ?? "dms");
+  const [tab, setTab] = useState<DiscoverTab>("feed");
+  const [feedSubTab, setFeedSubTab] = useState<"posts" | "reels" | "saved">("posts");
   const [query, setQuery] = useState("");
   const { user: currentUser } = useAuth();
+  const navigate = useNavigate();
+
+  // --- Network data ---
   const connections = useConnections();
-  const { data: unreadCount = 0 } = useUnreadNotifications();
-
-  // Conversations & Communities data
-  const conversations = useConversations();
-  const communities = useCommunities();
-  const join = useToggleJoin();
-  useLiveInbox();
-
   const search = useSearchUsers(query);
   const discover = useDiscoverUsers();
   const forYou = useForYouUsers();
+
+  const accepted = (connections.data ?? []).filter((c: any) => c.status === "accepted");
+  const pending  = (connections.data ?? []).filter((c: any) => c.status === "pending");
+  const connectedIds = accepted.map((c: any) => c.fromUserId === currentUser?.id ? c.toUserId : c.fromUserId);
 
   const suggestedUsers = (forYou.data ?? []).filter((u: any) => {
     if (u.id === currentUser?.id) return false;
@@ -707,623 +762,1349 @@ function DiscoverPage() {
     return !isConn;
   });
 
-  const accepted = (connections.data ?? []).filter((c: any) => c.status === "accepted");
-  const pending  = (connections.data ?? []).filter((c: any) => c.status === "pending");
-
-  // Since we resolve user objects dynamically, we map through accepted connections
-  // and render a sub-component that fetches the specific user details
-  const connectedIds = accepted.map((c: any) =>
-    c.fromUserId === currentUser?.id ? c.toUserId : c.fromUserId
-  );
-
-  // --- Instagram Stories State ---
-  const [stories, setStories] = useState<Story[]>([
-    {
-      userId: "kabir_id",
-      userName: "Kabir Singh",
-      userAvatar: "👨‍🎓",
-      mediaUrl: "https://images.unsplash.com/photo-1542831371-29b0f74f9713?auto=format&fit=crop&w=600&q=80",
-      caption: "Setting up the new IDE theme. Custom keyboard is feeling crisp! ⌨️💻",
-      viewed: false
-    },
-    {
-      userId: "aanya_id",
-      userName: "Aanya Mehta",
-      userAvatar: "👩‍🎓",
-      mediaUrl: "https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&w=600&q=80",
-      caption: "Cracking binary tree traversals before coffee gets cold. ☕🌳",
-      viewed: false
-    },
-    {
-      userId: "riya_id",
-      userName: "Riya Sharma",
-      userAvatar: "👩‍🏫",
-      mediaUrl: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmtlbjNuZnoxOHl6aThnZTR3cnR5bGVsbGlqZWV4ZXplMW13bzdhOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/13HgwGsXF0aiGY/giphy.gif",
-      caption: "Sage AI has some suggestions. Study grind on AI models! 🤖✨",
-      viewed: false
-    },
-    {
-      userId: "arjun_id",
-      userName: "Arjun Verma",
-      userAvatar: "👨‍💻",
-      mediaUrl: "https://images.unsplash.com/photo-1607799279861-4dd421887fb3?auto=format&fit=crop&w=600&q=80",
-      caption: "SQL query optimization is an art form. DB is running 10x faster now! 💾📊",
-      viewed: false
-    },
-    {
-      userId: "meera_id",
-      userName: "Meera Iyer",
-      userAvatar: "👩‍💻",
-      mediaUrl: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbDVtcXZjNm04ejRxamRjcmtyaTBpcnM5YnhoYzAwMjdvdzM5eXphOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/V4aB3p69rlY9q/giphy.gif",
-      caption: "Focusing on operating system threads. Keep grinding! ☕⚙️",
-      viewed: false
-    }
-  ]);
-
-  const [activeStoryIdx, setActiveStoryIdx] = useState<number | null>(null);
-
-  const handleOpenStory = (index: number) => {
-    setActiveStoryIdx(index);
-    setStories((prev) =>
-      prev.map((s, idx) => (idx === index ? { ...s, viewed: true } : s))
-    );
-  };
-
-  // --- Instagram Feed State (User-Generated with LocalStorage Persistence) ---
-  const [posts, setPosts] = useState<FeedPost[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = window.localStorage.getItem("sas.feed_posts");
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {
-          console.error("Failed to parse feed posts", e);
-        }
-      }
-    }
-    return [
-      {
-        id: "post-1",
-        userId: "aanya_id",
-        userName: "Aanya Mehta",
-        userHandle: "aanya_mehta",
-        userAvatar: "👩‍🎓",
-        mediaUrl: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80",
-        caption: "Midterm prep has officially begun. Sliding window problems are starting to click! Who's up for a focus room session tonight? 📚🚀",
-        likes: 12,
-        hasLiked: false,
-        comments: [
-          { userName: "kabir_singh", text: "I'm down for a study room at 8 PM!" },
-          { userName: "arjun_verma", text: "Need help with sliding window. Count me in!" }
-        ],
-        createdAt: "2h ago"
-      },
-      {
-        id: "post-2",
-        userId: "kabir_id",
-        userName: "Kabir Singh",
-        userHandle: "kabir_singh",
-        userAvatar: "👨‍🎓",
-        mediaUrl: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3BndmdmM283OHZpdHhvbTh0cnNscjR2OHU3bzY2dnN6aWRnbWNnayZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/33OrjzUFwkwEg/giphy.gif",
-        caption: "Me writing React form hooks at 2 AM. Hydrated and locked in! 🐱💻☕",
-        likes: 28,
-        hasLiked: false,
-        comments: [
-          { userName: "aanya_mehta", text: "Accurate! Go sleep Kabir 😂" },
-          { userName: "meera_iyer", text: "React 19 forms are super clean though!" }
-        ],
-        createdAt: "4h ago"
-      },
-      {
-        id: "post-3",
-        userId: "riya_id",
-        userName: "Riya Sharma",
-        userHandle: "riya_sharma",
-        userAvatar: "👩‍🏫",
-        mediaUrl: "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80",
-        caption: "Cozy vibes only for tonight's machine learning model training. Sage AI is helping debug my loss function. 💡🤖🌌",
-        likes: 19,
-        hasLiked: false,
-        comments: [
-          { userName: "kabir_singh", text: "That workspace setup looks incredible." }
-        ],
-        createdAt: "1d ago"
-      }
-    ];
-  });
+  // --- Messaging Data & Socket Realtime Typing ---
+  const conversations = useConversations();
+  const { data: unreadNotificationsCount = 0 } = useUnreadNotifications();
+  const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("sas.feed_posts", JSON.stringify(posts));
+    const offStart = socketBus.on(SocketEvents.TypingStart, (p: { userId: string; room: string }) => {
+      const convId = p.room?.replace("conv:", "");
+      if (convId) setTypingUsers((prev) => ({ ...prev, [convId]: true }));
+    });
+    const offStop = socketBus.on(SocketEvents.TypingStop, (p: { userId: string; room: string }) => {
+      const convId = p.room?.replace("conv:", "");
+      if (convId) setTypingUsers((prev) => ({ ...prev, [convId]: false }));
+    });
+    return () => { offStart(); offStop(); };
+  }, []);
+
+  // --- Posts, Stories & Reels Data ---
+  const feedPosts = useFeedPosts();
+  const stories = useStories();
+  const reels = useReels();
+  const savedPosts = useSavedPosts();
+
+  const createPost = useCreatePost();
+  const deletePost = useDeletePost();
+  const updatePost = useUpdatePost();
+  const toggleLike = useToggleLike();
+  const toggleSave = useToggleSave();
+  const toggleShare = useToggleShare();
+  const addComment = useAddComment();
+
+  // Story modals & author stories grouping
+  const [activeStoryGroup, setActiveStoryGroup] = useState<any[] | null>(null);
+  
+  const storiesByAuthor = (stories.data ?? []).reduce((acc: Record<string, any>, story: any) => {
+    if (!story.author) return acc;
+    const authorId = story.authorId;
+    if (!acc[authorId]) {
+      acc[authorId] = {
+        author: story.author,
+        items: []
+      };
     }
-  }, [posts]);
+    acc[authorId].items.push(story);
+    return acc;
+  }, {});
+  const authorsWithStories = Object.values(storiesByAuthor);
 
-  const handleLikePost = (postId: string) => {
-    setPosts((prevPosts) =>
-      prevPosts.map((p) => {
-        if (p.id === postId) {
-          const nextLiked = !p.hasLiked;
-          return {
-            ...p,
-            hasLiked: nextLiked,
-            likes: p.likes + (nextLiked ? 1 : -1)
-          };
-        }
-        return p;
-      })
-    );
+  // --- Post Creator State ---
+  const [creatorOpen, setCreatorOpen] = useState(false);
+  const [creatorContent, setCreatorContent] = useState("");
+  const [creatorType, setCreatorType] = useState<"post" | "story" | "reel">("post");
+  const [creatorMediaUrl, setCreatorMediaUrl] = useState<string | null>(null);
+  const [creatorMediaType, setCreatorMediaType] = useState<"image" | "video" | "gif" | null>(null);
+  const [creatorUploading, setCreatorUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const presets = [
+    { url: "https://images.unsplash.com/photo-1542831371-29b0f74f9713?auto=format&fit=crop&w=600&q=80", type: "image", label: "💻 Code" },
+    { url: "https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&w=600&q=80", type: "image", label: "☕ Coffee" },
+    { url: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80", type: "image", label: "📚 Books" },
+    { url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3BndmdmM283OHZpdHhvbTh0cnNscjR2OHU3bzY2dnN6aWRnbWNnayZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/33OrjzUFwkwEg/giphy.gif", type: "gif", label: "🐱 Lofi" },
+    { url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmtlbjNuZnoxOHl6aThnZTR3cnR5bGVsbGlqZWV4ZXplMW13bzdhOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/13HgwGsXF0aiGY/giphy.gif", type: "gif", label: "⚡ Matrix" }
+  ];
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCreatorUploading(true);
+    try {
+      const { file: uploaded } = await api.uploadPostMedia(file);
+      setCreatorMediaUrl(`${API_BASE_URL}${uploaded.url}`);
+      setCreatorMediaType(uploaded.mediaType);
+      toast.success(`${uploaded.mediaType} attached successfully!`);
+    } catch (err: any) {
+      toast.error(err?.message ?? "Media upload failed");
+    } finally {
+      setCreatorUploading(false);
+    }
   };
 
-  const handleAddComment = (postId: string, commentText: string) => {
-    setPosts((prevPosts) =>
-      prevPosts.map((p) => {
-        if (p.id === postId) {
-          return {
-            ...p,
-            comments: [...p.comments, { userName: (currentUser as any)?.handle || currentUser?.name?.toLowerCase().replace(/\s+/g, "_") || "me", text: commentText }]
-          };
-        }
-        return p;
-      })
-    );
+  const handleSharePost = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!creatorContent.trim() && !creatorMediaUrl) {
+      toast.error("Please add some content or media");
+      return;
+    }
+    
+    // Validate reel constraints
+    if (creatorType === "reel" && creatorMediaType !== "video") {
+      toast.error("Reels require a video upload");
+      return;
+    }
+
+    createPost.mutate({
+      content: creatorContent.trim(),
+      mediaUrl: creatorMediaUrl || undefined,
+      mediaType: creatorMediaType || undefined,
+      type: creatorType
+    }, {
+      onSuccess: () => {
+        setCreatorContent("");
+        setCreatorMediaUrl(null);
+        setCreatorMediaType(null);
+        setCreatorOpen(false);
+        toast.success(`${creatorType.toUpperCase()} shared!`);
+      },
+      onError: () => {
+        toast.error("Failed to share update");
+      }
+    });
   };
 
-  const handleAddPost = (caption: string, mediaUrl: string) => {
-    const newPost: FeedPost = {
-      id: `post-${Date.now()}`,
-      userId: currentUser?.id || "me",
-      userName: currentUser?.name || "Dev User",
-      userHandle: (currentUser as any)?.handle || currentUser?.name?.toLowerCase().replace(/\s+/g, "_") || "dev_user",
-      userAvatar: currentUser?.avatar || "🧑‍🎓",
-      mediaUrl,
-      caption,
-      likes: 0,
-      hasLiked: false,
-      comments: [],
-      createdAt: "Just now"
-    };
-    setPosts((prev) => [newPost, ...prev]);
-    toast.success("Post shared to feed!");
+  // --- Group DM Creator state ---
+  const [groupCreatorOpen, setGroupCreatorOpen] = useState(false);
+  const [groupName, setGroupName] = useState("");
+  const [groupAvatar, setGroupAvatar] = useState("👥");
+  const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
+  const createGroupChat = useCreateGroupChat();
+
+  const handleCreateGroupChat = () => {
+    if (!groupName.trim()) {
+      toast.error("Please enter a group name");
+      return;
+    }
+    if (selectedParticipants.length === 0) {
+      toast.error("Please select at least one friend");
+      return;
+    }
+    createGroupChat.mutate({
+      name: groupName.trim(),
+      participants: selectedParticipants,
+      avatar: groupAvatar
+    }, {
+      onSuccess: (newConv) => {
+        setGroupName("");
+        setSelectedParticipants([]);
+        setGroupCreatorOpen(false);
+        toast.success("Group chat created!");
+        navigate({ to: "/messages/dm/$id", params: { id: newConv.id } });
+      },
+      onError: () => toast.error("Failed to create group chat")
+    });
+  };
+
+  // --- Group/Community state ---
+  const communities = useCommunities();
+  const toggleJoinGroup = useToggleJoin();
+  const createCommunity = useCreateCommunity();
+  const [newGroupModalOpen, setNewGroupModalOpen] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupDesc, setNewGroupDesc] = useState("");
+  const [newGroupCategory, setNewGroupCategory] = useState("Study");
+  const [newGroupTags, setNewGroupTags] = useState("");
+  const [newGroupIcon, setNewGroupIcon] = useState("📚");
+
+  const handleCreateGroup = () => {
+    if (!newGroupName.trim() || !newGroupDesc.trim()) {
+      toast.error("Group name and description are required");
+      return;
+    }
+    const tags = newGroupTags.split(",").map(t => t.trim()).filter(Boolean);
+    createCommunity.mutate({
+      name: newGroupName.trim(),
+      description: newGroupDesc.trim(),
+      category: newGroupCategory,
+      tags,
+      iconChar: newGroupIcon
+    }, {
+      onSuccess: (newGroup) => {
+        setNewGroupName("");
+        setNewGroupDesc("");
+        setNewGroupTags("");
+        setNewGroupModalOpen(false);
+        toast.success("Study group created!");
+        navigate({ to: "/communities/$id", params: { id: newGroup.id } });
+      },
+      onError: () => toast.error("Failed to create group")
+    });
+  };
+
+  // --- Comment Sheet state ---
+  const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
+  const [newCommentText, setNewCommentText] = useState("");
+  const commentsQuery = usePostComments(activeCommentPostId ?? "");
+
+  const handlePostComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCommentText.trim() || !activeCommentPostId) return;
+    addComment.mutate({
+      postId: activeCommentPostId,
+      content: newCommentText.trim()
+    }, {
+      onSuccess: () => {
+        setNewCommentText("");
+      }
+    });
+  };
+
+  // --- Post Edit State ---
+  const [editPostId, setEditPostId] = useState<string | null>(null);
+  const [editPostContent, setEditPostContent] = useState("");
+
+  const handleUpdatePost = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editPostContent.trim() || !editPostId) return;
+    updatePost.mutate({
+      id: editPostId,
+      content: editPostContent.trim()
+    }, {
+      onSuccess: () => {
+        setEditPostId(null);
+        toast.success("Post updated successfully!");
+      },
+      onError: () => toast.error("Failed to update post")
+    });
   };
 
   return (
     <PageTransition>
-      {/* Header */}
+      {/* HEADER SECTION */}
       <div className="ss-ph" style={{ paddingBottom: 14 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <UserCheck size={18} style={{ color: "var(--color-primary)" }} />
+            <Globe size={18} style={{ color: "var(--color-primary)" }} />
             <div>
-              <div className="ss-ph-label">PRODUCTIVITY FEED</div>
-              <h1 className="ss-ph-title" style={{ fontSize: "1.3rem" }}>Friends &amp; Social Hub</h1>
+              <div className="ss-ph-label">FRIENDS &amp; SOCIAL</div>
+              <h1 className="ss-ph-title" style={{ fontSize: "1.3rem" }}>Study Hub</h1>
             </div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <Link
               to="/notifications"
               className="ss-btn ss-btn-outline"
-              style={{ width: 38, height: 38, padding: 0, borderRadius: 999, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}
+              style={{ width: 38, height: 38, padding: 0, borderRadius: 999, position: "relative" }}
               aria-label="Notifications"
             >
               <Bell size={16} />
-              {unreadCount > 0 && (
+              {unreadNotificationsCount > 0 && (
                 <span style={{
                   position: "absolute", top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 999,
-                  background: "var(--color-primary)", color: "#060606", fontSize: "0.55rem", fontWeight: 800,
+                  background: "var(--color-primary)", color: "#0c0c0c", fontSize: "0.55rem", fontWeight: 800,
                   display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px",
                 }}>
-                  {unreadCount > 9 ? "9+" : unreadCount}
+                  {unreadNotificationsCount > 9 ? "9+" : unreadNotificationsCount}
                 </span>
               )}
             </Link>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div style={{ display: "flex", gap: 4, marginTop: 14, background: "rgba(255,255,255,0.03)", padding: 3, borderRadius: 8, border: "1px solid rgba(255,255,255,0.05)", overflowX: "auto", scrollbarWidth: "none" }} className="hide-scrollbar">
+        {/* Global tab navigator */}
+        <div style={{
+          display: "flex", gap: 4, background: "rgba(255,255,255,0.03)",
+          padding: 3, borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)"
+        }}>
           {([
-            { key: "dms", label: "DMs" },
+            { key: "feed", label: "Feed" },
             { key: "friends", label: "Friends" },
-            { key: "communities", label: "Communities" },
-            { key: "groups", label: "Group Chats" },
-            { key: "activity", label: "Activity" },
-          ] as { key: DiscoverTab; label: string }[]).map(({ key, label }) => {
-            const active = tab === key;
-            return (
-              <button
-                key={key}
-                onClick={() => setTab(key)}
-                className="ss-mono"
-                style={{
-                  flex: 1, padding: "8px 6px", fontSize: "0.58rem",
-                  textTransform: "uppercase", letterSpacing: "0.05em",
-                  borderRadius: 6, border: "none", cursor: "pointer",
-                  background: active ? "rgba(232,255,71,0.08)" : "transparent",
-                  color: active ? "var(--color-primary)" : "#666",
-                  fontWeight: active ? "bold" : "normal",
-                  transition: "all 0.15s ease",
-                  whiteSpace: "nowrap"
-                }}
-              >{label}</button>
-            );
-          })}
+            { key: "messages", label: "Messages" },
+            { key: "groups", label: "Groups" }
+          ] as const).map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className="ss-mono"
+              style={{
+                flex: 1, padding: "8px 4px", fontSize: "0.65rem",
+                textTransform: "uppercase", letterSpacing: "0.05em",
+                borderRadius: 8, border: "none", cursor: "pointer",
+                background: tab === key ? "rgba(232,255,71,0.08)" : "transparent",
+                color: tab === key ? "var(--color-primary)" : "#666",
+                fontWeight: tab === key ? "bold" : "normal",
+                transition: "all 0.15s ease",
+              }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
+      {/* CORE CONTENT LAYOUT */}
       <div className="ss-body" style={{ paddingBottom: 80, paddingTop: 10 }}>
 
-        {/* ─── DIRECT MESSAGES (DMs) TAB ─── */}
-        {tab === "dms" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ position: "relative" }}>
-              <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#666", pointerEvents: "none" }} />
-              <input
-                className="ss-input"
-                placeholder="Search conversations..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                style={{ paddingLeft: 36, width: "100%" }}
-              />
+        {/* ==================== 1. FEED TAB ==================== */}
+        {tab === "feed" && (
+          <div>
+            {/* Horizontal sub-tabs */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              {([
+                { key: "posts", label: "Posts", icon: Globe },
+                { key: "reels", label: "Reels", icon: Film },
+                { key: "saved", label: "Saved", icon: Bookmark }
+              ] as const).map(({ key, label, icon: Icon }) => (
+                <button
+                  key={key}
+                  onClick={() => setFeedSubTab(key)}
+                  className="ss-btn"
+                  style={{
+                    flex: 1, fontSize: "0.75rem", padding: "6px 12px", borderRadius: 8,
+                    background: feedSubTab === key ? "rgba(232, 255, 71, 0.08)" : "rgba(255,255,255,0.02)",
+                    border: feedSubTab === key ? "1.5px solid var(--color-primary)" : "1px solid var(--color-border)",
+                    color: feedSubTab === key ? "var(--color-primary)" : "var(--color-muted-foreground)",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                    fontWeight: feedSubTab === key ? "bold" : "normal"
+                  }}
+                >
+                  <Icon size={12} />
+                  {label}
+                </button>
+              ))}
             </div>
-            {conversations.isLoading ? (
-              <div style={{ textAlign: "center", color: "#555", padding: 40 }}>Loading chats…</div>
-            ) : (conversations.data ?? []).length === 0 ? (
-              <div style={{ padding: 16 }}>
-                <div style={{ textAlign: "center", border: "1px dashed rgba(255,255,255,0.06)", borderRadius: 12, padding: 32 }}>
-                  <div style={{ fontSize: "1.5rem", marginBottom: 8 }}>💬</div>
-                  <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#fff" }}>No conversations</div>
-                  <div style={{ fontSize: "0.75rem", color: "#555", marginTop: 4 }}>
-                    Start a chat by clicking "Message" on any friend's profile.
+
+            {/* A. POSTS SUB-TAB */}
+            {feedSubTab === "posts" && (
+              <div>
+                {/* Instagram-style Stories bar */}
+                <div style={{
+                  display: "flex", gap: 12, overflowX: "auto", paddingBottom: 12, marginBottom: 16,
+                  borderBottom: "1px solid var(--color-border)", scrollbarWidth: "none"
+                }} className="hide-scrollbar">
+                  {/* Create Story Button */}
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, gap: 4 }}>
+                    <div 
+                      onClick={() => { setCreatorType("story"); setCreatorOpen(true); }}
+                      style={{
+                        width: 58, height: 58, borderRadius: "50%", background: "var(--bg-3)",
+                        border: "1px solid var(--color-border)", display: "flex", alignItems: "center",
+                        justifyContent: "center", cursor: "pointer", position: "relative"
+                      }}
+                    >
+                      {currentUser?.avatar && !currentUser.avatar.startsWith("http") ? (
+                        <span style={{ fontSize: "1.5rem" }}>{currentUser.avatar}</span>
+                      ) : (
+                        <Users size={22} style={{ color: "var(--color-muted-foreground)" }} />
+                      )}
+                      <div style={{
+                        position: "absolute", bottom: -2, right: -2, width: 20, height: 20, borderRadius: "50%",
+                        background: "var(--color-primary)", display: "flex", alignItems: "center", justifyContent: "center",
+                        border: "2px solid var(--bg-1)", color: "#0c0c0c"
+                      }}>
+                        <Plus size={12} strokeWidth={3} />
+                      </div>
+                    </div>
+                    <span style={{ fontSize: "0.62rem", color: "var(--color-muted-foreground)" }}>Your Story</span>
                   </div>
-                  <button onClick={() => setTab("friends")} className="ss-btn ss-btn-outline" style={{ marginTop: 14, fontSize: "0.75rem" }}>
-                    Find friends to chat with
-                  </button>
+
+                  {/* Active Stories */}
+                  {authorsWithStories.map((group: any) => (
+                    <div 
+                      key={group.author.id}
+                      onClick={() => setActiveStoryGroup(group.items)}
+                      style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, gap: 4, cursor: "pointer" }}
+                    >
+                      <div style={{
+                        width: 58, height: 58, borderRadius: "50%",
+                        background: "linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)",
+                        padding: 2.5, display: "flex", alignItems: "center", justifyContent: "center"
+                      }}>
+                        <div style={{
+                          width: "100%", height: "100%", borderRadius: "50%", background: "var(--bg-1)",
+                          display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden"
+                        }}>
+                          {group.author.avatar && !group.author.avatar.startsWith("http") ? (
+                            <span style={{ fontSize: "1.4rem" }}>{group.author.avatar}</span>
+                          ) : (
+                            <div style={{
+                              width: "100%", height: "100%", background: avatarGradient(group.author.id),
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              fontWeight: 800, color: "#0c0c0c", fontSize: "1.1rem"
+                            }}>
+                              {group.author.name.slice(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: "0.62rem", color: "#fff", width: 62, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "center" }}>
+                        {group.author.name}
+                      </span>
+                    </div>
+                  ))}
                 </div>
+
+                {/* Inline Post Creator Button */}
+                {!creatorOpen ? (
+                  <div 
+                    onClick={() => { setCreatorType("post"); setCreatorOpen(true); }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 12, padding: 14,
+                      background: "var(--bg-2)", border: "1px solid var(--color-border)",
+                      borderRadius: 16, marginBottom: 16, cursor: "pointer"
+                    }}
+                  >
+                    <div style={{
+                      width: 36, height: 36, borderRadius: "50%",
+                      background: currentUser?.avatar && !currentUser.avatar.startsWith("http") ? "var(--bg-3)" : "var(--color-primary)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: "1.2rem", color: "#0c0c0c"
+                    }}>
+                      {currentUser?.avatar && !currentUser.avatar.startsWith("http") ? currentUser.avatar : currentUser?.name?.slice(0,2).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, color: "var(--color-muted-foreground)", fontSize: "0.78rem" }}>
+                      Share a new update, story, or reel with friends...
+                    </div>
+                    <PlusCircle size={16} style={{ color: "var(--color-primary)" }} />
+                  </div>
+                ) : (
+                  <div className="ss-card" style={{ padding: 16, background: "var(--bg-2)", borderRadius: 16, marginBottom: 16, border: "1px solid var(--color-border)" }}>
+                    <form onSubmit={handleSharePost} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          {(["post", "story", "reel"] as const).map((t) => (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() => {
+                                setCreatorType(t);
+                                if (t === "reel") {
+                                  setCreatorMediaType("video");
+                                } else {
+                                  setCreatorMediaType(null);
+                                  setCreatorMediaUrl(null);
+                                }
+                              }}
+                              style={{
+                                padding: "4px 8px", fontSize: "0.65rem", textTransform: "uppercase",
+                                borderRadius: 6, border: "none", cursor: "pointer",
+                                background: creatorType === t ? "var(--color-primary)" : "transparent",
+                                color: creatorType === t ? "#0c0c0c" : "var(--color-muted-foreground)",
+                                fontWeight: "bold"
+                              }}
+                            >
+                              {t}
+                            </button>
+                          ))}
+                        </div>
+                        <button type="button" onClick={() => { setCreatorOpen(false); setCreatorMediaUrl(null); }} style={{ background: "none", border: "none", color: "var(--color-muted-foreground)", cursor: "pointer", fontSize: "0.72rem" }}>Cancel</button>
+                      </div>
+
+                      <textarea
+                        value={creatorContent}
+                        onChange={(e) => setCreatorContent(e.target.value)}
+                        placeholder={creatorType === "story" ? "Add story caption (optional)..." : creatorType === "reel" ? "Add reel description..." : "What are you studying today?"}
+                        rows={3}
+                        required={creatorType === "reel" || (creatorType === "post" && !creatorMediaUrl)}
+                        style={{
+                          width: "100%", background: "var(--bg-3)", border: "1px solid var(--color-border)",
+                          borderRadius: 12, padding: 10, color: "#fff", fontSize: "0.8rem", resize: "none", outline: "none"
+                        }}
+                      />
+
+                      {/* Display Selected Media Preview */}
+                      {creatorMediaUrl && (
+                        <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", border: "1px solid var(--color-border)" }}>
+                          {creatorMediaType === "video" ? (
+                            <video src={creatorMediaUrl} controls style={{ width: "100%", maxHeight: 200, objectFit: "cover" }} />
+                          ) : (
+                            <img src={creatorMediaUrl} alt="" style={{ width: "100%", maxHeight: 200, objectFit: "cover" }} />
+                          )}
+                          <button type="button" onClick={() => { setCreatorMediaUrl(null); setCreatorMediaType(null); }} style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.6)", border: "none", color: "#fff", borderRadius: 6, padding: "4px 8px", fontSize: "0.7rem", cursor: "pointer" }}>Remove</button>
+                        </div>
+                      )}
+
+                      {/* Media Picker / Presets */}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <input 
+                            ref={fileInputRef} 
+                            type="file" 
+                            accept={creatorType === "reel" ? "video/*" : "image/*,video/*,.gif"} 
+                            style={{ display: "none" }} 
+                            onChange={handleFileUpload} 
+                          />
+                          <button 
+                            type="button" 
+                            onClick={() => fileInputRef.current?.click()} 
+                            disabled={creatorUploading} 
+                            className="ss-btn ss-btn-outline" 
+                            style={{ padding: "6px 12px", fontSize: "0.72rem", display: "flex", alignItems: "center", gap: 4 }}
+                          >
+                            {creatorType === "reel" ? <Video size={12} /> : <Image size={12} />}
+                            {creatorUploading ? "Uploading…" : creatorType === "reel" ? "Attach Video" : "Attach Photo/Video"}
+                          </button>
+                        </div>
+
+                        {creatorType !== "reel" && (
+                          <div style={{ display: "flex", gap: 4, overflowX: "auto" }}>
+                            {presets.map((p) => (
+                              <button
+                                key={p.url}
+                                type="button"
+                                onClick={() => { setCreatorMediaUrl(p.url); setCreatorMediaType(p.type as any); }}
+                                className="ss-btn ss-btn-outline"
+                                style={{ padding: "4px 8px", fontSize: "0.65rem", borderColor: creatorMediaUrl === p.url ? "var(--color-primary)" : undefined }}
+                              >
+                                {p.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <button type="submit" className="ss-btn ss-btn-primary" disabled={createPost.isPending || creatorUploading} style={{ width: "100%", padding: "8px 0", borderRadius: 8, fontSize: "0.78rem" }}>
+                        Share to Feed
+                      </button>
+                    </form>
+                  </div>
+                )}
+
+                {/* Feed Posts List */}
+                {feedPosts.isLoading ? (
+                  <div style={{ textAlign: "center", color: "#555", padding: 40 }}>Loading feed…</div>
+                ) : (feedPosts.data ?? []).length === 0 ? (
+                  <SocialEmptyState 
+                    title="Your Feed is Empty" 
+                    description="Connect with friends or follow study recommendations to start seeing posts." 
+                    activeTab="feed"
+                    setTab={setTab}
+                  />
+                ) : (
+                  (feedPosts.data ?? []).map((post: any) => {
+                    const isOwner = currentUser?.id === post.authorId;
+                    const mediaSrc = post.mediaUrl?.startsWith("http") ? post.mediaUrl : post.mediaUrl ? `${API_BASE_URL}${post.mediaUrl}` : null;
+                    const isEditing = editPostId === post.id;
+
+                    return (
+                      <div 
+                        key={post.id} 
+                        className="ss-card ss-card-anim" 
+                        style={{ padding: 0, overflow: "hidden", background: "var(--bg-2)", border: "1px solid var(--color-border)", borderRadius: 16, marginBottom: 14 }}
+                      >
+                        {/* Header */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: 12 }}>
+                          <div style={{
+                            width: 34, height: 34, borderRadius: "50%",
+                            background: avatarGradient(post.authorId), display: "flex", alignItems: "center", justifyContent: "center",
+                            fontWeight: 800, color: "#0c0c0c", fontSize: "0.85rem"
+                          }}>
+                            {post.author.avatar && !post.author.avatar.startsWith("http") ? post.author.avatar : post.author.name.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#fff" }}>{post.author.name}</div>
+                            <div style={{ fontSize: "0.68rem", color: "var(--color-muted-foreground)" }}>
+                              {post.author.school} · {timeAgo(post.createdAt)}
+                            </div>
+                          </div>
+                          {isOwner && !isEditing && (
+                            <div style={{ display: "flex", gap: 4 }}>
+                              <button onClick={() => { setEditPostId(post.id); setEditPostContent(post.content); }} style={{ background: "none", border: "none", color: "var(--color-muted-foreground)", cursor: "pointer", fontSize: "0.7rem" }}>Edit</button>
+                              <button
+                                onClick={() => deletePost.mutate(post.id, { onSuccess: () => toast.success("Post deleted") })}
+                                style={{ background: "none", border: "none", color: "#ff6b6b", cursor: "pointer", fontSize: "0.7rem" }}
+                              >Delete</button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Media display */}
+                        {mediaSrc && (
+                          <div style={{ width: "100%", background: "#060606", borderTop: "1px solid var(--color-border)", borderBottom: "1px solid var(--color-border)" }}>
+                            {post.mediaType === "video" ? (
+                              <video src={mediaSrc} controls loop muted playsInline style={{ width: "100%", maxHeight: 320, objectFit: "cover", display: "block" }} />
+                            ) : (
+                              <img src={mediaSrc} alt="Post media" style={{ width: "100%", maxHeight: 320, objectFit: "cover", display: "block" }} />
+                            )}
+                          </div>
+                        )}
+
+                        {/* Caption/Content */}
+                        {isEditing ? (
+                          <form onSubmit={handleUpdatePost} style={{ padding: "0 14px 12px" }}>
+                            <textarea
+                              value={editPostContent}
+                              onChange={(e) => setEditPostContent(e.target.value)}
+                              rows={3}
+                              style={{ width: "100%", background: "var(--bg-3)", border: "1px solid var(--color-border)", borderRadius: 8, padding: 8, color: "#fff", fontSize: "0.8rem", resize: "none" }}
+                            />
+                            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                              <button type="submit" className="ss-btn ss-btn-primary" style={{ padding: "4px 10px", fontSize: "0.72rem" }}>Save</button>
+                              <button type="button" onClick={() => setEditPostId(null)} className="ss-btn ss-btn-outline" style={{ padding: "4px 10px", fontSize: "0.72rem" }}>Cancel</button>
+                            </div>
+                          </form>
+                        ) : (
+                          <div style={{ padding: "12px 14px 8px 14px", fontSize: "0.82rem", lineHeight: 1.55, color: "#fff" }}>
+                            {post.content}
+                            {post.editedAt && <span style={{ fontSize: "0.65rem", color: "var(--color-muted-foreground)", marginLeft: 6 }}>(edited)</span>}
+                          </div>
+                        )}
+
+                        {/* Action buttons */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 14px 10px" }}>
+                          <div style={{ display: "flex", gap: 16 }}>
+                            <button
+                              onClick={() => toggleLike.mutate(post.id)}
+                              style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: post.liked ? "#ff4d6d" : "var(--color-muted-foreground)" }}
+                            >
+                              <Heart size={16} fill={post.liked ? "currentColor" : "none"} />
+                              <span className="ss-mono" style={{ fontSize: "0.75rem", fontWeight: 700 }}>{post.likeCount}</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setActiveCommentPostId(post.id);
+                                setNewCommentText("");
+                              }}
+                              style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: "var(--color-muted-foreground)" }}
+                            >
+                              <MessageCircle size={16} />
+                              <span className="ss-mono" style={{ fontSize: "0.75rem", fontWeight: 700 }}>{post.commentCount}</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                toggleShare.mutate(post.id);
+                                toast.success("Shared post link!");
+                              }}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-muted-foreground)" }}
+                            >
+                              <Share2 size={16} />
+                            </button>
+                          </div>
+                          
+                          <button
+                            onClick={() => toggleSave.mutate(post.id)}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: post.savedBy?.includes(currentUser?.id) ? "var(--color-primary)" : "var(--color-muted-foreground)" }}
+                          >
+                            <Bookmark size={16} fill={post.savedBy?.includes(currentUser?.id) ? "currentColor" : "none"} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                {(conversations.data ?? []).map((c: any) => {
-                  return <DMRowWrapper key={c.id} conv={c} query={query} />;
-                })}
+            )}
+
+            {/* B. REELS SUB-TAB */}
+            {feedSubTab === "reels" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 360, margin: "0 auto" }}>
+                {reels.isLoading ? (
+                  <div style={{ textAlign: "center", color: "#555", padding: 40 }}>Loading Reels…</div>
+                ) : (reels.data ?? []).length === 0 ? (
+                  <SocialEmptyState 
+                    title="No Reels Available" 
+                    description="Be the first to share a vertical video study reel!" 
+                    activeTab="feed"
+                    setTab={setTab}
+                  />
+                ) : (
+                  (reels.data ?? []).map((reel: any) => {
+                    const mediaSrc = reel.mediaUrl?.startsWith("http") ? reel.mediaUrl : reel.mediaUrl ? `${API_BASE_URL}${reel.mediaUrl}` : "";
+                    
+                    return (
+                      <div 
+                        key={reel.id} 
+                        style={{
+                          position: "relative", width: "100%", height: 500, borderRadius: 16,
+                          overflow: "hidden", background: "#000", border: "1px solid var(--color-border)"
+                        }}
+                      >
+                        {/* Video */}
+                        {mediaSrc ? (
+                          <video 
+                            src={mediaSrc} 
+                            autoPlay 
+                            loop 
+                            muted 
+                            playsInline 
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+                          />
+                        ) : (
+                          <div style={{
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            height: "100%", padding: 24, textAlign: "center", color: "var(--color-muted-foreground)"
+                          }}>
+                            Study Reel: "{reel.content}"
+                          </div>
+                        )}
+
+                        {/* Top Gradient */}
+                        <div style={{
+                          position: "absolute", top: 0, left: 0, right: 0, height: 60,
+                          background: "linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)", pointerEvents: "none"
+                        }} />
+
+                        {/* Bottom Info & Overlay */}
+                        <div style={{
+                          position: "absolute", bottom: 0, left: 0, right: 0, padding: 16,
+                          background: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)",
+                          display: "flex", flexDirection: "column", gap: 8
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <div style={{
+                              width: 32, height: 32, borderRadius: "50%",
+                              background: avatarGradient(reel.authorId), display: "flex", alignItems: "center",
+                              justifyContent: "center", fontWeight: 800, color: "#0c0c0c", fontSize: "0.8rem"
+                            }}>
+                              {reel.author.avatar && !reel.author.avatar.startsWith("http") ? reel.author.avatar : reel.author.name.slice(0, 2).toUpperCase()}
+                            </div>
+                            <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "#fff" }}>{reel.author.name}</span>
+                          </div>
+                          <p style={{ margin: 0, fontSize: "0.8rem", color: "#fff", lineHeight: 1.4 }}>
+                            {reel.content}
+                          </p>
+                        </div>
+
+                        {/* Right Floating Actions */}
+                        <div style={{
+                          position: "absolute", right: 12, bottom: 80, display: "flex",
+                          flexDirection: "column", gap: 16, alignItems: "center"
+                        }}>
+                          <button 
+                            onClick={() => toggleLike.mutate(reel.id)}
+                            style={{ background: "none", border: "none", color: reel.liked ? "#ff4d6d" : "#fff", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}
+                          >
+                            <div style={{ padding: 10, borderRadius: "50%", background: "rgba(0,0,0,0.5)", display: "flex" }}>
+                              <Heart size={18} fill={reel.liked ? "currentColor" : "none"} />
+                            </div>
+                            <span style={{ fontSize: "0.68rem", fontWeight: "bold" }}>{reel.likeCount}</span>
+                          </button>
+                          
+                          <button 
+                            onClick={() => {
+                              setActiveCommentPostId(reel.id);
+                              setNewCommentText("");
+                            }}
+                            style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}
+                          >
+                            <div style={{ padding: 10, borderRadius: "50%", background: "rgba(0,0,0,0.5)", display: "flex" }}>
+                              <MessageCircle size={18} />
+                            </div>
+                            <span style={{ fontSize: "0.68rem", fontWeight: "bold" }}>{reel.commentCount}</span>
+                          </button>
+
+                          <button 
+                            onClick={() => toggleSave.mutate(reel.id)}
+                            style={{ background: "none", border: "none", color: reel.savedBy?.includes(currentUser?.id) ? "var(--color-primary)" : "#fff", cursor: "pointer" }}
+                          >
+                            <div style={{ padding: 10, borderRadius: "50%", background: "rgba(0,0,0,0.5)", display: "flex" }}>
+                              <Bookmark size={18} fill={reel.savedBy?.includes(currentUser?.id) ? "currentColor" : "none"} />
+                            </div>
+                          </button>
+
+                          <button 
+                            onClick={() => {
+                              toggleShare.mutate(reel.id);
+                              toast.success("Shared Reel link!");
+                            }}
+                            style={{ background: "none", border: "none", color: "#fff", cursor: "pointer" }}
+                          >
+                            <div style={{ padding: 10, borderRadius: "50%", background: "rgba(0,0,0,0.5)", display: "flex" }}>
+                              <Share2 size={18} />
+                            </div>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+
+            {/* C. SAVED SUB-TAB */}
+            {feedSubTab === "saved" && (
+              <div>
+                {savedPosts.isLoading ? (
+                  <div style={{ textAlign: "center", color: "#555", padding: 40 }}>Loading saved posts…</div>
+                ) : (savedPosts.data ?? []).length === 0 ? (
+                  <SocialEmptyState 
+                    title="No Saved Posts" 
+                    description="Tap the bookmark icon on feed posts to save them for later." 
+                    activeTab="feed"
+                    setTab={setTab}
+                  />
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                    {(savedPosts.data ?? []).map((post: any) => {
+                      const mediaSrc = post.mediaUrl?.startsWith("http") ? post.mediaUrl : post.mediaUrl ? `${API_BASE_URL}${post.mediaUrl}` : "";
+                      return (
+                        <div 
+                          key={post.id}
+                          onClick={() => {
+                            setActiveCommentPostId(post.id);
+                            setNewCommentText("");
+                          }}
+                          style={{
+                            aspectRatio: "1/1", background: "var(--bg-2)", border: "1px solid var(--color-border)",
+                            borderRadius: 10, overflow: "hidden", cursor: "pointer", position: "relative"
+                          }}
+                        >
+                          {mediaSrc ? (
+                            post.mediaType === "video" ? (
+                              <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "#000" }}>
+                                <Film size={24} style={{ color: "var(--color-muted-foreground)" }} />
+                              </div>
+                            ) : (
+                              <img src={mediaSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            )
+                          ) : (
+                            <div style={{
+                              padding: 6, fontSize: "0.65rem", color: "var(--color-muted-foreground)",
+                              height: "100%", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center"
+                            }}>
+                              "{post.content.slice(0, 20)}..."
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>
         )}
 
-        {/* ─── FRIENDS TAB ─── */}
+        {/* ==================== 2. FRIENDS TAB ==================== */}
         {tab === "friends" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* Search Input */}
             <div style={{ position: "relative" }}>
-              <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#666", pointerEvents: "none" }} />
+              <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#666" }} />
               <input
                 className="ss-input"
-                placeholder="Search friends by name, @handle, or interest..."
+                placeholder="Search friends by name, @handle, or subject..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 style={{ paddingLeft: 36, width: "100%" }}
               />
+              {query && (
+                <button onClick={() => setQuery("")} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#555" }}>
+                  <X size={14} />
+                </button>
+              )}
             </div>
 
-            {query.trim() ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <span className="ss-mono" style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--color-primary)", letterSpacing: "0.05em", textTransform: "uppercase" }}>Search Results</span>
+            {/* Friend Requests (Pending) */}
+            {pending.length > 0 && !query && (
+              <div>
+                <div className="ss-mono" style={{ fontSize: "0.6rem", letterSpacing: "0.08em", color: "var(--color-primary)", textTransform: "uppercase", marginBottom: 10 }}>
+                  Requests ({pending.length})
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {pending.map((c: any) => (
+                    <PendingRequestCard 
+                      key={c.id} 
+                      conn={c} 
+                      onAcceptSuccess={() => connections.refetch()} 
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Friends list (My Connections) */}
+            {query.trim() === "" ? (
+              <div>
+                <div className="ss-mono" style={{ fontSize: "0.6rem", letterSpacing: "0.08em", color: "#666", textTransform: "uppercase", marginBottom: 10 }}>
+                  My Friends ({accepted.length})
+                </div>
+                {connectedIds.length === 0 ? (
+                  <SocialEmptyState 
+                    title="No Friends Yet" 
+                    description="Connect with students from recommendations to expand your study network." 
+                    activeTab="friends"
+                    setTab={setTab}
+                  />
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {connectedIds.map((uid) => (
+                      <ResolvedNetworkUserCard 
+                        key={uid} 
+                        userId={uid} 
+                        onStartChat={() => setTab("messages")}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              // Search view
+              <div>
+                <div className="ss-mono" style={{ fontSize: "0.6rem", letterSpacing: "0.08em", color: "#666", textTransform: "uppercase", marginBottom: 10 }}>
+                  Search Results
+                </div>
                 {search.isLoading ? (
-                  <div style={{ textAlign: "center", color: "#555", padding: 20 }}>Searching students…</div>
+                  <div style={{ textAlign: "center", color: "#555", padding: 20 }}>Searching students...</div>
                 ) : (search.data ?? []).length === 0 ? (
-                  <div style={{ textAlign: "center", color: "#555", padding: 20, fontSize: "0.85rem" }}>
-                    No results for "{query}"
+                  <div style={{ textAlign: "center", color: "#555", padding: 20, fontSize: "0.8rem" }}>
+                    No students found matching "{query}"
                   </div>
                 ) : (
-                  (search.data ?? []).map((u) => <ProfileCard key={u.id} user={u} />)
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {(search.data ?? []).map((u: any) => (
+                      <ProfileCard key={u.id} user={u} onStartChat={() => setTab("messages")} />
+                    ))}
+                  </div>
                 )}
               </div>
-            ) : (
-              <>
-                {/* Pending requests */}
-                {pending.length > 0 && (
-                  <div>
-                    <div className="ss-mono" style={{ fontSize: "0.6rem", letterSpacing: "0.08em", color: "var(--color-primary)", textTransform: "uppercase", marginBottom: 10 }}>
-                      Pending Requests ({pending.length})
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {pending.map((c) => (
-                        <PendingRequestCard 
-                          key={c.id} 
-                          conn={c} 
-                          onAcceptSuccess={() => connections.refetch()} 
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
+            )}
 
-                {/* Suggested for You */}
-                {suggestedUsers.length > 0 && (
-                  <div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 4px 10px 4px" }}>
-                      <span className="ss-mono" style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--color-primary)", letterSpacing: "0.05em", textTransform: "uppercase" }}>
-                        Suggested for You
-                      </span>
-                    </div>
-                    <div style={{ display: "flex", gap: 12, overflowX: "auto", padding: "4px 2px", scrollbarWidth: "none" }} className="hide-scrollbar">
-                      {suggestedUsers.map((su: any) => {
-                        const currentUserProfile = currentUser as any;
-                        const common = su.interests?.filter((i: string) => currentUserProfile?.interests?.includes(i)) || [];
-                        const matchText = common.length > 0
-                          ? `Similar interest: ${common[0]}`
-                          : su.school === currentUserProfile?.school
-                            ? `Same School: ${su.school}`
-                            : `${su.year} · ${su.school}`;
-                        return <SuggestedFriendCard key={su.id} user={su} matchText={matchText} />;
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Connections list */}
-                <div>
-                  <div className="ss-mono" style={{ fontSize: "0.6rem", letterSpacing: "0.08em", color: "#666", textTransform: "uppercase", marginBottom: 10 }}>
-                    My Friends ({accepted.length})
-                  </div>
-                  {connectedIds.length === 0 ? (
-                    <div style={{
-                      padding: 32, textAlign: "center", border: "1px dashed rgba(255,255,255,0.06)", borderRadius: 12
-                    }}>
-                      <Users size={28} style={{ color: "#333", marginBottom: 10 }} />
-                      <div style={{ fontSize: "0.85rem", color: "#555" }}>No friends connected yet</div>
-                      <div style={{ fontSize: "0.75rem", color: "#444", marginTop: 4 }}>
-                        Search for students above or accept pending invites.
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      {connectedIds.map((uid) => <ResolvedNetworkUserCard key={uid} userId={uid} />)}
-                    </div>
-                  )}
+            {/* Interest-based Suggestions list */}
+            {!query && suggestedUsers.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <span className="ss-mono" style={{ fontSize: "0.65rem", fontWeight: 700, color: "var(--color-primary)", letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                    Suggested Study Buddies
+                  </span>
+                  <span style={{ fontSize: "0.6rem", color: "var(--color-muted-foreground)" }}>Matches subjects</span>
                 </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* ─── COMMUNITIES TAB ─── */}
-        {tab === "communities" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span className="ss-mono" style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--color-primary)" }}>EXPLORE COMMUNITIES</span>
-              <Link to="/communities/new" className="ss-btn ss-btn-primary" style={{ padding: "6px 10px", fontSize: "0.7rem" }}>
-                + Create
-              </Link>
-            </div>
-            
-            <div style={{ position: "relative" }}>
-              <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#666", pointerEvents: "none" }} />
-              <input
-                className="ss-input"
-                placeholder="Search by subject, tag, or name..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                style={{ paddingLeft: 36, width: "100%" }}
-              />
-            </div>
-
-            {communities.isLoading ? (
-              <div style={{ textAlign: "center", color: "#555", padding: 40 }}>Loading communities…</div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {(communities.data ?? [])
-                  .filter((c: any) => !query || `${c.name} ${c.description}`.toLowerCase().includes(query.toLowerCase()))
-                  .map((c: any) => (
-                    <CommunityCardWrapper key={c.id} c={c} onJoin={() => join.mutate(c.id)} />
-                  ))}
+                <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 10, scrollbarWidth: "none" }} className="hide-scrollbar">
+                  {suggestedUsers.map((su: any) => {
+                    const currentUserProfile = currentUser as any;
+                    const common = su.interests?.filter((i: string) => currentUserProfile?.interests?.includes(i)) || [];
+                    const matchText = common.length > 0
+                      ? `Shared: ${common[0]}`
+                      : su.school === currentUserProfile?.school
+                        ? `Same School`
+                        : `${su.year} · ${su.school}`;
+                    return <SuggestedFriendCard key={su.id} user={su} matchText={matchText} />;
+                  })}
+                </div>
               </div>
             )}
           </div>
         )}
 
-        {/* ─── GROUP CHATS & ACTIVE SESSIONS TAB ─── */}
+        {/* ==================== 3. MESSAGES TAB ==================== */}
+        {tab === "messages" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* Header / Actions row */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ position: "relative", flex: 1, marginRight: 8 }}>
+                <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#666" }} />
+                <input
+                  className="ss-input"
+                  placeholder="Search chats..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  style={{ paddingLeft: 36, width: "100%", height: 36 }}
+                />
+              </div>
+              <button 
+                onClick={() => setGroupCreatorOpen(true)}
+                className="ss-btn ss-btn-primary"
+                style={{ height: 36, fontSize: "0.72rem", padding: "0 12px", borderRadius: 8, flexShrink: 0 }}
+              >
+                New Group
+              </button>
+            </div>
+
+            {/* Conversations list */}
+            {conversations.isLoading ? (
+              <div style={{ textAlign: "center", color: "#555", padding: 40 }}>Loading inbox…</div>
+            ) : (conversations.data ?? []).length === 0 ? (
+              <SocialEmptyState 
+                title="Your Inbox is Empty" 
+                description="Start a direct chat with a friend or create a study group to communicate in real time." 
+                activeTab="messages"
+                setTab={setTab}
+              />
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {(conversations.data ?? []).map((c: any) => (
+                  <ConversationItem 
+                    key={c.id} 
+                    conversation={c} 
+                    typing={!!typingUsers[c.id]}
+                    onClick={() => navigate({ to: "/messages/dm/$id", params: { id: c.id } })}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ==================== 4. GROUPS TAB ==================== */}
         {tab === "groups" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            {/* Joined Community Channels */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Actions row */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span className="ss-mono" style={{ fontSize: "0.68rem", fontWeight: 700, color: "#666", textTransform: "uppercase" }}>Study Circles &amp; Groups</span>
+              <button 
+                onClick={() => setNewGroupModalOpen(true)}
+                className="ss-btn ss-btn-primary"
+                style={{ fontSize: "0.72rem", padding: "6px 12px", borderRadius: 8 }}
+              >
+                Create Group
+              </button>
+            </div>
+
+            {/* List Joined Groups */}
             <div>
               <div className="ss-mono" style={{ fontSize: "0.6rem", letterSpacing: "0.08em", color: "var(--color-primary)", textTransform: "uppercase", marginBottom: 10 }}>
-                Community Channels
+                Joined Groups ({(communities.data ?? []).filter((g: any) => g.joined).length})
               </div>
-              
-              {communities.isLoading ? (
-                <div style={{ color: "#555", fontSize: "0.78rem" }}>Loading channels…</div>
-              ) : (communities.data ?? []).filter((c: any) => c.joined).length === 0 ? (
-                <div style={{ padding: 16, textAlign: "center", border: "1px dashed rgba(255,255,255,0.06)", borderRadius: 10, fontSize: "0.78rem", color: "#555" }}>
-                  Join a community to access group channels here.<br/>
-                  <span onClick={() => setTab("communities")} style={{ color: "var(--color-primary)", cursor: "pointer", marginTop: 4, display: "inline-block" }}>Browse Communities →</span>
-                </div>
+
+              {(communities.data ?? []).filter((g: any) => g.joined).length === 0 ? (
+                <SocialEmptyState 
+                  title="No Joined Groups" 
+                  description="Join a recommended study group or create your own circle to share announcements, files and polls." 
+                  activeTab="groups"
+                  setTab={setTab}
+                />
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {(communities.data ?? []).filter((c: any) => c.joined).map((c: any) => (
-                    <div key={c.id} style={{ background: "rgba(255,255,255,0.01)", border: "1px solid var(--color-border)", borderRadius: 10, padding: 10 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: 6, marginBottom: 6 }}>
-                        <span style={{ fontSize: "1.1rem" }}>{c.iconChar}</span>
-                        <span className="ss-display" style={{ fontWeight: 700, fontSize: "0.85rem" }}>{c.name}</span>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
+                  {(communities.data ?? []).filter((g: any) => g.joined).map((group: any) => (
+                    <div 
+                      key={group.id} 
+                      onClick={() => navigate({ to: "/communities/$id", params: { id: group.id } })}
+                      style={{
+                        padding: 14, background: "var(--bg-2)", border: "1px solid var(--color-border)",
+                        borderRadius: 14, cursor: "pointer", display: "flex", alignItems: "center", gap: 12,
+                        transition: "all 0.2s"
+                      }}
+                    >
+                      <div style={{
+                        width: 42, height: 42, borderRadius: 12,
+                        background: "rgba(232, 255, 71, 0.05)", border: "1.5px solid var(--color-primary)",
+                        display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.2rem"
+                      }}>
+                        {group.iconChar || "👥"}
                       </div>
-                      <ChannelsList communityId={c.id} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "#fff" }}>{group.name}</span>
+                          <span className="ss-mono" style={{ fontSize: "0.62rem", color: "var(--color-muted-foreground)" }}>
+                            {group.members} members
+                          </span>
+                        </div>
+                        <p style={{ margin: "4px 0 0 0", fontSize: "0.78rem", color: "var(--color-muted-foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {group.description}
+                        </p>
+                      </div>
+                      <ChevronRight size={14} style={{ color: "var(--color-muted-foreground)" }} />
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Quick Meets */}
-            <QuickMeetsList />
-          </div>
-        )}
-
-        {/* ─── SHARED ACTIVITY / FEED TAB ─── */}
-        {tab === "activity" && (
-          <FeedSection
-            suggestedSlot={suggestedUsers.length > 0 ? (
-              <div style={{ marginBottom: 20, borderBottom: "1px solid var(--color-border)", paddingBottom: 16 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 4px 10px 4px" }}>
-                  <span className="ss-mono" style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--color-primary)", letterSpacing: "0.05em", textTransform: "uppercase" }}>
-                    Suggested for You
-                  </span>
+            {/* List Suggested/Recommended Groups */}
+            {(communities.data ?? []).filter((g: any) => !g.joined).length > 0 && (
+              <div>
+                <div className="ss-mono" style={{ fontSize: "0.6rem", letterSpacing: "0.08em", color: "#666", textTransform: "uppercase", marginBottom: 10 }}>
+                  Recommended for You
                 </div>
-                <div style={{ display: "flex", gap: 12, overflowX: "auto", padding: "4px 2px", scrollbarWidth: "none" }} className="hide-scrollbar">
-                  {suggestedUsers.map((su: any) => {
-                    const currentUserProfile = currentUser as any;
-                    const common = su.interests?.filter((i: string) => currentUserProfile?.interests?.includes(i)) || [];
-                    const matchText = common.length > 0
-                      ? `Similar interest: ${common[0]}`
-                      : su.school === currentUserProfile?.school
-                        ? `Same School: ${su.school}`
-                        : `${su.year} · ${su.school}`;
-                    return <SuggestedFriendCard key={su.id} user={su} matchText={matchText} />;
-                  })}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
+                  {(communities.data ?? []).filter((g: any) => !g.joined).map((group: any) => (
+                    <div 
+                      key={group.id}
+                      style={{
+                        padding: 14, background: "var(--bg-2)", border: "1px solid var(--color-border)",
+                        borderRadius: 14, display: "flex", alignItems: "center", gap: 12
+                      }}
+                    >
+                      <div style={{
+                        width: 42, height: 42, borderRadius: 12,
+                        background: "rgba(255,255,255,0.02)", border: "1px solid var(--color-border)",
+                        display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.2rem"
+                      }}>
+                        {group.iconChar || "👥"}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#fff" }}>{group.name}</div>
+                        <p style={{ margin: "2px 0 0 0", fontSize: "0.75rem", color: "var(--color-muted-foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {group.description}
+                        </p>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          toggleJoinGroup.mutate(group.id, {
+                            onSuccess: () => toast.success(`Joined ${group.name}!`)
+                          });
+                        }}
+                        disabled={toggleJoinGroup.isPending}
+                        className="ss-btn ss-btn-primary" 
+                        style={{ fontSize: "0.68rem", padding: "6px 12px", borderRadius: 8 }}
+                      >
+                        Join
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ) : undefined}
-          />
+            )}
+          </div>
         )}
       </div>
+
+      {/* ==================== STORY LIGHTBOX DIALOG ==================== */}
+      {activeStoryGroup && (
+        <StoryModal 
+          stories={activeStoryGroup} 
+          onClose={() => setActiveStoryGroup(null)} 
+        />
+      )}
+
+      {/* ==================== CREATE GROUP DM DIALOG ==================== */}
+      {groupCreatorOpen && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.85)",
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 16
+        }}>
+          <div style={{
+            background: "var(--bg-2)", border: "1px solid var(--color-border)", borderRadius: 16,
+            width: "100%", maxWidth: 360, padding: 18, display: "flex", flexDirection: "column", gap: 14
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "#fff" }}>Create Group Chat</span>
+              <button onClick={() => setGroupCreatorOpen(false)} style={{ background: "none", border: "none", color: "var(--color-muted-foreground)", cursor: "pointer" }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <div>
+              <label style={{ fontSize: "0.65rem", color: "var(--color-muted-foreground)", display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: "bold" }}>Group Name</label>
+              <input
+                className="ss-input"
+                placeholder="Study Group Name"
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+                style={{ width: "100%" }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: "0.65rem", color: "var(--color-muted-foreground)", display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: "bold" }}>Group Icon / Emoji</label>
+              <input
+                className="ss-input"
+                placeholder="👥"
+                value={groupAvatar}
+                onChange={(e) => setGroupAvatar(e.target.value)}
+                style={{ width: "100%" }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: "0.65rem", color: "var(--color-muted-foreground)", display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: "bold" }}>Select Members ({selectedParticipants.length})</label>
+              <div style={{
+                maxHeight: 140, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6,
+                border: "1px solid var(--color-border)", padding: 8, borderRadius: 8, background: "var(--bg-3)"
+              }}>
+                {accepted.map((c: any) => {
+                  const friendId = c.fromUserId === currentUser?.id ? c.toUserId : c.fromUserId;
+                  const { data: f } = useNetworkUser(friendId);
+                  if (!f) return null;
+
+                  const checked = selectedParticipants.includes(f.id);
+
+                  return (
+                    <label key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", padding: 4 }}>
+                      <input 
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          if (checked) {
+                            setSelectedParticipants(p => p.filter(id => id !== f.id));
+                          } else {
+                            setSelectedParticipants(p => [...p, f.id]);
+                          }
+                        }}
+                      />
+                      <span style={{ fontSize: "0.78rem", color: "#fff" }}>{f.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button 
+              onClick={handleCreateGroupChat}
+              disabled={createGroupChat.isPending}
+              className="ss-btn ss-btn-primary" 
+              style={{ width: "100%", padding: "8px 0", borderRadius: 8, fontSize: "0.78rem" }}
+            >
+              Create Chat Room
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== CREATE GROUP/COMMUNITY DIALOG ==================== */}
+      {newGroupModalOpen && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.85)",
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 16
+        }}>
+          <div style={{
+            background: "var(--bg-2)", border: "1px solid var(--color-border)", borderRadius: 16,
+            width: "100%", maxWidth: 360, padding: 18, display: "flex", flexDirection: "column", gap: 14
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "#fff" }}>New Study Group</span>
+              <button onClick={() => setNewGroupModalOpen(false)} style={{ background: "none", border: "none", color: "var(--color-muted-foreground)", cursor: "pointer" }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <div>
+              <label style={{ fontSize: "0.65rem", color: "var(--color-muted-foreground)", display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: "bold" }}>Group Name</label>
+              <input
+                className="ss-input"
+                placeholder="Sync & Study Circle"
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                style={{ width: "100%" }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: "0.65rem", color: "var(--color-muted-foreground)", display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: "bold" }}>Description</label>
+              <textarea
+                className="ss-input"
+                placeholder="What is this study circle about?"
+                value={newGroupDesc}
+                onChange={(e) => setNewGroupDesc(e.target.value)}
+                rows={2}
+                style={{ width: "100%", resize: "none", fontFamily: "inherit" }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: "0.65rem", color: "var(--color-muted-foreground)", display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: "bold" }}>Category</label>
+                <select 
+                  className="ss-input"
+                  value={newGroupCategory}
+                  onChange={(e) => setNewGroupCategory(e.target.value)}
+                  style={{ width: "100%", background: "var(--bg-3)" }}
+                >
+                  <option value="Study">Study</option>
+                  <option value="Coding">Coding</option>
+                  <option value="Exams">Exams</option>
+                  <option value="Languages">Languages</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div style={{ width: 80 }}>
+                <label style={{ fontSize: "0.65rem", color: "var(--color-muted-foreground)", display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: "bold" }}>Emoji Icon</label>
+                <input
+                  className="ss-input"
+                  placeholder="📚"
+                  value={newGroupIcon}
+                  onChange={(e) => setNewGroupIcon(e.target.value)}
+                  style={{ width: "100%", textAlign: "center" }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: "0.65rem", color: "var(--color-muted-foreground)", display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: "bold" }}>Tags (comma separated)</label>
+              <input
+                className="ss-input"
+                placeholder="react, exams, cs101"
+                value={newGroupTags}
+                onChange={(e) => setNewGroupTags(e.target.value)}
+                style={{ width: "100%" }}
+              />
+            </div>
+
+            <button 
+              onClick={handleCreateGroup}
+              disabled={createCommunity.isPending}
+              className="ss-btn ss-btn-primary" 
+              style={{ width: "100%", padding: "8px 0", borderRadius: 8, fontSize: "0.78rem" }}
+            >
+              Create Study Group
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== POST COMMENTS SLIDING BOTTOM SHEET ==================== */}
+      {activeCommentPostId && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.65)",
+          display: "flex", alignItems: "flex-end", justifyContent: "center"
+        }}>
+          <div style={{
+            background: "var(--bg-2)", borderTop: "1px solid var(--color-border)",
+            borderTopLeftRadius: 16, borderTopRightRadius: 16,
+            width: "100%", maxWidth: 420, padding: 16, maxHeight: "75vh", display: "flex", flexDirection: "column"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <span style={{ fontWeight: 700, fontSize: "0.9rem", color: "#fff" }}>Comments</span>
+              <button onClick={() => setActiveCommentPostId(null)} style={{ background: "none", border: "none", color: "var(--color-muted-foreground)", cursor: "pointer" }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
+              {commentsQuery.isLoading ? (
+                <div style={{ textAlign: "center", color: "#555", padding: 20 }}>Loading comments...</div>
+              ) : (commentsQuery.data ?? []).length === 0 ? (
+                <div style={{ textAlign: "center", color: "#555", padding: 30, fontSize: "0.8rem" }}>
+                  No comments yet. Write the first comment!
+                </div>
+              ) : (
+                (commentsQuery.data ?? []).map((c: any) => (
+                  <div key={c.id} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <div style={{
+                      width: 28, height: 28, borderRadius: "50%",
+                      background: avatarGradient(c.authorId), display: "flex", alignItems: "center",
+                      justifyContent: "center", fontWeight: 800, color: "#0c0c0c", fontSize: "0.75rem", flexShrink: 0
+                    }}>
+                      {c.author.avatar && !c.author.avatar.startsWith("http") ? c.author.avatar : c.author.name.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", gap: 6, alignItems: "baseline" }}>
+                        <span style={{ fontWeight: 700, fontSize: "0.8rem", color: "#fff" }}>{c.author.name}</span>
+                        <span style={{ fontSize: "0.62rem", color: "var(--color-muted-foreground)" }}>{timeAgo(c.createdAt)}</span>
+                      </div>
+                      <p style={{ margin: "2px 0 0 0", fontSize: "0.78rem", color: "var(--color-foreground)", lineHeight: 1.4 }}>
+                        {c.content}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <form onSubmit={handlePostComment} style={{ display: "flex", gap: 8, borderTop: "1px solid var(--color-border)", paddingTop: 12 }}>
+              <input
+                type="text"
+                placeholder="Add a comment..."
+                value={newCommentText}
+                onChange={(e) => setNewCommentText(e.target.value)}
+                style={{
+                  flex: 1, background: "var(--bg-3)", border: "1px solid var(--color-border)",
+                  borderRadius: 20, padding: "8px 14px", color: "#fff", fontSize: "0.8rem", outline: "none"
+                }}
+              />
+              <button 
+                type="submit" 
+                disabled={addComment.isPending}
+                style={{ background: "none", border: "none", color: "var(--color-primary)", fontSize: "0.8rem", fontWeight: 700, cursor: "pointer" }}
+              >
+                Post
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </PageTransition>
   );
 }
-
-/* ─── Subcomponents for the social hub ─── */
-
-function DMRowWrapper({ conv, query }: { conv: any; query: string }) {
-  const { data: peer, isLoading } = useNetworkUser(conv.peerId);
-  if (isLoading || !peer) return null;
-  if (query && !peer.name.toLowerCase().includes(query.toLowerCase())) return null;
-
-  return (
-    <Link
-      to="/messages/dm/$id"
-      params={{ id: conv.id }}
-      style={{ display: "block", textDecoration: "none", color: "inherit" }}
-    >
-      <div style={{ display: "flex", gap: 12, padding: "10px 12px", borderRadius: 8, alignItems: "center", transition: "background 0.2s" }} className="ss-card-anim">
-        <Avatar peer={peer} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-              {conv.pinned && <Pin size={11} style={{ color: "var(--color-primary)", flexShrink: 0 }} />}
-              <span className="ss-display" style={{ fontWeight: 700, fontSize: "0.92rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {peer.name}
-              </span>
-            </div>
-            <span className="ss-mono" style={{ fontSize: "0.62rem", color: "var(--color-muted-foreground)", flexShrink: 0 }}>{timeAgo(conv.lastMessageAt)}</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 2 }}>
-            <span style={{
-              fontSize: "0.78rem",
-              color: conv.unread > 0 ? "var(--color-foreground)" : "var(--color-muted-foreground)",
-              fontWeight: conv.unread > 0 ? 600 : 400,
-              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-            }}>{conv.lastPreview || "Say hi"}</span>
-            <UnreadBadge count={conv.unread} />
-          </div>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-function ChannelsList({ communityId }: { communityId: string }) {
-  const { data: channels = [], isLoading } = useChannels(communityId);
-  if (isLoading) return <div style={{ fontSize: "0.7rem", color: "#555" }}>Loading channels…</div>;
-  if (channels.length === 0) return <div style={{ fontSize: "0.7rem", color: "#555" }}>No channels yet</div>;
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      {channels.map((ch: any) => (
-        <Link
-          key={ch.id}
-          to="/communities/$id"
-          params={{ id: communityId }}
-          search={{ channel: ch.id } as any}
-          style={{
-            display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", borderRadius: 6,
-            background: "rgba(255,255,255,0.02)", textDecoration: "none", color: "var(--color-muted-foreground)"
-          }}
-          className="ss-card-anim"
-        >
-          <span style={{ color: "var(--color-primary)" }}>#</span>
-          <span style={{ fontSize: "0.78rem" }}>{ch.name}</span>
-          <span style={{ flex: 1 }} />
-          {ch.unread > 0 && <span style={{ background: "var(--color-primary)", color: "#000", borderRadius: 99, fontSize: "0.55rem", fontWeight: 800, padding: "1px 5px" }}>{ch.unread}</span>}
-        </Link>
-      ))}
-    </div>
-  );
-}
-
-function QuickMeetsList() {
-  const meets = useQuickMeets();
-  const { data: list = [] } = useDiscoverUsers();
-  if ((meets.data ?? []).length === 0) return null;
-  return (
-    <div>
-      <div className="ss-mono" style={{ fontSize: "0.6rem", letterSpacing: "0.08em", color: "#666", textTransform: "uppercase", marginBottom: 10 }}>
-        Upcoming Quick Meets ({(meets.data ?? []).length})
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {(meets.data ?? []).map((meet: any) => {
-          const invitedUser = list?.find(u => u.id === meet.invitedUserId);
-          return (
-            <div key={meet.id} style={{
-              background: "rgba(20,20,20,0.8)",
-              border: "1px solid rgba(255,255,255,0.06)",
-              borderRadius: 12, padding: 14,
-              display: "flex", flexDirection: "column", gap: 6,
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#f0f0f0" }}>{meet.title}</div>
-                  <div style={{ fontSize: "0.68rem", color: "#666", marginTop: 2 }}>
-                    with {invitedUser?.name ?? meet.invitedUserId}
-                  </div>
-                </div>
-              </div>
-              <div style={{ fontSize: "0.7rem", color: "var(--color-primary)", fontFamily: "var(--font-mono)" }}>
-                {new Date(meet.scheduledAt).toLocaleString(undefined, {
-                  weekday: "short", month: "short", day: "numeric",
-                  hour: "2-digit", minute: "2-digit",
-                })}
-              </div>
-              <a
-                href={meet.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="ss-btn ss-btn-outline"
-                style={{ fontSize: "0.72rem", gap: 6, justifyContent: "center", padding: "6px 0" }}
-              >
-                <ExternalLink size={12} /> Join Session
-              </a>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function CommunityCardWrapper({ c, onJoin }: { c: any; onJoin: () => void }) {
-  return (
-    <Link to="/communities/$id" params={{ id: c.id }} style={{ textDecoration: "none", color: "inherit" }}>
-      <CommunityCard
-        community={c}
-        action={
-          <button
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onJoin(); }}
-            className={`ss-btn ${c.joined ? "ss-btn-outline" : "ss-btn-primary"}`}
-            style={{ padding: "5px 10px", fontSize: "0.7rem", flexShrink: 0 }}
-          >
-            {c.joined ? "Joined" : "Join"}
-          </button>
-        }
-      />
-    </Link>
-  );
-}
-
-export { DiscoverPage };

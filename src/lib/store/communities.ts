@@ -56,9 +56,28 @@ export const communitiesStore = {
     }
   },
 
-  async postChannel(channelId: string, text: string, attachments?: { url: string; kind: string; name: string; size: number }[]): Promise<ChannelMessage> {
-    const { message } = await api.sendChannelMessage(channelId, text, attachments);
+  async postChannel(channelId: string, text: string, attachments?: { url: string; kind: string; name: string; size: number }[], replyToMessageId?: string | null, isAnnouncement?: boolean, poll?: { question: string; options: string[] }): Promise<ChannelMessage> {
+    const { message } = await api.request<{ message: any }>(`/api/v1/communities/channels/${channelId}/messages`, {
+      method: "POST",
+      auth: true,
+      body: JSON.stringify({ text, attachments, replyToMessageId, isAnnouncement, poll }),
+    });
     return message;
+  },
+
+  async votePoll(channelId: string, messageId: string, optionIndex: number): Promise<ChannelMessage> {
+    const { message } = await api.voteChannelPollMessage(channelId, messageId, optionIndex);
+    return message;
+  },
+
+  async updateMemberRole(groupId: string, userId: string, role: string): Promise<boolean> {
+    const res = await api.updateGroupMemberRole(groupId, userId, role);
+    return res.ok;
+  },
+
+  async kickMember(groupId: string, userId: string): Promise<boolean> {
+    const res = await api.kickGroupMember(groupId, userId);
+    return res.ok;
   },
 
   async members(communityId: string): Promise<any[]> {

@@ -17,10 +17,12 @@ conversationsRouter.use(requireAuth);
 const startSchema = z.object({ peerId: z.string().min(1) });
 
 async function areFriends(userId: string, peerId: string): Promise<boolean> {
+  const userObjectId = new mongoose.Types.ObjectId(userId);
+  const peerObjectId = new mongoose.Types.ObjectId(peerId);
   const conn = await Connection.findOne({
     $or: [
-      { fromUserId: userId, toUserId: peerId, status: "accepted" },
-      { fromUserId: peerId, toUserId: userId, status: "accepted" },
+      { fromUserId: userObjectId, toUserId: peerObjectId, status: "accepted" },
+      { fromUserId: peerObjectId, toUserId: userObjectId, status: "accepted" },
     ],
   });
   return !!conn;
@@ -35,12 +37,32 @@ function serializeMessage(m: any) {
     attachments: m.attachments ?? [],
     readBy: m.readBy ?? [],
     createdAt: m.createdAt,
+    replyToMessageId: m.replyToMessageId ?? null,
+    isAnnouncement: m.isAnnouncement ?? false,
+    reactions: m.reactions ? (m.reactions instanceof Map ? Object.fromEntries(m.reactions.entries()) : m.reactions) : {},
+    poll: m.poll ?? null,
+  };
+}
+
+function serializeConversation(c: any, currentUserId: string) {
+  return {
+    id: String(c._id),
+    participants: c.participants,
+    pinned: (c.pinnedBy ?? []).includes(currentUserId),
+    lastMessageAt: c.lastMessageAt,
+    lastPreview: c.lastPreview,
+    unread: c.unread instanceof Map ? (c.unread.get(currentUserId) ?? 0) : (c.unread?.[currentUserId] ?? 0),
+    isGroup: c.isGroup ?? false,
+    groupName: c.groupName ?? "",
+    groupAvatar: c.groupAvatar ?? "",
+    createdBy: c.createdBy ?? null,
+    peerId: c.participants.find((p: string) => p !== currentUserId) ?? null,
   };
 }
 
 conversationsRouter.get("/", asyncHandler(async (req: AuthedRequest, res) => {
   const list = await Conversation.find({ participants: req.userId }).sort({ lastMessageAt: -1 }).limit(100);
-  res.json({ conversations: list });
+  res.json({ conversations: list.map((c) => serializeConversation(c, req.userId!)) });
 }));
 
 conversationsRouter.post("/", validate(startSchema), asyncHandler(async (req: AuthedRequest, res) => {
@@ -53,18 +75,20 @@ conversationsRouter.post("/", validate(startSchema), asyncHandler(async (req: Au
     return res.status(403).json({ error: "You can only message friends" });
   }
 
+  const userObjectId = new mongoose.Types.ObjectId(req.userId);
+  const peerObjectId = new mongoose.Types.ObjectId(peerId);
   const blocked = await Block.findOne({
     $or: [
-      { blockerId: req.userId, blockedId: peerId },
-      { blockerId: peerId, blockedId: req.userId },
+      { blockerId: userObjectId, blockedId: peerObjectId },
+      { blockerId: peerObjectId, blockedId: userObjectId },
     ],
   });
   if (blocked) return res.status(403).json({ error: "Cannot message this user" });
 
-  const existing = await Conversation.findOne({ participants: { $all: [req.userId, peerId], $size: 2 } });
-  if (existing) return res.json({ conversation: existing });
-  const c = await Conversation.create({ participants: [req.userId!, peerId], lastMessageAt: new Date() });
-  res.status(201).json({ conversation: c });
+  const existing = await Conversation.findOne({ participants: { $all: [req.userId, peerId], $size: 2 }, isGroup: false });
+  if (existing) return res.json({ conversation: serializeConversation(existing, req.userId!) });
+  const c = await Conversation.create({ participants: [req.userId!, peerId], lastMessageAt: new Date(), isGroup: false });
+  res.status(201).json({ conversation: serializeConversation(c, req.userId!) });
 }));
 
 const sendSchema = z.object({
@@ -75,6 +99,13 @@ const sendSchema = z.object({
     name: z.string(),
     size: z.number(),
   })).optional(),
+  replyToMessageId: z.string().optional().nullable(),
+  isAnnouncement: z.boolean().optional(),
+  poll: z.object({
+    question: z.string(),
+    options: z.array(z.string().min(1)),
+    expiresAt: z.string().optional().nullable(),
+  }).optional(),
 });
 
 conversationsRouter.get("/:id/messages", asyncHandler(async (req: AuthedRequest, res) => {
@@ -93,50 +124,71 @@ conversationsRouter.post("/:id/messages", validate(sendSchema), asyncHandler(asy
   const conv = await Conversation.findOne({ _id: req.params.id, participants: req.userId });
   if (!conv) return res.status(404).json({ error: "Conversation not found" });
 
-  const otherParticipant = conv.participants.find((p) => p !== req.userId);
-  if (otherParticipant) {
+  const body = req.body as z.infer<typeof sendSchema>;
+
+  const otherParticipants = conv.participants.filter((p) => p !== req.userId);
+  if (!conv.isGroup && otherParticipants.length > 0) {
+    const otherParticipant = otherParticipants[0];
     if (!(await areFriends(req.userId!, otherParticipant))) {
       return res.status(403).json({ error: "You can only message friends" });
     }
+    const userObjectId = new mongoose.Types.ObjectId(req.userId);
+    const otherParticipantObjectId = new mongoose.Types.ObjectId(otherParticipant);
     const blocked = await Block.findOne({
       $or: [
-        { blockerId: req.userId, blockedId: otherParticipant },
-        { blockerId: otherParticipant, blockedId: req.userId },
+        { blockerId: userObjectId, blockedId: otherParticipantObjectId },
+        { blockerId: otherParticipantObjectId, blockedId: userObjectId },
       ],
     });
     if (blocked) return res.status(403).json({ error: "Cannot send message to this user" });
   }
 
-  const body = req.body as z.infer<typeof sendSchema>;
+  let pollData = undefined;
+  if (body.poll) {
+    pollData = {
+      question: body.poll.question,
+      options: body.poll.options.map((o: string) => ({ text: o, votes: [] })),
+      expiresAt: body.poll.expiresAt ? new Date(body.poll.expiresAt) : undefined,
+    };
+  }
+
   const msg = await Message.create({
     conversationId: conv._id,
     senderId: req.userId,
     text: body.text,
     attachments: body.attachments ?? [],
     readBy: [req.userId!],
+    replyToMessageId: body.replyToMessageId ?? null,
+    isAnnouncement: body.isAnnouncement ?? false,
+    poll: pollData,
   });
 
   conv.lastMessageAt = msg.createdAt;
   conv.lastPreview = body.text.slice(0, 200);
-  if (otherParticipant) {
-    const unreadMap = conv.unread ?? new Map();
-    const current = unreadMap.get(otherParticipant) ?? 0;
-    unreadMap.set(otherParticipant, current + 1);
-    conv.unread = unreadMap;
+  
+  const unreadMap = conv.unread ?? new Map();
+  for (const peer of otherParticipants) {
+    const current = unreadMap instanceof Map ? (unreadMap.get(peer) ?? 0) : (unreadMap[peer] ?? 0);
+    if (unreadMap instanceof Map) {
+      unreadMap.set(peer, current + 1);
+    } else {
+      unreadMap[peer] = current + 1;
+    }
   }
+  conv.unread = unreadMap;
   await conv.save();
 
   const serialized = serializeMessage(msg);
+  const senderProfile = await Profile.findOne({ userId: req.userId });
 
-  if (otherParticipant) {
-    emitToUser(otherParticipant, "message:new", { conversationId: String(conv._id), message: serialized });
-    emitToUser(otherParticipant, "conversation:updated", { conversationId: String(conv._id) });
+  for (const peer of otherParticipants) {
+    emitToUser(peer, "message:new", { conversationId: String(conv._id), message: serialized });
+    emitToUser(peer, "conversation:updated", { conversationId: String(conv._id) });
 
-    const senderProfile = await Profile.findOne({ userId: req.userId });
     await createNotification({
-      userId: otherParticipant,
-      kind: "dm",
-      title: senderProfile?.name ?? "New message",
+      userId: peer,
+      kind: conv.isGroup ? "group_message" : "dm",
+      title: conv.isGroup ? `${conv.groupName} (${senderProfile?.name ?? "Member"})` : (senderProfile?.name ?? "New message"),
       body: body.text.slice(0, 120),
       href: `/messages/dm/${conv._id}`,
       payload: { conversationId: String(conv._id) },
@@ -179,5 +231,126 @@ conversationsRouter.post("/:id/pin", asyncHandler(async (req: AuthedRequest, res
   const pinned = conv.pinnedBy ?? [];
   conv.pinnedBy = pinned.includes(req.userId!) ? pinned.filter((u) => u !== req.userId) : [...pinned, req.userId!];
   await conv.save();
-  res.json({ conversation: conv });
+  res.json({ conversation: serializeConversation(conv, req.userId!) });
+}));
+
+const createGroupSchema = z.object({
+  name: z.string().min(1).max(100),
+  avatar: z.string().optional(),
+  participants: z.array(z.string().min(1)).min(1),
+});
+
+conversationsRouter.post("/group", validate(createGroupSchema), asyncHandler(async (req: AuthedRequest, res) => {
+  const { name, avatar, participants } = req.body as { name: string; avatar?: string; participants: string[] };
+  const allParticipants = Array.from(new Set([...participants, req.userId!]));
+  
+  const c = await Conversation.create({
+    participants: allParticipants,
+    isGroup: true,
+    groupName: name,
+    groupAvatar: avatar ?? "",
+    createdBy: req.userId,
+    lastMessageAt: new Date(),
+    lastPreview: "Group created",
+  });
+  
+  res.status(201).json({ conversation: serializeConversation(c, req.userId!) });
+}));
+
+conversationsRouter.delete("/:id/messages/:messageId", asyncHandler(async (req: AuthedRequest, res) => {
+  const conv = await Conversation.findOne({ _id: req.params.id, participants: req.userId });
+  if (!conv) return res.status(404).json({ error: "Conversation not found" });
+
+  const msg = await Message.findOne({ _id: req.params.messageId, conversationId: conv._id });
+  if (!msg) return res.status(404).json({ error: "Message not found" });
+
+  if (msg.senderId !== req.userId) {
+    return res.status(403).json({ error: "Cannot delete someone else's message" });
+  }
+
+  await msg.deleteOne();
+
+  const otherParticipants = conv.participants.filter((p) => p !== req.userId);
+  for (const peer of otherParticipants) {
+    emitToUser(peer, "message:deleted", { conversationId: String(conv._id), messageId: String(msg._id) });
+  }
+
+  res.json({ ok: true });
+}));
+
+const reactSchema = z.object({ emoji: z.string().min(1) });
+conversationsRouter.post("/:id/messages/:messageId/react", validate(reactSchema), asyncHandler(async (req: AuthedRequest, res) => {
+  const conv = await Conversation.findOne({ _id: req.params.id, participants: req.userId });
+  if (!conv) return res.status(404).json({ error: "Conversation not found" });
+
+  const msg = await Message.findOne({ _id: req.params.messageId, conversationId: conv._id });
+  if (!msg) return res.status(404).json({ error: "Message not found" });
+
+  const { emoji } = req.body as { emoji: string };
+  const currentReactions = msg.reactions ?? new Map();
+  const users = currentReactions.get(emoji) ?? [];
+  
+  if (users.includes(req.userId!)) {
+    const nextUsers = users.filter((u: string) => u !== req.userId);
+    if (nextUsers.length === 0) {
+      currentReactions.delete(emoji);
+    } else {
+      currentReactions.set(emoji, nextUsers);
+    }
+  } else {
+    currentReactions.set(emoji, [...users, req.userId!]);
+  }
+  msg.reactions = currentReactions;
+  await msg.save();
+
+  const serialized = serializeMessage(msg);
+
+  const otherParticipants = conv.participants.filter((p) => p !== req.userId);
+  for (const peer of otherParticipants) {
+    emitToUser(peer, "message:updated", { conversationId: String(conv._id), message: serialized });
+  }
+
+  res.json({ message: serialized });
+}));
+
+const voteSchema = z.object({ optionIndex: z.number().int() });
+conversationsRouter.post("/:id/messages/:messageId/poll/vote", validate(voteSchema), asyncHandler(async (req: AuthedRequest, res) => {
+  const conv = await Conversation.findOne({ _id: req.params.id, participants: req.userId });
+  if (!conv) return res.status(404).json({ error: "Conversation not found" });
+
+  const msg = await Message.findOne({ _id: req.params.messageId, conversationId: conv._id });
+  if (!msg) return res.status(404).json({ error: "Message not found" });
+
+  if (!msg.poll) return res.status(400).json({ error: "Message is not a poll" });
+
+  const { optionIndex } = req.body as { optionIndex: number };
+  if (optionIndex < 0 || optionIndex >= msg.poll.options.length) {
+    return res.status(400).json({ error: "Invalid option index" });
+  }
+
+  const userId = req.userId!;
+  msg.poll.options.forEach((opt, idx) => {
+    const votes = opt.votes ?? [];
+    if (idx === optionIndex) {
+      if (votes.includes(userId)) {
+        opt.votes = votes.filter((v) => v !== userId);
+      } else {
+        opt.votes = [...votes, userId];
+      }
+    } else {
+      opt.votes = votes.filter((v) => v !== userId);
+    }
+  });
+
+  msg.markModified("poll.options");
+  await msg.save();
+
+  const serialized = serializeMessage(msg);
+
+  const otherParticipants = conv.participants.filter((p) => p !== req.userId);
+  for (const peer of otherParticipants) {
+    emitToUser(peer, "message:updated", { conversationId: String(conv._id), message: serialized });
+  }
+
+  res.json({ message: serialized });
 }));

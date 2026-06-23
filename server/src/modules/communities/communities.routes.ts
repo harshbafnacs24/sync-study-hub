@@ -99,7 +99,7 @@ communitiesRouter.get("/:id/members", asyncHandler(async (req: AuthedRequest, re
   if (!community) return res.status(404).json({ error: "Community not found" });
 
   const members = await CommunityMember.find({ communityId: community._id });
-  const profiles = await Profile.find({ userId: { $in: members.map((m) => m.userId) } });
+  const profiles = await Profile.find({ userId: { $in: members.map((m) => new mongoose.Types.ObjectId(m.userId)) } });
 
   res.json({
     members: members.map((m) => {
@@ -160,7 +160,11 @@ communitiesRouter.get("/channels/:channelId/messages", asyncHandler(async (req: 
       text: m.text,
       attachments: m.attachments ?? [],
       createdAt: m.createdAt?.toISOString?.() ?? new Date().toISOString(),
-      system: false,
+      system: m.system ?? false,
+      replyToMessageId: m.replyToMessageId ?? null,
+      isAnnouncement: m.isAnnouncement ?? false,
+      reactions: m.reactions ? (m.reactions instanceof Map ? Object.fromEntries(m.reactions.entries()) : m.reactions) : {},
+      poll: m.poll ?? null,
     })),
   });
 }));
@@ -173,6 +177,13 @@ const channelSend = z.object({
     name: z.string(),
     size: z.number(),
   })).optional(),
+  replyToMessageId: z.string().optional().nullable(),
+  isAnnouncement: z.boolean().optional(),
+  poll: z.object({
+    question: z.string(),
+    options: z.array(z.string().min(1)),
+    expiresAt: z.string().optional().nullable(),
+  }).optional(),
 });
 
 communitiesRouter.post("/channels/:channelId/messages", validate(channelSend), asyncHandler(async (req: AuthedRequest, res) => {
@@ -181,12 +192,24 @@ communitiesRouter.post("/channels/:channelId/messages", validate(channelSend), a
   const member = await CommunityMember.findOne({ communityId: ch.communityId, userId: req.userId });
   if (!member) return res.status(403).json({ error: "Join the community to post" });
   
-  const body = req.body as z.infer<typeof channelSend>;
+  const body = req.body as any;
+  let pollData = undefined;
+  if (body.poll) {
+    pollData = {
+      question: body.poll.question,
+      options: body.poll.options.map((o: string) => ({ text: o, votes: [] })),
+      expiresAt: body.poll.expiresAt ? new Date(body.poll.expiresAt) : undefined,
+    };
+  }
+
   const msg = await Message.create({
     channelId: ch._id,
     senderId: req.userId,
     text: body.text,
     attachments: body.attachments ?? [],
+    replyToMessageId: body.replyToMessageId ?? null,
+    isAnnouncement: body.isAnnouncement ?? false,
+    poll: pollData,
   });
 
   const serialized = {
@@ -197,6 +220,10 @@ communitiesRouter.post("/channels/:channelId/messages", validate(channelSend), a
     attachments: msg.attachments ?? [],
     createdAt: msg.createdAt?.toISOString?.() ?? new Date().toISOString(),
     system: false,
+    replyToMessageId: msg.replyToMessageId ?? null,
+    isAnnouncement: msg.isAnnouncement ?? false,
+    reactions: {},
+    poll: msg.poll ?? null,
   };
 
   const io = getIO();
@@ -208,4 +235,113 @@ communitiesRouter.post("/channels/:channelId/messages", validate(channelSend), a
   }
 
   res.status(201).json({ message: serialized });
+}));
+
+const updateRoleSchema = z.object({ role: z.enum(["admin", "moderator", "member"]) });
+communitiesRouter.put("/:id/members/:userId", validate(updateRoleSchema), asyncHandler(async (req: AuthedRequest, res) => {
+  const callerMember = await CommunityMember.findOne({ communityId: req.params.id, userId: req.userId });
+  if (!callerMember || !["owner", "admin"].includes(callerMember.role)) {
+    return res.status(403).json({ error: "Insufficient permissions" });
+  }
+
+  const { role } = req.body as { role: "admin" | "moderator" | "member" };
+  if (role === "admin" && callerMember.role !== "owner") {
+    return res.status(403).json({ error: "Only the owner can promote someone to Admin" });
+  }
+
+  const targetMember = await CommunityMember.findOne({ communityId: req.params.id, userId: req.params.userId });
+  if (!targetMember) return res.status(404).json({ error: "Member not found" });
+
+  if (targetMember.role === "owner") {
+    return res.status(400).json({ error: "Cannot change the role of the group owner" });
+  }
+
+  targetMember.role = role;
+  await targetMember.save();
+  res.json({ ok: true, member: targetMember });
+}));
+
+communitiesRouter.delete("/:id/members/:userId", asyncHandler(async (req: AuthedRequest, res) => {
+  const callerMember = await CommunityMember.findOne({ communityId: req.params.id, userId: req.userId });
+  if (!callerMember || !["owner", "admin", "moderator"].includes(callerMember.role)) {
+    return res.status(403).json({ error: "Insufficient permissions" });
+  }
+
+  const targetMember = await CommunityMember.findOne({ communityId: req.params.id, userId: req.params.userId });
+  if (!targetMember) return res.status(404).json({ error: "Member not found" });
+
+  if (targetMember.role === "owner") {
+    return res.status(400).json({ error: "Cannot kick the owner of the group" });
+  }
+
+  if (callerMember.role === "moderator" && ["owner", "admin", "moderator"].includes(targetMember.role)) {
+    return res.status(403).json({ error: "Moderators can only kick standard members" });
+  }
+  if (callerMember.role === "admin" && ["owner", "admin"].includes(targetMember.role)) {
+    return res.status(403).json({ error: "Admins cannot kick the owner or other admins" });
+  }
+
+  await targetMember.deleteOne();
+  await Community.updateOne({ _id: req.params.id }, { $inc: { members: -1 } });
+
+  res.json({ ok: true });
+}));
+
+const voteSchema = z.object({ optionIndex: z.number().int() });
+communitiesRouter.post("/channels/:channelId/messages/:messageId/poll/vote", validate(voteSchema), asyncHandler(async (req: AuthedRequest, res) => {
+  const ch = await Channel.findById(req.params.channelId);
+  if (!ch) return res.status(404).json({ error: "Channel not found" });
+  
+  const member = await CommunityMember.findOne({ communityId: ch.communityId, userId: req.userId });
+  if (!member) return res.status(403).json({ error: "Access denied" });
+
+  const msg = await Message.findOne({ _id: req.params.messageId, channelId: ch._id });
+  if (!msg) return res.status(404).json({ error: "Message not found" });
+  if (!msg.poll) return res.status(400).json({ error: "Message is not a poll" });
+
+  const { optionIndex } = req.body as { optionIndex: number };
+  if (optionIndex < 0 || optionIndex >= msg.poll.options.length) {
+    return res.status(400).json({ error: "Invalid option index" });
+  }
+
+  const userId = req.userId!;
+  msg.poll.options.forEach((opt, idx) => {
+    const votes = opt.votes ?? [];
+    if (idx === optionIndex) {
+      if (votes.includes(userId)) {
+        opt.votes = votes.filter((v) => v !== userId);
+      } else {
+        opt.votes = [...votes, userId];
+      }
+    } else {
+      opt.votes = votes.filter((v) => v !== userId);
+    }
+  });
+
+  msg.markModified("poll.options");
+  await msg.save();
+
+  const serialized = {
+    id: String(msg._id),
+    channelId: String(msg.channelId),
+    authorId: String(msg.senderId),
+    text: msg.text,
+    attachments: msg.attachments ?? [],
+    createdAt: msg.createdAt?.toISOString?.() ?? new Date().toISOString(),
+    system: false,
+    replyToMessageId: msg.replyToMessageId ?? null,
+    isAnnouncement: msg.isAnnouncement ?? false,
+    reactions: msg.reactions ? (msg.reactions instanceof Map ? Object.fromEntries(msg.reactions.entries()) : msg.reactions) : {},
+    poll: msg.poll ?? null,
+  };
+
+  const io = getIO();
+  if (io) {
+    io.to(`channel:${ch._id}`).emit("channel:message_updated", {
+      channelId: String(ch._id),
+      message: serialized,
+    });
+  }
+
+  res.json({ message: serialized });
 }));

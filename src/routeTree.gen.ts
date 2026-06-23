@@ -15,7 +15,6 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiSageRouteImport } from './routes/api/sage'
-import { Route as ApiSplatRouteImport } from './routes/api/$'
 import { Route as AuthenticatedTechFeedRouteImport } from './routes/_authenticated/tech-feed'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
@@ -65,11 +64,6 @@ const IndexRoute = IndexRouteImport.update({
 const ApiSageRoute = ApiSageRouteImport.update({
   id: '/api/sage',
   path: '/api/sage',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiSplatRoute = ApiSplatRouteImport.update({
-  id: '/api/$',
-  path: '/api/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedTechFeedRoute = AuthenticatedTechFeedRouteImport.update({
@@ -206,7 +200,6 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/tech-feed': typeof AuthenticatedTechFeedRoute
-  '/api/$': typeof ApiSplatRoute
   '/api/sage': typeof ApiSageRoute
   '/communities/$id': typeof AuthenticatedCommunitiesIdRouteWithChildren
   '/communities/new': typeof AuthenticatedCommunitiesNewRoute
@@ -235,7 +228,6 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/tech-feed': typeof AuthenticatedTechFeedRoute
-  '/api/$': typeof ApiSplatRoute
   '/api/sage': typeof ApiSageRoute
   '/communities/$id': typeof AuthenticatedCommunitiesIdRouteWithChildren
   '/communities/new': typeof AuthenticatedCommunitiesNewRoute
@@ -266,7 +258,6 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/tech-feed': typeof AuthenticatedTechFeedRoute
-  '/api/$': typeof ApiSplatRoute
   '/api/sage': typeof ApiSageRoute
   '/_authenticated/communities_/$id': typeof AuthenticatedCommunitiesIdRouteWithChildren
   '/_authenticated/communities_/new': typeof AuthenticatedCommunitiesNewRoute
@@ -297,7 +288,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/tasks'
     | '/tech-feed'
-    | '/api/$'
     | '/api/sage'
     | '/communities/$id'
     | '/communities/new'
@@ -326,7 +316,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/tasks'
     | '/tech-feed'
-    | '/api/$'
     | '/api/sage'
     | '/communities/$id'
     | '/communities/new'
@@ -356,7 +345,6 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/tasks'
     | '/_authenticated/tech-feed'
-    | '/api/$'
     | '/api/sage'
     | '/_authenticated/communities_/$id'
     | '/_authenticated/communities_/new'
@@ -372,7 +360,6 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
   WelcomeRoute: typeof WelcomeRoute
-  ApiSplatRoute: typeof ApiSplatRoute
   ApiSageRoute: typeof ApiSageRoute
   AuthGoogleCallbackRoute: typeof AuthGoogleCallbackRoute
 }
@@ -419,13 +406,6 @@ declare module '@tanstack/react-router' {
       path: '/api/sage'
       fullPath: '/api/sage'
       preLoaderRoute: typeof ApiSageRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/$': {
-      id: '/api/$'
-      path: '/api/$'
-      fullPath: '/api/$'
-      preLoaderRoute: typeof ApiSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/tech-feed': {
@@ -658,7 +638,6 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
   WelcomeRoute: WelcomeRoute,
-  ApiSplatRoute: ApiSplatRoute,
   ApiSageRoute: ApiSageRoute,
   AuthGoogleCallbackRoute: AuthGoogleCallbackRoute,
 }

@@ -32,11 +32,11 @@ export const messagesStore = {
     }
   },
 
-  async send(conversationId: string, text: string, attachments?: { url: string; kind: string; name: string; size: number }[]): Promise<DirectMessage> {
+  async send(conversationId: string, text: string, attachments?: { url: string; kind: string; name: string; size: number }[], replyToMessageId?: string | null, isAnnouncement?: boolean, poll?: { question: string; options: string[] }): Promise<DirectMessage> {
     const { message } = await api.request<{ message: any }>(`/api/v1/conversations/${conversationId}/messages`, {
       method: "POST",
       auth: true,
-      body: JSON.stringify({ text, attachments }),
+      body: JSON.stringify({ text, attachments, replyToMessageId, isAnnouncement, poll }),
     });
     const msg = mapMessage(message);
     socketBus.emit(SocketEvents.MessageNew, { conversationId, message: msg });
@@ -72,6 +72,25 @@ export const messagesStore = {
     socketBus.emit(SocketEvents.ConversationUpdated, { conversationId });
     return msg;
   },
+
+  async createGroup(name: string, participants: string[], avatar?: string): Promise<Conversation> {
+    const { conversation } = await api.createGroupChat(name, participants, avatar);
+    return mapConversation(conversation);
+  },
+
+  async delete(conversationId: string, messageId: string): Promise<void> {
+    await api.deleteMessage(conversationId, messageId);
+  },
+
+  async react(conversationId: string, messageId: string, emoji: string): Promise<DirectMessage> {
+    const { message } = await api.reactToMessage(conversationId, messageId, emoji);
+    return mapMessage(message);
+  },
+
+  async votePoll(conversationId: string, messageId: string, optionIndex: number): Promise<DirectMessage> {
+    const { message } = await api.votePollMessage(conversationId, messageId, optionIndex);
+    return mapMessage(message);
+  },
 };
 
 function getLoggedInUserId(): string {
@@ -94,20 +113,25 @@ function getLoggedInUserId(): string {
 
 function mapConversation(c: any): Conversation {
   const currentUserId = getLoggedInUserId();
+  const peerId = c.participants.find((p: any) => String(p) !== currentUserId);
   return {
-    id: String(c._id),
-    peerId: String(c.participants.find((p: any) => String(p) !== currentUserId)), 
+    id: String(c._id || c.id),
+    peerId: peerId ? String(peerId) : null, 
     pinned: Array.isArray(c.pinnedBy) && c.pinnedBy.some((p: any) => String(p) === currentUserId), 
     unread: typeof c.unread === "object" && c.unread ? (c.unread[currentUserId] ?? 0) : 0,
     lastMessageAt: c.lastMessageAt ?? new Date().toISOString(),
     lastPreview: c.lastPreview ?? "",
+    isGroup: c.isGroup ?? false,
+    groupName: c.groupName ?? "",
+    groupAvatar: c.groupAvatar ?? "",
+    createdBy: c.createdBy ?? null,
   };
 }
 
 function mapMessage(m: any): DirectMessage {
   const currentUserId = getLoggedInUserId();
   return {
-    id: String(m._id),
+    id: String(m._id || m.id),
     conversationId: String(m.conversationId),
     senderId: String(m.senderId),
     text: m.text,
@@ -116,5 +140,9 @@ function mapMessage(m: any): DirectMessage {
       ? Array.isArray(m.readBy) && m.readBy.some((id: string) => id !== currentUserId)
       : false,
     attachments: m.attachments ?? [],
+    replyToMessageId: m.replyToMessageId ?? null,
+    isAnnouncement: m.isAnnouncement ?? false,
+    reactions: m.reactions ?? {},
+    poll: m.poll ?? null,
   };
 }

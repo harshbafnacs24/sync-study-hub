@@ -34,7 +34,7 @@ function CreatePostForm() {
   const [content, setContent] = useState("");
   const [open, setOpen] = useState(false);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
-  const [mediaType, setMediaType] = useState<"image" | "gif" | null>(null);
+  const [mediaType, setMediaType] = useState<"image" | "gif" | "video" | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 

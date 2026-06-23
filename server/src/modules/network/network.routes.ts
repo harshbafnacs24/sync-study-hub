@@ -1,4 +1,5 @@
 import { Router } from "express";
+import mongoose from "mongoose";
 import { z } from "zod";
 import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
 import { asyncHandler, validate } from "../../middleware/validate.js";
@@ -14,8 +15,9 @@ networkRouter.use(requireAuth);
 
 /* ── helper: get IDs this user has blocked OR been blocked by ── */
 async function getBlockedIds(userId: string): Promise<string[]> {
+  const userObjectId = new mongoose.Types.ObjectId(userId);
   const blocks = await Block.find({
-    $or: [{ blockerId: userId }, { blockedId: userId }]
+    $or: [{ blockerId: userObjectId }, { blockedId: userObjectId }]
   });
   const ids = new Set<string>();
   for (const b of blocks) {
@@ -46,7 +48,7 @@ networkRouter.get("/search", asyncHandler(async (req: AuthedRequest, res) => {
   const excludeIds = [...blockedIds, req.userId!];
 
   const profiles = await Profile.find({
-    userId: { $nin: excludeIds },
+    userId: { $nin: excludeIds.map(id => new mongoose.Types.ObjectId(id)) },
     profileCompleted: true,
     $or: [
       { name: { $regex: q, $options: "i" } },
@@ -76,7 +78,7 @@ networkRouter.get("/discover", asyncHandler(async (req: AuthedRequest, res) => {
   const blockedIds = await getBlockedIds(req.userId!);
   const excludeIds = [...blockedIds, req.userId!];
 
-  const profiles = await Profile.find({ userId: { $nin: excludeIds }, profileCompleted: true })
+  const profiles = await Profile.find({ userId: { $nin: excludeIds.map(id => new mongoose.Types.ObjectId(id)) }, profileCompleted: true })
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit + 1); // +1 to check if there's more
@@ -115,7 +117,7 @@ networkRouter.get("/for-you", asyncHandler(async (req: AuthedRequest, res) => {
 
   const excludeIds = [...new Set([...blockedIds, ...connectedIds, req.userId!])];
 
-  const profiles = await Profile.find({ userId: { $nin: excludeIds }, profileCompleted: true }).limit(100);
+  const profiles = await Profile.find({ userId: { $nin: excludeIds.map(id => new mongoose.Types.ObjectId(id)) }, profileCompleted: true }).limit(100);
 
   // Score by interest overlap
   const scored = profiles.map(p => {
@@ -150,8 +152,9 @@ networkRouter.get("/for-you", asyncHandler(async (req: AuthedRequest, res) => {
 }));
 
 async function getFriendIds(userId: string): Promise<string[]> {
+  const userObjectId = new mongoose.Types.ObjectId(userId);
   const conns = await Connection.find({
-    $or: [{ fromUserId: userId }, { toUserId: userId }],
+    $or: [{ fromUserId: userObjectId }, { toUserId: userObjectId }],
     status: "accepted",
   });
   return conns.map((c) => (String(c.fromUserId) === userId ? String(c.toUserId) : String(c.fromUserId)));
@@ -166,7 +169,7 @@ async function getMutualFriendCount(userId: string, otherId: string): Promise<nu
 /* ── GET /friends — accepted friends list ── */
 networkRouter.get("/friends", asyncHandler(async (req: AuthedRequest, res) => {
   const friendIds = await getFriendIds(req.userId!);
-  const profiles = await Profile.find({ userId: { $in: friendIds } });
+  const profiles = await Profile.find({ userId: { $in: friendIds.map(id => new mongoose.Types.ObjectId(id)) } });
   res.json({ users: profiles.map(mapProfile) });
 }));
 
@@ -186,8 +189,9 @@ networkRouter.get("/user/:id/mutual-friends", asyncHandler(async (req: AuthedReq
 
 /* ── GET /connections — list all connections ── */
 networkRouter.get("/connections", asyncHandler(async (req: AuthedRequest, res) => {
+  const userObjectId = new mongoose.Types.ObjectId(req.userId);
   const list = await Connection.find({
-    $or: [{ fromUserId: req.userId }, { toUserId: req.userId }]
+    $or: [{ fromUserId: userObjectId }, { toUserId: userObjectId }]
   });
   res.json({ connections: list.map(serializeConn) });
 }));
@@ -200,11 +204,14 @@ networkRouter.post("/connections", validate(sendSchema), asyncHandler(async (req
     return res.status(400).json({ error: "Cannot connect with yourself" });
   }
 
+  const userObjectId = new mongoose.Types.ObjectId(req.userId);
+  const toUserObjectId = new mongoose.Types.ObjectId(toUserId);
+
   // Check if blocked
   const blocked = await Block.findOne({
     $or: [
-      { blockerId: req.userId, blockedId: toUserId },
-      { blockerId: toUserId, blockedId: req.userId }
+      { blockerId: userObjectId, blockedId: toUserObjectId },
+      { blockerId: toUserObjectId, blockedId: userObjectId }
     ]
   });
   if (blocked) return res.status(403).json({ error: "Cannot connect with this user" });
@@ -212,8 +219,8 @@ networkRouter.post("/connections", validate(sendSchema), asyncHandler(async (req
   // Check existing
   const existing = await Connection.findOne({
     $or: [
-      { fromUserId: req.userId, toUserId },
-      { fromUserId: toUserId, toUserId: req.userId }
+      { fromUserId: userObjectId, toUserId: toUserObjectId },
+      { fromUserId: toUserObjectId, toUserId: userObjectId }
     ]
   });
   if (existing) return res.json({ connection: serializeConn(existing) });
@@ -243,9 +250,10 @@ networkRouter.post("/connections", validate(sendSchema), asyncHandler(async (req
 const updateSchema = z.object({ status: z.enum(["accepted", "rejected"]) });
 networkRouter.put("/connections/:id", validate(updateSchema), asyncHandler(async (req: AuthedRequest, res) => {
   const { status } = req.body as { status: "accepted" | "rejected" };
+  const userObjectId = new mongoose.Types.ObjectId(req.userId);
   const conn = await Connection.findOne({
     _id: req.params.id,
-    $or: [{ fromUserId: req.userId }, { toUserId: req.userId }]
+    $or: [{ fromUserId: userObjectId }, { toUserId: userObjectId }]
   });
   if (!conn) return res.status(404).json({ error: "Connection not found" });
 
@@ -280,9 +288,10 @@ networkRouter.put("/connections/:id", validate(updateSchema), asyncHandler(async
 
 /* ── DELETE /connections/:id — remove/cancel ── */
 networkRouter.delete("/connections/:id", asyncHandler(async (req: AuthedRequest, res) => {
+  const userObjectId = new mongoose.Types.ObjectId(req.userId);
   const conn = await Connection.findOne({
     _id: req.params.id,
-    $or: [{ fromUserId: req.userId }, { toUserId: req.userId }]
+    $or: [{ fromUserId: userObjectId }, { toUserId: userObjectId }]
   });
   if (!conn) return res.status(404).json({ error: "Connection not found" });
 
