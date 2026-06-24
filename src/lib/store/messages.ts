@@ -117,8 +117,8 @@ function mapConversation(c: any): Conversation {
   return {
     id: String(c._id || c.id),
     peerId: peerId ? String(peerId) : null, 
-    pinned: Array.isArray(c.pinnedBy) && c.pinnedBy.some((p: any) => String(p) === currentUserId), 
-    unread: typeof c.unread === "object" && c.unread ? (c.unread[currentUserId] ?? 0) : 0,
+    pinned: typeof c.pinned === "boolean" ? c.pinned : (Array.isArray(c.pinnedBy) && c.pinnedBy.some((p: any) => String(p) === currentUserId)), 
+    unread: typeof c.unread === "number" ? c.unread : (typeof c.unread === "object" && c.unread ? (c.unread[currentUserId] ?? 0) : 0),
     lastMessageAt: c.lastMessageAt ?? new Date().toISOString(),
     lastPreview: c.lastPreview ?? "",
     isGroup: c.isGroup ?? false,

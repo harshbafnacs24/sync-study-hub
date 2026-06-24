@@ -170,7 +170,15 @@ function DMPage() {
     }
   };
 
-  if (!conv.data || !peer) {
+  if (conv.isLoading || (!conv.data?.isGroup && isPeerLoading)) {
+    return (
+      <div className="ss-body" style={{ padding: 16 }}>
+        <div style={{ color: "var(--color-muted-foreground)" }}>Loading conversation...</div>
+      </div>
+    );
+  }
+
+  if (!conv.data || (!conv.data.isGroup && !peer)) {
     return (
       <div className="ss-body" style={{ padding: 16 }}>
         <Link to="/discover" className="ss-btn ss-btn-ghost"><ChevronLeft size={14} /> Back</Link>
@@ -189,19 +197,28 @@ function DMPage() {
         
         {/* Avatar */}
         <div style={{ position: "relative" }}>
-          {peer.avatar && (peer.avatar.startsWith("http") || peer.avatar.startsWith("/") || peer.avatar.startsWith("data:")) ? (
+          {conv.data.isGroup ? (
+            <div style={{
+              width: 34, height: 34, borderRadius: 10,
+              background: avatarGradient(conv.data.id),
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontWeight: 800, color: "#0c0c0c", fontSize: "0.85rem"
+            }}>
+              {conv.data.groupAvatar || "👥"}
+            </div>
+          ) : peer && peer.avatar && (peer.avatar.startsWith("http") || peer.avatar.startsWith("/") || peer.avatar.startsWith("data:")) ? (
             <img src={peer.avatar} alt="" style={{ width: 34, height: 34, borderRadius: 10, objectFit: "cover" }} />
           ) : (
             <div style={{
               width: 34, height: 34, borderRadius: 10,
-              background: avatarGradient(peer.id),
+              background: avatarGradient(peer?.id ?? ""),
               display: "flex", alignItems: "center", justifyContent: "center",
               fontWeight: 800, color: "#0c0c0c", fontSize: "0.85rem"
             }}>
-              {peer.avatar ?? peer.initials}
+              {peer?.avatar ?? peer?.initials ?? ""}
             </div>
           )}
-          {peer.online && (
+          {!conv.data.isGroup && peer?.online && (
             <div style={{
               position: "absolute", bottom: -2, right: -2, width: 10, height: 10,
               borderRadius: "50%", background: "#3ddc84", border: "2px solid var(--bg-2)"
@@ -210,9 +227,11 @@ function DMPage() {
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="ss-display" style={{ fontWeight: 700, fontSize: "0.95rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{peer.name}</div>
-          <div className="ss-mono" style={{ fontSize: "0.6rem", letterSpacing: "0.06em", color: peer.online ? "var(--success)" : "var(--color-muted-foreground)", textTransform: "uppercase" }}>
-            {peer.online ? "Online" : "Offline"}{peer.subject ? ` · ${peer.subject}` : ""}
+          <div className="ss-display" style={{ fontWeight: 700, fontSize: "0.95rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {conv.data.isGroup ? conv.data.groupName : (peer?.name ?? "")}
+          </div>
+          <div className="ss-mono" style={{ fontSize: "0.6rem", letterSpacing: "0.06em", color: (!conv.data.isGroup && peer?.online) ? "var(--success)" : "var(--color-muted-foreground)", textTransform: "uppercase" }}>
+            {conv.data.isGroup ? `${conv.data.participants?.length ?? 0} members` : (peer?.online ? "Online" : "Offline")}{(!conv.data.isGroup && peer?.subject) ? ` · ${peer.subject}` : ""}
           </div>
         </div>
         
@@ -449,7 +468,7 @@ function DMPage() {
         })}
 
         {/* Realtime Typing dots */}
-        {typing && (
+        {typing && peer?.name && (
           <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 8px", color: "var(--color-muted-foreground)", fontSize: "0.75rem" }}>
             <span className="ss-mono" style={{ fontSize: "0.62rem", letterSpacing: "0.06em", textTransform: "uppercase" }}>
               {peer.name.split(" ")[0]} is typing
@@ -462,13 +481,15 @@ function DMPage() {
       </div>
 
       {/* Joint study plan prompt shortcut */}
-      <button
-        className="ss-btn ss-btn-ghost"
-        style={{ margin: "0 16px 6px", borderTop: "1px solid var(--color-border)", padding: "8px 12px", fontSize: "0.72rem", display: "inline-flex", alignItems: "center", gap: 6, justifyContent: "center", color: "var(--color-primary)" }}
-        onClick={() => nav({ to: "/sage", search: { prompt: `Draft a 60-min joint study plan for me and ${peer.name.split(" ")[0]}` } as any })}
-      >
-        <Sparkles size={12} /> Ask Sage to draft a study plan with {peer.name.split(" ")[0]}
-      </button>
+      {!conv.data.isGroup && peer && (
+        <button
+          className="ss-btn ss-btn-ghost"
+          style={{ margin: "0 16px 6px", borderTop: "1px solid var(--color-border)", padding: "8px 12px", fontSize: "0.72rem", display: "inline-flex", alignItems: "center", gap: 6, justifyContent: "center", color: "var(--color-primary)" }}
+          onClick={() => nav({ to: "/sage", search: { prompt: `Draft a 60-min joint study plan for me and ${peer.name.split(" ")[0]}` } as any })}
+        >
+          <Sparkles size={12} /> Ask Sage to draft a study plan with {peer.name.split(" ")[0]}
+        </button>
+      )}
 
       {/* Message Composer Footer Area */}
       <div style={{ display: "flex", flexDirection: "column", background: "var(--bg-2)", borderTop: "1px solid var(--color-border)" }}>
@@ -520,7 +541,7 @@ function DMPage() {
           {/* Text Input */}
           <input
             className="ss-input"
-            placeholder={uploading ? "Uploading file..." : `Message ${peer.name.split(" ")[0]}...`}
+            placeholder={uploading ? "Uploading file..." : (conv.data.isGroup ? "Message group..." : `Message ${peer?.name.split(" ")[0] ?? "friend"}...`)}
             value={text}
             onChange={(e) => handleTextChange(e.target.value)}
             disabled={uploading}

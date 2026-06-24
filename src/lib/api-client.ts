@@ -11,10 +11,7 @@ import { SEED_NETWORK_USERS } from "./store/seed-archive";
 export const BACKEND_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://localhost:4000";
 
-export const API_BASE_URL =
-  typeof window !== "undefined"
-    ? ""
-    : BACKEND_URL;
+export const API_BASE_URL = BACKEND_URL;
 
 const TOKEN_KEY = "ss.token";
 
@@ -1047,7 +1044,7 @@ export const api = {
   getCommunity: (id: string) =>
     request<{ community: any }>(`/api/v1/communities/${id}`, { auth: true }),
 
-  createCommunity: (body: { name: string; description: string; category: string; tags: string[] }) =>
+  createCommunity: (body: { name: string; description: string; category: string; tags: string[]; iconChar?: string }) =>
     request<{ community: any }>("/api/v1/communities", {
       method: "POST",
       auth: true,

@@ -166,7 +166,7 @@ conversationsRouter.post("/:id/messages", validate(sendSchema), asyncHandler(asy
   conv.lastMessageAt = msg.createdAt;
   conv.lastPreview = body.text.slice(0, 200);
   
-  const unreadMap = conv.unread ?? new Map();
+  const unreadMap = (conv.unread ?? new Map()) as any;
   for (const peer of otherParticipants) {
     const current = unreadMap instanceof Map ? (unreadMap.get(peer) ?? 0) : (unreadMap[peer] ?? 0);
     if (unreadMap instanceof Map) {
@@ -187,7 +187,7 @@ conversationsRouter.post("/:id/messages", validate(sendSchema), asyncHandler(asy
 
     await createNotification({
       userId: peer,
-      kind: conv.isGroup ? "group_message" : "dm",
+      kind: "dm",
       title: conv.isGroup ? `${conv.groupName} (${senderProfile?.name ?? "Member"})` : (senderProfile?.name ?? "New message"),
       body: body.text.slice(0, 120),
       href: `/messages/dm/${conv._id}`,

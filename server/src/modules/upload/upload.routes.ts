@@ -144,10 +144,12 @@ uploadRouter.post(
     const conv = await Conversation.findOne({ _id: req.params.conversationId, participants: req.userId });
     if (!conv) return res.status(404).json({ error: "Conversation not found" });
 
-    const peerId = conv.participants.find((p) => p !== req.userId);
-    if (peerId && !(await areFriends(req.userId!, peerId))) {
-      fs.unlinkSync(req.file.path);
-      return res.status(403).json({ error: "You can only share files with friends" });
+    if (!conv.isGroup) {
+      const peerId = conv.participants.find((p) => p !== req.userId);
+      if (peerId && !(await areFriends(req.userId!, peerId))) {
+        fs.unlinkSync(req.file.path);
+        return res.status(403).json({ error: "You can only share files with friends" });
+      }
     }
 
     const kind = ALLOWED_MIME[req.file.mimetype] ?? "file";

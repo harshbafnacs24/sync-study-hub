@@ -108,12 +108,32 @@ function TabBtn({ active, onClick, label, count }: { active: boolean; onClick: (
 }
 
 function DMRow({ conv, query }: { conv: any; query: string }) {
-  const { data: peer, isLoading } = useNetworkUser(conv.peerId);
-  if (isLoading || !peer) return null;
-
-  if (query && !peer.name.toLowerCase().includes(query.toLowerCase())) {
-    return null;
+  const { data: peer, isLoading } = useNetworkUser(conv.isGroup ? "" : (conv.peerId ?? ""));
+  
+  if (conv.isGroup) {
+    if (query && !conv.groupName?.toLowerCase().includes(query.toLowerCase())) {
+      return null;
+    }
+  } else {
+    if (isLoading || !peer) return null;
+    if (query && !peer.name.toLowerCase().includes(query.toLowerCase())) {
+      return null;
+    }
   }
+
+  const avatarColorIndex = (id: string) => {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xffff;
+    const colors = [
+      "linear-gradient(135deg,#E8FF47,#c6e600)",
+      "linear-gradient(135deg,#4a9eff,#2575ff)",
+      "linear-gradient(135deg,#aa66ff,#7722ee)",
+      "linear-gradient(135deg,#3ddc84,#00aa55)",
+      "linear-gradient(135deg,#ff6b6b,#ee2244)",
+      "linear-gradient(135deg,#ffb347,#ff7700)",
+    ];
+    return colors[h % colors.length];
+  };
 
   return (
     <Link
@@ -122,13 +142,24 @@ function DMRow({ conv, query }: { conv: any; query: string }) {
       style={{ display: "block", textDecoration: "none", color: "inherit" }}
     >
       <div style={{ display: "flex", gap: 12, padding: "10px 12px", borderRadius: 8, alignItems: "center" }}>
-        <Avatar peer={peer} />
+        {conv.isGroup ? (
+          <div style={{
+            width: 40, height: 40, borderRadius: 10,
+            background: avatarColorIndex(conv.id),
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontWeight: 800, color: "#0c0c0c", fontSize: "0.95rem", flexShrink: 0
+          }}>
+            {conv.groupAvatar || "👥"}
+          </div>
+        ) : (
+          <Avatar peer={peer} />
+        )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
               {conv.pinned && <Pin size={11} style={{ color: "var(--color-primary)", flexShrink: 0 }} />}
               <span className="ss-display" style={{ fontWeight: 700, fontSize: "0.92rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {peer.name}
+                {conv.isGroup ? conv.groupName : peer?.name}
               </span>
             </div>
             <span className="ss-mono" style={{ fontSize: "0.62rem", color: "var(--color-muted-foreground)", flexShrink: 0 }}>{timeAgo(conv.lastMessageAt)}</span>
