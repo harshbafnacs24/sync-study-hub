@@ -957,12 +957,13 @@ export const api = {
   getSavedPosts: () =>
     request<{ posts: FeedPost[] }>("/api/v1/posts/saved", { auth: true }),
 
-  createPost: (content: string, media?: { mediaUrl: string; mediaType: "image" | "video" | "gif" }, type?: "post" | "story" | "reel") =>
+  createPost: (content: string = "", media?: { mediaUrl: string; mediaType: "image" | "video" | "gif" }, type?: "post" | "story" | "reel") =>
     request<{ post: FeedPost }>("/api/v1/posts", {
       method: "POST",
       auth: true,
       body: JSON.stringify({ content, ...media, type }),
     }),
+
 
   toggleSave: (postId: string) =>
     request<{ post: FeedPost }>(`/api/v1/posts/${postId}/save`, { method: "POST", auth: true }),

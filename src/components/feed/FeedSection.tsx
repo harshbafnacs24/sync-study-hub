@@ -59,7 +59,7 @@ function CreatePostForm() {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim()) return;
+    if (!content.trim() && !mediaUrl) return;
     create.mutate(
       mediaUrl && mediaType
         ? { content: content.trim(), mediaUrl, mediaType }
@@ -104,7 +104,6 @@ function CreatePostForm() {
           onChange={(e) => setContent(e.target.value)}
           placeholder="What are you studying today?"
           rows={3}
-          required
           style={{
             width: "100%", background: "var(--bg-3)", border: "1px solid var(--color-border)",
             borderRadius: 12, padding: 10, color: "var(--color-foreground)", fontSize: "0.8rem", resize: "none", outline: "none",

@@ -29,8 +29,19 @@ async function areFriends(userId: string, peerId: string): Promise<boolean> {
 }
 
 function serializeMessage(m: any) {
+  // Transform poll options from [{text, votes}] -> {question, options: string[], votes: {[idx]: userId[]}}
+  let poll = null;
+  if (m.poll && m.poll.question) {
+    const options: string[] = (m.poll.options ?? []).map((o: any) => (typeof o === "string" ? o : o.text ?? ""));
+    const votes: Record<number, string[]> = {};
+    (m.poll.options ?? []).forEach((o: any, idx: number) => {
+      votes[idx] = Array.isArray(o.votes) ? o.votes : [];
+    });
+    poll = { question: m.poll.question, options, votes, expiresAt: m.poll.expiresAt ?? null };
+  }
   return {
     _id: m._id,
+    id: String(m._id),
     conversationId: m.conversationId,
     senderId: m.senderId,
     text: m.text,
@@ -40,9 +51,10 @@ function serializeMessage(m: any) {
     replyToMessageId: m.replyToMessageId ?? null,
     isAnnouncement: m.isAnnouncement ?? false,
     reactions: m.reactions ? (m.reactions instanceof Map ? Object.fromEntries(m.reactions.entries()) : m.reactions) : {},
-    poll: m.poll ?? null,
+    poll,
   };
 }
+
 
 function serializeConversation(c: any, currentUserId: string) {
   return {

@@ -65,6 +65,8 @@ export function connectSocket(token: string) {
   const serverEvents = [
     "message:new",
     "message:read",
+    "message:deleted",
+    "message:updated",
     "typing:start",
     "typing:stop",
     "presence:online",
