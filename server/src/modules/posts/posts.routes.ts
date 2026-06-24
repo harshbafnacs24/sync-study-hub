@@ -83,7 +83,7 @@ postsRouter.get("/feed", asyncHandler(async (req: AuthedRequest, res) => {
 
 const createSchema = z.object({
   content: z.string().min(1).max(2000),
-  mediaUrl: z.string().url().optional().nullable(),
+  mediaUrl: z.string().optional().nullable(),
   mediaType: z.enum(["image", "video", "gif"]).optional().nullable(),
   type: z.enum(["post", "story", "reel"]).optional().default("post"),
 });
@@ -95,7 +95,7 @@ postsRouter.post("/", validate(createSchema), asyncHandler(async (req: AuthedReq
 
 const updateSchema = z.object({
   content: z.string().min(1).max(2000),
-  mediaUrl: z.string().url().optional().nullable(),
+  mediaUrl: z.string().optional().nullable(),
   mediaType: z.enum(["image", "video", "gif"]).optional().nullable(),
 });
 postsRouter.patch("/:id", validate(updateSchema), asyncHandler(async (req: AuthedRequest, res) => {

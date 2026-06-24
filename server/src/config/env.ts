@@ -15,9 +15,11 @@ const configuredOrigins = (process.env.CORS_ORIGIN ?? "")
 const defaultOrigins = [
   "http://localhost",
   "capacitor://localhost",
+  "http://localhost:8080",
   "http://localhost:5173",
   "http://localhost:5174",
   "http://localhost:3000",
+  "https://sync-study-hub.vercel.app",
   "https://sync-study-hub.harshbafna-cs24.workers.dev"
 ];
 
