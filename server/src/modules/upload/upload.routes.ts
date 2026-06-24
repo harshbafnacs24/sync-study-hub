@@ -81,7 +81,11 @@ uploadRouter.get("/:filename", optionalAuth, asyncHandler(async (req: AuthedRequ
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: "File not found on disk" });
 
   res.setHeader("Content-Type", doc.mimeType);
-  res.setHeader("Content-Disposition", `inline; filename="${doc.originalName}"`);
+  if (req.query.download === "true") {
+    res.setHeader("Content-Disposition", `attachment; filename="${doc.originalName}"`);
+  } else {
+    res.setHeader("Content-Disposition", `inline; filename="${doc.originalName}"`);
+  }
   res.sendFile(filePath);
 }));
 

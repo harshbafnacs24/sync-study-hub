@@ -16,6 +16,7 @@ import { socketBus, SocketEvents } from "../../lib/socket";
 import { api, BACKEND_URL, tokenStore } from "../../lib/api-client";
 import { toast } from "sonner";
 import { usePost } from "../../lib/hooks/use-posts";
+import { FilePreviewModal } from "../../components/messaging/FilePreviewModal";
 
 export const Route = createFileRoute("/_authenticated/communities_/$id")({
   head: () => ({ meta: [{ title: "Study Group — Sync & Study" }] }),
@@ -70,6 +71,7 @@ function GroupDetailPage() {
   
   const [activeTab, setActiveTab] = useState<GroupTab>("chat");
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<{ url: string; name: string; kind: string } | null>(null);
 
   // Group mutations
   const updateRole = useUpdateGroupMemberRole();
@@ -483,34 +485,51 @@ function GroupDetailPage() {
                             if (att.kind === "image") {
                               return (
                                 <div key={idx} style={{ marginTop: 6, borderRadius: 8, overflow: "hidden", border: "1px solid var(--color-border)", maxWidth: 160 }}>
-                                  <a href={fileUrl} target="_blank" rel="noopener noreferrer">
+                                  <button
+                                    onClick={() => setPreviewFile({ url: att.url, name: att.name, kind: att.kind })}
+                                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "block" }}
+                                  >
                                     <img src={fileUrl} alt={att.name} style={{ maxHeight: 120, maxWidth: "100%", display: "block", objectFit: "cover" }} />
-                                  </a>
+                                  </button>
                                 </div>
                               );
                             }
                             if (att.kind === "video") {
                               return (
                                 <div key={idx} style={{ marginTop: 6, borderRadius: 8, overflow: "hidden", border: "1px solid var(--color-border)", maxWidth: 200 }}>
-                                  <video src={fileUrl} controls style={{ maxHeight: 150, maxWidth: "100%", display: "block" }} />
+                                  <button
+                                    onClick={() => setPreviewFile({ url: att.url, name: att.name, kind: att.kind })}
+                                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "block", textAlign: "left" }}
+                                  >
+                                    <div style={{ position: "relative" }}>
+                                      <video src={fileUrl} style={{ maxHeight: 120, maxWidth: "100%", display: "block" }} />
+                                      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.2)", color: "#fff", fontSize: "1.2rem" }}>▶</div>
+                                    </div>
+                                  </button>
                                 </div>
                               );
                             }
                             return (
-                              <a
+                              <button
                                 key={idx}
-                                href={fileUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                onClick={() => setPreviewFile({ url: att.url, name: att.name, kind: att.kind })}
                                 style={{
-                                  display: "inline-flex", alignItems: "center", gap: 6, marginTop: 4,
-                                  padding: "6px 10px", borderRadius: 8,
-                                  background: "var(--bg-3)", border: "1px solid var(--color-border)",
-                                  fontSize: "0.72rem", color: "var(--color-primary)", textDecoration: "none"
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                  marginTop: 4,
+                                  padding: "6px 10px",
+                                  borderRadius: 8,
+                                  background: "var(--bg-3)",
+                                  border: "1px solid var(--color-border)",
+                                  fontSize: "0.72rem",
+                                  color: "var(--color-primary)",
+                                  textDecoration: "none",
+                                  cursor: "pointer"
                                 }}
                               >
                                 📎 {att.name}
-                              </a>
+                              </button>
                             );
                           })}
                         </div>
@@ -915,6 +934,13 @@ function GroupDetailPage() {
           </div>
         </div>
       )}
+
+      <FilePreviewModal
+        isOpen={!!previewFile}
+        onClose={() => setPreviewFile(null)}
+        file={previewFile}
+        token={token}
+      />
     </>
   );
 }

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
-import { api, tokenStore } from "./api-client";
+import { api, tokenStore, ApiError } from "./api-client";
 import { connectSocket, disconnectSocket } from "./socket";
 import type { AuthUser } from "./types";
 
@@ -103,7 +103,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     api.me()
       .then((r) => { if (alive) { setUser(r.user); connectSocket(t); } })
-      .catch(() => tokenStore.clear())
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          tokenStore.clear();
+        } else {
+          console.error("Failed to load user session:", err);
+        }
+      })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, []);

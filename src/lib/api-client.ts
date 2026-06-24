@@ -37,7 +37,7 @@ const MOCK_USER: AuthUser = {
   createdAt: new Date().toISOString(),
 } as AuthUser;
 
-class ApiError extends Error {
+export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
     super(message);
@@ -801,11 +801,12 @@ async function request<T>(
   try {
     res = await fetch(`${API_BASE_URL}${path}`, { ...rest, headers: finalHeaders });
   } catch (err) {
-    console.warn(`[api-client] API unreachable at ${API_BASE_URL}, using offline demo mode.`, err);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("sas.demo_mode", "true");
+    if (typeof window !== "undefined" && (window.localStorage.getItem("sas.demo_mode") === "true" || window.sessionStorage.getItem("sas.demo_mode") === "true")) {
+      console.warn(`[api-client] API unreachable, using offline demo mode.`, err);
+      return handleOfflineRequest(path, init) as T;
     }
-    return handleOfflineRequest(path, init) as T;
+    console.error(`[api-client] API request failed:`, err);
+    throw new ApiError("Network error: Server is unreachable. Please check your connection or wait for the server to wake up.", 503);
   }
   const text = await res.text();
   const data = text ? safeJson(text) : null;
@@ -1157,4 +1158,3 @@ export const api = {
     request<T>(path, init),
 };
 
-export { ApiError };
