@@ -43,7 +43,7 @@ import {
   useDeletePost,
   useUpdatePost
 } from "../../lib/hooks/use-posts";
-import { api, API_BASE_URL } from "../../lib/api-client";
+import { api, BACKEND_URL } from "../../lib/api-client";
 import { useAuth } from "../../lib/auth-context";
 import { toast } from "sonner";
 import { socketBus, SocketEvents } from "../../lib/socket";
@@ -192,7 +192,7 @@ function StoryModal({ stories, onClose }: StoryModalProps) {
 
   if (!story) return null;
 
-  const mediaSrc = story.mediaUrl?.startsWith("http") ? story.mediaUrl : story.mediaUrl ? `${API_BASE_URL}${story.mediaUrl}` : "";
+  const mediaSrc = story.mediaUrl?.startsWith("http") ? story.mediaUrl : story.mediaUrl ? `${BACKEND_URL}${story.mediaUrl}` : "";
 
   return (
     <div style={{
@@ -833,7 +833,7 @@ function DiscoverPage() {
     setCreatorUploading(true);
     try {
       const { file: uploaded } = await api.uploadPostMedia(file);
-      setCreatorMediaUrl(`${API_BASE_URL}${uploaded.url}`);
+      setCreatorMediaUrl(`${BACKEND_URL}${uploaded.url}`);
       setCreatorMediaType(uploaded.mediaType);
       toast.success(`${uploaded.mediaType} attached successfully!`);
     } catch (err: any) {
@@ -1285,7 +1285,7 @@ function DiscoverPage() {
                 ) : (
                   (feedPosts.data ?? []).map((post: any) => {
                     const isOwner = currentUser?.id === post.authorId;
-                    const mediaSrc = post.mediaUrl?.startsWith("http") ? post.mediaUrl : post.mediaUrl ? `${API_BASE_URL}${post.mediaUrl}` : null;
+                    const mediaSrc = post.mediaUrl?.startsWith("http") ? post.mediaUrl : post.mediaUrl ? `${BACKEND_URL}${post.mediaUrl}` : null;
                     const isEditing = editPostId === post.id;
 
                     return (
@@ -1411,7 +1411,7 @@ function DiscoverPage() {
                   />
                 ) : (
                   (reels.data ?? []).map((reel: any) => {
-                    const mediaSrc = reel.mediaUrl?.startsWith("http") ? reel.mediaUrl : reel.mediaUrl ? `${API_BASE_URL}${reel.mediaUrl}` : "";
+                    const mediaSrc = reel.mediaUrl?.startsWith("http") ? reel.mediaUrl : reel.mediaUrl ? `${BACKEND_URL}${reel.mediaUrl}` : "";
                     
                     return (
                       <div 
@@ -1538,7 +1538,7 @@ function DiscoverPage() {
                 ) : (
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
                     {(savedPosts.data ?? []).map((post: any) => {
-                      const mediaSrc = post.mediaUrl?.startsWith("http") ? post.mediaUrl : post.mediaUrl ? `${API_BASE_URL}${post.mediaUrl}` : "";
+                      const mediaSrc = post.mediaUrl?.startsWith("http") ? post.mediaUrl : post.mediaUrl ? `${BACKEND_URL}${post.mediaUrl}` : "";
                       return (
                         <div 
                           key={post.id}

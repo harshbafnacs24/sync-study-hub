@@ -9,7 +9,7 @@ import {
 } from "../../lib/hooks/use-messaging";
 import { useNetworkUser } from "../../lib/hooks/use-network";
 import { socketBus, SocketEvents } from "../../lib/socket";
-import { api, API_BASE_URL } from "../../lib/api-client";
+import { api, BACKEND_URL } from "../../lib/api-client";
 import { useAuth } from "../../lib/auth-context";
 import { toast } from "sonner";
 import { timeAgo } from "../../components/messaging/Avatar";
@@ -355,7 +355,7 @@ function DMPage() {
                   {(m.attachments ?? []).map((att: any, idx: number) => (
                     <a
                       key={idx}
-                      href={`${API_BASE_URL}${att.url}`}
+                      href={`${BACKEND_URL}${att.url}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{

@@ -2,6 +2,7 @@ import path from "path";
 import fs from "fs";
 import { Router } from "express";
 import multer from "multer";
+import mongoose from "mongoose";
 import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
 import { asyncHandler } from "../../middleware/validate.js";
 import { SharedFile } from "../../models/SharedFile.js";
@@ -56,10 +57,12 @@ export const uploadRouter = Router();
 uploadRouter.use(requireAuth);
 
 async function areFriends(userId: string, peerId: string): Promise<boolean> {
+  const userObjectId = new mongoose.Types.ObjectId(userId);
+  const peerObjectId = new mongoose.Types.ObjectId(peerId);
   const conn = await Connection.findOne({
     $or: [
-      { fromUserId: userId, toUserId: peerId, status: "accepted" },
-      { fromUserId: peerId, toUserId: userId, status: "accepted" },
+      { fromUserId: userObjectId, toUserId: peerObjectId, status: "accepted" },
+      { fromUserId: peerObjectId, toUserId: userObjectId, status: "accepted" },
     ],
   });
   return !!conn;

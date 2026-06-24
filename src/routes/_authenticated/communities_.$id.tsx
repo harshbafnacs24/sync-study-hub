@@ -13,7 +13,7 @@ import {
 import { useNetworkUser } from "../../lib/hooks/use-network";
 import { useAuth } from "../../lib/auth-context";
 import { socketBus, SocketEvents } from "../../lib/socket";
-import { api, API_BASE_URL } from "../../lib/api-client";
+import { api, BACKEND_URL } from "../../lib/api-client";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/communities_/$id")({
@@ -475,7 +475,7 @@ function GroupDetailPage() {
                           {(m.attachments ?? []).map((att: any, idx: number) => (
                             <a
                               key={idx}
-                              href={`${API_BASE_URL}${att.url}`}
+                              href={`${BACKEND_URL}${att.url}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               style={{
@@ -655,7 +655,7 @@ function GroupDetailPage() {
                         </div>
                       </div>
                       <a 
-                        href={`${API_BASE_URL}${doc.url}`} 
+                        href={`${BACKEND_URL}${doc.url}`} 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="ss-btn ss-btn-outline" 
@@ -683,7 +683,7 @@ function GroupDetailPage() {
                   {sharedImages.map((img: any, idx: number) => (
                     <a 
                       key={idx}
-                      href={`${API_BASE_URL}${img.url}`} 
+                      href={`${BACKEND_URL}${img.url}`} 
                       target="_blank" 
                       rel="noopener noreferrer"
                       style={{
@@ -691,7 +691,7 @@ function GroupDetailPage() {
                         border: "1px solid var(--color-border)", background: "#000", display: "block"
                       }}
                     >
-                      <img src={`${API_BASE_URL}${img.url}`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      <img src={`${BACKEND_URL}${img.url}`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     </a>
                   ))}
                 </div>

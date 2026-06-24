@@ -5,7 +5,7 @@ import {
   useFeedPosts, useCreatePost, useToggleLike, useAddComment, usePostComments,
   useDeletePost, useUpdatePost,
 } from "../../lib/hooks/use-posts";
-import { api, API_BASE_URL } from "../../lib/api-client";
+import { api, BACKEND_URL } from "../../lib/api-client";
 import type { FeedPost } from "../../lib/types";
 import { toast } from "sonner";
 
@@ -45,7 +45,7 @@ function CreatePostForm() {
     setUploading(true);
     try {
       const { file: uploaded } = await api.uploadPostMedia(file);
-      setMediaUrl(`${API_BASE_URL}${uploaded.url}`);
+      setMediaUrl(`${BACKEND_URL}${uploaded.url}`);
       setMediaType(uploaded.mediaType);
       toast.success("Image attached");
     } catch (err: any) {
@@ -169,7 +169,7 @@ function ApiFeedPostCard({ post }: { post: FeedPost }) {
     });
   };
 
-  const mediaSrc = post.mediaUrl?.startsWith("http") ? post.mediaUrl : post.mediaUrl ? `${API_BASE_URL}${post.mediaUrl}` : null;
+  const mediaSrc = post.mediaUrl?.startsWith("http") ? post.mediaUrl : post.mediaUrl ? `${BACKEND_URL}${post.mediaUrl}` : null;
 
   return (
     <div className="ss-card ss-card-anim" style={{ padding: 0, overflow: "hidden", background: "var(--bg-2)", border: "1px solid var(--color-border)", borderRadius: 16, marginBottom: 14 }}>
