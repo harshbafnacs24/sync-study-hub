@@ -9,9 +9,10 @@ import {
 } from "../../lib/hooks/use-messaging";
 import { useNetworkUser } from "../../lib/hooks/use-network";
 import { socketBus, SocketEvents } from "../../lib/socket";
-import { api, BACKEND_URL } from "../../lib/api-client";
+import { api, BACKEND_URL, tokenStore } from "../../lib/api-client";
 import { useAuth } from "../../lib/auth-context";
 import { toast } from "sonner";
+import { usePost } from "../../lib/hooks/use-posts";
 import { timeAgo } from "../../components/messaging/Avatar";
 
 export const Route = createFileRoute("/_authenticated/messages/dm/$id")({
@@ -25,6 +26,7 @@ function DMPage() {
   const { id } = useParams({ from: "/_authenticated/messages/dm/$id" });
   const nav = useNavigate();
   const { user: currentUser } = useAuth();
+  const token = tokenStore.get();
   const conv = useConversation(id);
   const { data: peer, isLoading: isPeerLoading } = useNetworkUser(conv.data?.peerId ?? "");
   
@@ -291,18 +293,22 @@ function DMPage() {
                 <div style={{ flex: 1 }}>
                   {/* Standard text / attachment message */}
                   {!m.poll ? (
-                    <div style={{
-                      padding: "9px 13px", borderRadius: 12,
-                      background: mine ? "var(--color-primary)" : "var(--bg-3)",
-                      color: mine ? "var(--color-primary-foreground)" : "var(--color-foreground)",
-                      fontSize: "0.86rem", lineHeight: 1.45,
-                      border: mine ? "none" : "1px solid var(--color-border)",
-                      borderTopRightRadius: mine ? 4 : 12,
-                      borderTopLeftRadius: mine ? 12 : 4,
-                      wordBreak: "break-word"
-                    }}>
-                      {m.text}
-                    </div>
+                    m.text.startsWith("[post:") && m.text.endsWith("]") ? (
+                      <SharedPostPreview postId={m.text.slice(6, -1)} token={token} />
+                    ) : (
+                      <div style={{
+                        padding: "9px 13px", borderRadius: 12,
+                        background: mine ? "var(--color-primary)" : "var(--bg-3)",
+                        color: mine ? "var(--color-primary-foreground)" : "var(--color-foreground)",
+                        fontSize: "0.86rem", lineHeight: 1.45,
+                        border: mine ? "none" : "1px solid var(--color-border)",
+                        borderTopRightRadius: mine ? 4 : 12,
+                        borderTopLeftRadius: mine ? 12 : 4,
+                        wordBreak: "break-word"
+                      }}>
+                        {m.text}
+                      </div>
+                    )
                   ) : (
                     // Voteable Poll Card
                     <div style={{
@@ -352,22 +358,41 @@ function DMPage() {
                   )}
 
                   {/* Render Attachments */}
-                  {(m.attachments ?? []).map((att: any, idx: number) => (
-                    <a
-                      key={idx}
-                      href={`${BACKEND_URL}${att.url}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        display: "inline-flex", alignItems: "center", gap: 6, marginTop: 4,
-                        padding: "6px 10px", borderRadius: 8,
-                        background: "var(--bg-3)", border: "1px solid var(--color-border)",
-                        fontSize: "0.72rem", color: "var(--color-primary)", textDecoration: "none"
-                      }}
-                    >
-                      📎 {att.name}
-                    </a>
-                  ))}
+                  {(m.attachments ?? []).map((att: any, idx: number) => {
+                    const fileUrl = `${BACKEND_URL}${att.url}${token ? `?token=${token}` : ""}`;
+                    if (att.kind === "image") {
+                      return (
+                        <div key={idx} style={{ marginTop: 6, borderRadius: 8, overflow: "hidden", border: "1px solid var(--color-border)", maxWidth: 160 }}>
+                          <a href={fileUrl} target="_blank" rel="noopener noreferrer">
+                            <img src={fileUrl} alt={att.name} style={{ maxHeight: 120, maxWidth: "100%", display: "block", objectFit: "cover" }} />
+                          </a>
+                        </div>
+                      );
+                    }
+                    if (att.kind === "video") {
+                      return (
+                        <div key={idx} style={{ marginTop: 6, borderRadius: 8, overflow: "hidden", border: "1px solid var(--color-border)", maxWidth: 200 }}>
+                          <video src={fileUrl} controls style={{ maxHeight: 150, maxWidth: "100%", display: "block" }} />
+                        </div>
+                      );
+                    }
+                    return (
+                      <a
+                        key={idx}
+                        href={fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 6, marginTop: 4,
+                          padding: "6px 10px", borderRadius: 8,
+                          background: "var(--bg-3)", border: "1px solid var(--color-border)",
+                          fontSize: "0.72rem", color: "var(--color-primary)", textDecoration: "none"
+                        }}
+                      >
+                        📎 {att.name}
+                      </a>
+                    );
+                  })}
                 </div>
 
                 {!mine && (
@@ -602,17 +627,73 @@ function Dot({ delay }: { delay: number }) {
   );
 }
 
-const AVATAR_COLORS = [
-  "linear-gradient(135deg,#E8FF47,#c6e600)",
-  "linear-gradient(135deg,#4a9eff,#2575ff)",
-  "linear-gradient(135deg,#aa66ff,#7722ee)",
-  "linear-gradient(135deg,#3ddc84,#00aa55)",
-  "linear-gradient(135deg,#ff6b6b,#ee2244)",
-  "linear-gradient(135deg,#ffb347,#ff7700)",
-];
-
 function avatarGradient(id: string): string {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+  const hash = id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const colors = [
+    "linear-gradient(135deg, #e8ff47 0%, #a4c214 100%)",
+    "linear-gradient(135deg, #3ddc84 0%, #00a859 100%)",
+    "linear-gradient(135deg, #00b0ff 0%, #007bb5 100%)",
+    "linear-gradient(135deg, #ff4081 0%, #c60055 100%)",
+    "linear-gradient(135deg, #aa00ff 0%, #7200ca 100%)",
+    "linear-gradient(135deg, #ff6d00 0%, #b53d00 100%)",
+  ];
+  return colors[hash % colors.length];
+}
+
+function SharedPostPreview({ postId, token }: { postId: string; token: string | null }) {
+  const { data: post, isLoading, error } = usePost(postId);
+
+  if (isLoading) {
+    return (
+      <div style={{ padding: "8px 12px", background: "var(--bg-3)", border: "1px solid var(--color-border)", borderRadius: 10, fontSize: "0.75rem", color: "var(--color-muted-foreground)" }}>
+        Loading post preview...
+      </div>
+    );
+  }
+
+  if (error || !post) {
+    return (
+      <div style={{ padding: "8px 12px", background: "var(--bg-3)", border: "1px solid var(--color-border)", borderRadius: 10, fontSize: "0.75rem", color: "#ff6b6b" }}>
+        Post not found or unavailable
+      </div>
+    );
+  }
+
+  const mediaSrc = post.mediaUrl
+    ? (post.mediaUrl.startsWith("http") ? post.mediaUrl : `${BACKEND_URL}${post.mediaUrl}${token ? `?token=${token}` : ""}`)
+    : null;
+
+  return (
+    <div style={{
+      padding: 10, background: "rgba(255,255,255,0.03)", border: "1px solid var(--color-border)",
+      borderRadius: 12, width: 220, display: "flex", flexDirection: "column", gap: 6,
+      textAlign: "left"
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{
+          width: 22, height: 22, borderRadius: "50%",
+          background: "var(--bg-2)", display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: "0.55rem", fontWeight: "bold"
+        }}>
+          {post.author.avatar ?? post.author.name[0]}
+        </div>
+        <span style={{ fontWeight: "bold", fontSize: "0.72rem", color: "#fff" }}>{post.author.name}</span>
+      </div>
+      <p style={{ margin: 0, fontSize: "0.75rem", color: "#ccc", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+        {post.content}
+      </p>
+      {mediaSrc && (
+        <div style={{ borderRadius: 6, overflow: "hidden", border: "1px solid var(--color-border)", background: "#000" }}>
+          {post.mediaType === "video" ? (
+            <div style={{ position: "relative", aspectRatio: "16/9" }}>
+              <video src={mediaSrc} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)", fontSize: "0.9rem" }}>▶</div>
+            </div>
+          ) : (
+            <img src={mediaSrc} alt="" style={{ width: "100%", maxHeight: 100, objectFit: "cover", display: "block" }} />
+          )}
+        </div>
+      )}
+    </div>
+  );
 }

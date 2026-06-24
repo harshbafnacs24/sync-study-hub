@@ -25,3 +25,27 @@ export function requireAuth(req: AuthedRequest, res: Response, next: NextFunctio
     return res.status(401).json({ error: "Invalid or expired token" });
   }
 }
+
+export function optionalAuth(req: AuthedRequest, res: Response, next: NextFunction) {
+  let token = "";
+  const header = req.headers.authorization ?? "";
+  const [scheme, schemeToken] = header.split(" ");
+  if (scheme === "Bearer" && schemeToken) {
+    token = schemeToken;
+  } else if (req.query.token && typeof req.query.token === "string") {
+    token = req.query.token;
+  }
+
+  if (token) {
+    try {
+      const payload = jwt.verify(token, env.jwtSecret) as { sub?: string };
+      if (payload.sub) {
+        req.userId = payload.sub;
+      }
+    } catch {
+      // Ignore token verification errors for optional auth
+    }
+  }
+  next();
+}
+

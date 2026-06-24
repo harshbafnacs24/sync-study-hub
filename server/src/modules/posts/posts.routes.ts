@@ -110,6 +110,12 @@ postsRouter.patch("/:id", validate(updateSchema), asyncHandler(async (req: Authe
   res.json({ post: await serializePost(post, req.userId!) });
 }));
 
+postsRouter.get("/:id", asyncHandler(async (req: AuthedRequest, res) => {
+  const post = await Post.findById(req.params.id);
+  if (!post) return res.status(404).json({ error: "Post not found" });
+  res.json({ post: await serializePost(post, req.userId!) });
+}));
+
 postsRouter.delete("/:id", asyncHandler(async (req: AuthedRequest, res) => {
   const post = await Post.findOne({ _id: req.params.id, authorId: req.userId });
   if (!post) return res.status(404).json({ error: "Post not found" });

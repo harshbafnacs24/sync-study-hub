@@ -3,6 +3,7 @@ import type { FeedComment, FeedPost } from "../types";
 
 export const postsStore = {
   feed: (page = 1, limit = 15) => api.getFeed(page, limit).then((r) => r.posts ?? []),
+  get: (id: string) => api.getPost(id).then((r) => r.post),
   stories: () => api.getStories().then((r) => r.stories ?? []),
   reels: () => api.getReels().then((r) => r.reels ?? []),
   saved: () => api.getSavedPosts().then((r) => r.posts ?? []),

@@ -13,8 +13,9 @@ import {
 import { useNetworkUser } from "../../lib/hooks/use-network";
 import { useAuth } from "../../lib/auth-context";
 import { socketBus, SocketEvents } from "../../lib/socket";
-import { api, BACKEND_URL } from "../../lib/api-client";
+import { api, BACKEND_URL, tokenStore } from "../../lib/api-client";
 import { toast } from "sonner";
+import { usePost } from "../../lib/hooks/use-posts";
 
 export const Route = createFileRoute("/_authenticated/communities_/$id")({
   head: () => ({ meta: [{ title: "Study Group — Sync & Study" }] }),
@@ -65,6 +66,7 @@ function GroupDetailPage() {
   const join = useToggleJoin();
   const nav = useNavigate();
   const { user: currentUser } = useAuth();
+  const token = tokenStore.get();
   
   const [activeTab, setActiveTab] = useState<GroupTab>("chat");
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
@@ -408,18 +410,22 @@ function GroupDetailPage() {
 
                         <div style={{ flex: 1 }}>
                           {!m.poll ? (
-                            <div style={{
-                              padding: "9px 13px", borderRadius: 12,
-                              background: mine ? "var(--color-primary)" : "var(--bg-3)",
-                              color: mine ? "var(--color-primary-foreground)" : "var(--color-foreground)",
-                              fontSize: "0.86rem", lineHeight: 1.45,
-                              border: mine ? "none" : "1px solid var(--color-border)",
-                              borderTopRightRadius: mine ? 4 : 12,
-                              borderTopLeftRadius: mine ? 12 : 4,
-                              wordBreak: "break-word"
-                            }}>
-                              {m.text}
-                            </div>
+                            m.text.startsWith("[post:") && m.text.endsWith("]") ? (
+                              <SharedPostPreview postId={m.text.slice(6, -1)} token={token} />
+                            ) : (
+                              <div style={{
+                                padding: "9px 13px", borderRadius: 12,
+                                background: mine ? "var(--color-primary)" : "var(--bg-3)",
+                                color: mine ? "var(--color-primary-foreground)" : "var(--color-foreground)",
+                                fontSize: "0.86rem", lineHeight: 1.45,
+                                border: mine ? "none" : "1px solid var(--color-border)",
+                                borderTopRightRadius: mine ? 4 : 12,
+                                borderTopLeftRadius: mine ? 12 : 4,
+                                wordBreak: "break-word"
+                              }}>
+                                {m.text}
+                              </div>
+                            )
                           ) : (
                             // Voteable Poll Card
                             <div style={{
@@ -472,22 +478,41 @@ function GroupDetailPage() {
                           )}
 
                           {/* Shared Attachments */}
-                          {(m.attachments ?? []).map((att: any, idx: number) => (
-                            <a
-                              key={idx}
-                              href={`${BACKEND_URL}${att.url}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{
-                                display: "inline-flex", alignItems: "center", gap: 6, marginTop: 4,
-                                padding: "6px 10px", borderRadius: 8,
-                                background: "var(--bg-3)", border: "1px solid var(--color-border)",
-                                fontSize: "0.72rem", color: "var(--color-primary)", textDecoration: "none"
-                              }}
-                            >
-                              📎 {att.name}
-                            </a>
-                          ))}
+                          {(m.attachments ?? []).map((att: any, idx: number) => {
+                            const fileUrl = `${BACKEND_URL}${att.url}${token ? `?token=${token}` : ""}`;
+                            if (att.kind === "image") {
+                              return (
+                                <div key={idx} style={{ marginTop: 6, borderRadius: 8, overflow: "hidden", border: "1px solid var(--color-border)", maxWidth: 160 }}>
+                                  <a href={fileUrl} target="_blank" rel="noopener noreferrer">
+                                    <img src={fileUrl} alt={att.name} style={{ maxHeight: 120, maxWidth: "100%", display: "block", objectFit: "cover" }} />
+                                  </a>
+                                </div>
+                              );
+                            }
+                            if (att.kind === "video") {
+                              return (
+                                <div key={idx} style={{ marginTop: 6, borderRadius: 8, overflow: "hidden", border: "1px solid var(--color-border)", maxWidth: 200 }}>
+                                  <video src={fileUrl} controls style={{ maxHeight: 150, maxWidth: "100%", display: "block" }} />
+                                </div>
+                              );
+                            }
+                            return (
+                              <a
+                                key={idx}
+                                href={fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  display: "inline-flex", alignItems: "center", gap: 6, marginTop: 4,
+                                  padding: "6px 10px", borderRadius: 8,
+                                  background: "var(--bg-3)", border: "1px solid var(--color-border)",
+                                  fontSize: "0.72rem", color: "var(--color-primary)", textDecoration: "none"
+                                }}
+                              >
+                                📎 {att.name}
+                              </a>
+                            );
+                          })}
                         </div>
 
                         {!mine && (
@@ -655,7 +680,7 @@ function GroupDetailPage() {
                         </div>
                       </div>
                       <a 
-                        href={`${BACKEND_URL}${doc.url}`} 
+                        href={`${BACKEND_URL}${doc.url}${token ? `?token=${token}` : ""}`} 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="ss-btn ss-btn-outline" 
@@ -683,7 +708,7 @@ function GroupDetailPage() {
                   {sharedImages.map((img: any, idx: number) => (
                     <a 
                       key={idx}
-                      href={`${BACKEND_URL}${img.url}`} 
+                      href={`${BACKEND_URL}${img.url}${token ? `?token=${token}` : ""}`} 
                       target="_blank" 
                       rel="noopener noreferrer"
                       style={{
@@ -691,7 +716,7 @@ function GroupDetailPage() {
                         border: "1px solid var(--color-border)", background: "#000", display: "block"
                       }}
                     >
-                      <img src={`${BACKEND_URL}${img.url}`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      <img src={`${BACKEND_URL}${img.url}${token ? `?token=${token}` : ""}`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     </a>
                   ))}
                 </div>
@@ -891,5 +916,63 @@ function GroupDetailPage() {
         </div>
       )}
     </>
+  );
+}
+
+function SharedPostPreview({ postId, token }: { postId: string; token: string | null }) {
+  const { data: post, isLoading, error } = usePost(postId);
+
+  if (isLoading) {
+    return (
+      <div style={{ padding: "8px 12px", background: "var(--bg-3)", border: "1px solid var(--color-border)", borderRadius: 10, fontSize: "0.75rem", color: "var(--color-muted-foreground)" }}>
+        Loading post preview...
+      </div>
+    );
+  }
+
+  if (error || !post) {
+    return (
+      <div style={{ padding: "8px 12px", background: "var(--bg-3)", border: "1px solid var(--color-border)", borderRadius: 10, fontSize: "0.75rem", color: "#ff6b6b" }}>
+        Post not found or unavailable
+      </div>
+    );
+  }
+
+  const mediaSrc = post.mediaUrl
+    ? (post.mediaUrl.startsWith("http") ? post.mediaUrl : `${BACKEND_URL}${post.mediaUrl}${token ? `?token=${token}` : ""}`)
+    : null;
+
+  return (
+    <div style={{
+      padding: 10, background: "rgba(255,255,255,0.03)", border: "1px solid var(--color-border)",
+      borderRadius: 12, width: 220, display: "flex", flexDirection: "column", gap: 6,
+      textAlign: "left"
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{
+          width: 22, height: 22, borderRadius: "50%",
+          background: "var(--bg-2)", display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: "0.55rem", fontWeight: "bold"
+        }}>
+          {post.author.avatar ?? post.author.name[0]}
+        </div>
+        <span style={{ fontWeight: "bold", fontSize: "0.72rem", color: "#fff" }}>{post.author.name}</span>
+      </div>
+      <p style={{ margin: 0, fontSize: "0.75rem", color: "#ccc", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+        {post.content}
+      </p>
+      {mediaSrc && (
+        <div style={{ borderRadius: 6, overflow: "hidden", border: "1px solid var(--color-border)", background: "#000" }}>
+          {post.mediaType === "video" ? (
+            <div style={{ position: "relative", aspectRatio: "16/9" }}>
+              <video src={mediaSrc} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)", fontSize: "0.9rem" }}>▶</div>
+            </div>
+          ) : (
+            <img src={mediaSrc} alt="" style={{ width: "100%", maxHeight: 100, objectFit: "cover", display: "block" }} />
+          )}
+        </div>
+      )}
+    </div>
   );
 }

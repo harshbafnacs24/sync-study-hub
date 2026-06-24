@@ -9,6 +9,14 @@ export function useFeedPosts(page = 1, limit = 15) {
   });
 }
 
+export function usePost(id: string) {
+  return useQuery({
+    queryKey: ["post", id],
+    queryFn: () => postsStore.get(id),
+    enabled: !!id,
+  });
+}
+
 export function useStories() {
   return useQuery({
     queryKey: ["stories"],

@@ -8,6 +8,8 @@ import {
 import { api, BACKEND_URL } from "../../lib/api-client";
 import type { FeedPost } from "../../lib/types";
 import { toast } from "sonner";
+import { useFriends } from "../../lib/hooks/use-network";
+import { useStartConversation, useSendDM } from "../../lib/hooks/use-messaging";
 
 const GIF_PRESETS = [
   { url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3BndmdmM283OHZpdHhvbTh0cnNscjR2OHU3bzY2dnN6aWRnbWNnayZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/33OrjzUFwkwEg/giphy.gif", label: "🐱 Lofi" },
@@ -150,6 +152,7 @@ function ApiFeedPostCard({ post }: { post: FeedPost }) {
   const [commentText, setCommentText] = useState("");
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState(post.content);
+  const [sharing, setSharing] = useState(false);
   const isOwner = user?.id === post.authorId;
 
   const handleComment = (e: React.FormEvent) => {
@@ -232,7 +235,17 @@ function ApiFeedPostCard({ post }: { post: FeedPost }) {
         >
           💬 <span className="ss-mono" style={{ fontSize: "0.75rem", fontWeight: 700 }}>{post.commentCount}</span>
         </button>
+        <button
+          onClick={() => setSharing(true)}
+          style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: "var(--color-muted-foreground)" }}
+        >
+          📤 <span style={{ fontSize: "0.75rem", fontWeight: 700 }}>Share</span>
+        </button>
       </div>
+
+      {sharing && (
+        <SharePostModal postId={post.id} onClose={() => setSharing(false)} />
+      )}
 
       {showComments && (
         <div style={{ borderTop: "1px solid var(--color-border)", padding: 10, background: "rgba(255,255,255,0.01)" }}>
@@ -276,6 +289,108 @@ export function FeedSection({ suggestedSlot }: { suggestedSlot?: React.ReactNode
       ) : (
         posts.map((post) => <ApiFeedPostCard key={post.id} post={post} />)
       )}
+    </div>
+  );
+}
+
+function avatarGradient(id: string): string {
+  const hash = id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const colors = [
+    "linear-gradient(135deg, #e8ff47 0%, #a4c214 100%)",
+    "linear-gradient(135deg, #3ddc84 0%, #00a859 100%)",
+    "linear-gradient(135deg, #00b0ff 0%, #007bb5 100%)",
+    "linear-gradient(135deg, #ff4081 0%, #c60055 100%)",
+    "linear-gradient(135deg, #aa00ff 0%, #7200ca 100%)",
+    "linear-gradient(135deg, #ff6d00 0%, #b53d00 100%)",
+  ];
+  return colors[hash % colors.length];
+}
+
+function SharePostModal({ postId, onClose }: { postId: string; onClose: () => void }) {
+  const { data: friends = [], isLoading } = useFriends();
+  const startConv = useStartConversation();
+  const sendDM = useSendDM();
+  const [search, setSearch] = useState("");
+  const [sentMap, setSentMap] = useState<Record<string, boolean>>({});
+
+  const filtered = (friends ?? []).filter(f => 
+    (f.name ?? "").toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleShare = async (friendId: string) => {
+    try {
+      const conversation = await startConv.mutateAsync(friendId);
+      await sendDM.mutateAsync({
+        conversationId: conversation.id,
+        text: `[post:${postId}]`,
+      });
+      setSentMap(prev => ({ ...prev, [friendId]: true }));
+      toast.success("Post shared successfully!");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to share post");
+    }
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,0.85)",
+      display: "flex", alignItems: "center", justifyContent: "center", padding: 16
+    }}>
+      <div className="ss-card" style={{
+        background: "var(--bg-2)", border: "1px solid var(--color-border)", borderRadius: 16,
+        width: "100%", maxWidth: 360, padding: 18, display: "flex", flexDirection: "column", gap: 14
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "#fff" }}>Share Post to DM</span>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--color-muted-foreground)", cursor: "pointer", fontSize: "0.9rem" }}>
+            ✕
+          </button>
+        </div>
+
+        <input
+          className="ss-input"
+          placeholder="Search friends..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ width: "100%", fontSize: "0.78rem" }}
+        />
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 220, overflowY: "auto" }}>
+          {isLoading ? (
+            <div style={{ fontSize: "0.78rem", color: "var(--color-muted-foreground)", textAlign: "center", padding: 10 }}>Loading friends...</div>
+          ) : filtered.length === 0 ? (
+            <div style={{ fontSize: "0.78rem", color: "var(--color-muted-foreground)", textAlign: "center", padding: 10 }}>No friends found</div>
+          ) : (
+            filtered.map((friend) => (
+              <div key={friend.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "4px 0" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+                  {friend.avatar && (friend.avatar.startsWith("http") || friend.avatar.startsWith("/") || friend.avatar.startsWith("data:")) ? (
+                    <img src={friend.avatar} alt="" style={{ width: 30, height: 30, borderRadius: "50%", objectFit: "cover" }} />
+                  ) : (
+                    <div style={{
+                      width: 30, height: 30, borderRadius: "50%",
+                      background: avatarGradient(friend.id),
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontWeight: 800, color: "#0c0c0c", fontSize: "0.75rem"
+                    }}>
+                      {friend.avatar ?? friend.initials}
+                    </div>
+                  )}
+                  <span style={{ fontSize: "0.8rem", color: "#fff", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{friend.name}</span>
+                </div>
+                <button
+                  onClick={() => handleShare(friend.id)}
+                  disabled={sentMap[friend.id] || startConv.isPending || sendDM.isPending}
+                  className={sentMap[friend.id] ? "ss-btn ss-btn-outline" : "ss-btn ss-btn-primary"}
+                  style={{ padding: "4px 10px", fontSize: "0.7rem", borderRadius: 8 }}
+                >
+                  {sentMap[friend.id] ? "Sent ✓" : "Send"}
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   );
 }

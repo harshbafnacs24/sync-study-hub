@@ -944,6 +944,9 @@ export const api = {
     request<{ users: any[] }>("/api/v1/network/friends", { auth: true }),
 
   // Posts / Feed
+  getPost: (postId: string) =>
+    request<{ post: FeedPost }>(`/api/v1/posts/${postId}`, { auth: true }),
+
   getFeed: (page = 1, limit = 15) =>
     request<{ posts: FeedPost[] }>(`/api/v1/posts/feed?page=${page}&limit=${limit}`, { auth: true }),
 

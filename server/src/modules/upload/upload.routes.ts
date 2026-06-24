@@ -3,7 +3,7 @@ import fs from "fs";
 import { Router } from "express";
 import multer from "multer";
 import mongoose from "mongoose";
-import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
+import { requireAuth, optionalAuth, type AuthedRequest } from "../../middleware/auth.js";
 import { asyncHandler } from "../../middleware/validate.js";
 import { SharedFile } from "../../models/SharedFile.js";
 import { Conversation } from "../../models/Conversation.js";
@@ -54,6 +54,37 @@ const upload = multer({
 });
 
 export const uploadRouter = Router();
+
+uploadRouter.get("/:filename", optionalAuth, asyncHandler(async (req: AuthedRequest, res) => {
+  const doc = await SharedFile.findOne({ filename: req.params.filename });
+  if (!doc) return res.status(404).json({ error: "File not found" });
+
+  if (doc.conversationId) {
+    const conv = await Conversation.findById(doc.conversationId);
+    if (!conv?.participants.includes(req.userId!)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+  }
+
+  const channelId = doc.get("channelId");
+  if (channelId) {
+    const ch = await Channel.findById(channelId);
+    if (ch) {
+      const member = await CommunityMember.findOne({ communityId: ch.communityId, userId: req.userId });
+      if (!member) {
+        return res.status(403).json({ error: "Access denied: you must join the community to access this file" });
+      }
+    }
+  }
+
+  const filePath = path.join(UPLOAD_DIR, doc.filename);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: "File not found on disk" });
+
+  res.setHeader("Content-Type", doc.mimeType);
+  res.setHeader("Content-Disposition", `inline; filename="${doc.originalName}"`);
+  res.sendFile(filePath);
+}));
+
 uploadRouter.use(requireAuth);
 
 async function areFriends(userId: string, peerId: string): Promise<boolean> {
@@ -186,32 +217,3 @@ uploadRouter.post(
   }),
 );
 
-uploadRouter.get("/:filename", asyncHandler(async (req: AuthedRequest, res) => {
-  const doc = await SharedFile.findOne({ filename: req.params.filename });
-  if (!doc) return res.status(404).json({ error: "File not found" });
-
-  if (doc.conversationId) {
-    const conv = await Conversation.findById(doc.conversationId);
-    if (!conv?.participants.includes(req.userId!)) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-  }
-
-  const channelId = doc.get("channelId");
-  if (channelId) {
-    const ch = await Channel.findById(channelId);
-    if (ch) {
-      const member = await CommunityMember.findOne({ communityId: ch.communityId, userId: req.userId });
-      if (!member) {
-        return res.status(403).json({ error: "Access denied: you must join the community to access this file" });
-      }
-    }
-  }
-
-  const filePath = path.join(UPLOAD_DIR, doc.filename);
-  if (!fs.existsSync(filePath)) return res.status(404).json({ error: "File not found on disk" });
-
-  res.setHeader("Content-Type", doc.mimeType);
-  res.setHeader("Content-Disposition", `inline; filename="${doc.originalName}"`);
-  res.sendFile(filePath);
-}));
