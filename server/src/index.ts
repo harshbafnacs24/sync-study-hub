@@ -27,7 +27,13 @@ async function main() {
   app.use(
     cors({
       origin: (origin, cb) => {
-        if (!origin || env.corsOrigins.includes(origin) || env.corsOrigins.includes("*")) {
+        if (
+          !origin ||
+          env.corsOrigins.includes(origin) ||
+          env.corsOrigins.includes("*") ||
+          origin.endsWith(".vercel.app") ||
+          origin.endsWith(".workers.dev")
+        ) {
           return cb(null, true);
         }
         cb(new Error(`Origin not allowed: ${origin}`));

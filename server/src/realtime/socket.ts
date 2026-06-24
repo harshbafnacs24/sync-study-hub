@@ -30,7 +30,22 @@ export function emitToUser(userId: string, event: string, data: any) {
 
 export function attachSocket(httpServer: HttpServer) {
   io = new Server(httpServer, {
-    cors: { origin: env.corsOrigins, credentials: false },
+    cors: {
+      origin: (origin, callback) => {
+        if (
+          !origin ||
+          env.corsOrigins.includes(origin) ||
+          env.corsOrigins.includes("*") ||
+          origin.endsWith(".vercel.app") ||
+          origin.endsWith(".workers.dev")
+        ) {
+          callback(null, true);
+        } else {
+          callback(new Error(`Origin not allowed by Socket CORS: ${origin}`));
+        }
+      },
+      credentials: false,
+    },
   });
 
   io.use((socket: AnySocket, next: (err?: Error) => void) => {

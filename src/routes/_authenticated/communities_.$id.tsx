@@ -685,21 +685,28 @@ function GroupDetailPage() {
                     <div 
                       key={idx}
                       style={{
-                        padding: 12, background: "var(--bg-2)", border: "1px solid var(--color-border)",
-                        borderRadius: 10, display: "flex", alignItems: "center", gap: 12
+                        display: "flex", gap: 12, alignItems: "center", padding: 10,
+                        background: "rgba(255,255,255,0.02)", borderRadius: 10,
+                        border: "1px solid var(--color-border)"
                       }}
                     >
-                      <FileText size={24} style={{ color: "var(--color-primary)", flexShrink: 0 }} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, fontSize: "0.82rem", color: "#fff", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
-                          {doc.name}
-                        </div>
-                        <div style={{ fontSize: "0.68rem", color: "var(--color-muted-foreground)", marginTop: 2 }}>
-                          {Math.round(doc.size / 1024)} KB · Shared {timeAgo(doc.createdAt)}
+                      <div 
+                        onClick={() => setPreviewFile({ url: doc.url, name: doc.name, kind: doc.kind || (doc.name.endsWith(".pdf") ? "pdf" : "doc") })}
+                        style={{ flex: 1, minWidth: 0, display: "flex", gap: 12, alignItems: "center", cursor: "pointer" }}
+                      >
+                        <FileText size={24} style={{ color: "var(--color-primary)", flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: "0.82rem", color: "#fff", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+                            {doc.name}
+                          </div>
+                          <div style={{ fontSize: "0.68rem", color: "var(--color-muted-foreground)", marginTop: 2 }}>
+                            {Math.round(doc.size / 1024)} KB · Shared {timeAgo(doc.createdAt)}
+                          </div>
                         </div>
                       </div>
                       <a 
-                        href={`${BACKEND_URL}${doc.url}${token ? `?token=${token}` : ""}`} 
+                        href={`${BACKEND_URL}${doc.url}${token ? `?token=${token}&download=true` : "?download=true"}`}
+                        download={doc.name}
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="ss-btn ss-btn-outline" 
@@ -725,18 +732,17 @@ function GroupDetailPage() {
               ) : (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
                   {sharedImages.map((img: any, idx: number) => (
-                    <a 
+                    <button 
                       key={idx}
-                      href={`${BACKEND_URL}${img.url}${token ? `?token=${token}` : ""}`} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
+                      onClick={() => setPreviewFile({ url: img.url, name: img.name || "Media File", kind: img.kind || (img.name?.endsWith(".mp4") || img.name?.endsWith(".mov") ? "video" : "image") })}
                       style={{
                         aspectRatio: "1/1", borderRadius: 10, overflow: "hidden",
-                        border: "1px solid var(--color-border)", background: "#000", display: "block"
+                        border: "1px solid var(--color-border)", background: "#000", display: "block",
+                        padding: 0, width: "100%", cursor: "pointer"
                       }}
                     >
                       <img src={`${BACKEND_URL}${img.url}${token ? `?token=${token}` : ""}`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    </a>
+                    </button>
                   ))}
                 </div>
               )}
