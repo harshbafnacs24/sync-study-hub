@@ -42,6 +42,11 @@ interface FocusContextValue {
   dismissCompletion: () => void;
   checkpoint: { percent: number } | null;
   dismissCheckpoint: (action: "continue" | "change" | "pause") => void;
+  isAlarmRinging: boolean;
+  alarmSound: string;
+  changeAlarmSound: (id: string) => void;
+  stopAlarm: () => void;
+  snoozeAlarm: () => void;
 }
 
 const FocusContext = createContext<FocusContextValue | null>(null);
@@ -71,6 +76,59 @@ export function FocusProvider({ children }: { children: ReactNode }) {
   const warned5 = useRef(false);
   const warned1 = useRef(false);
   const inactivityWarned = useRef(false);
+
+  const [isAlarmRinging, setIsAlarmRinging] = useState(false);
+  const [alarmSound, setAlarmSound] = useState(() => localStorage.getItem("focus.alarmSound") ?? "forest");
+
+  const alarmAudioRef = useRef<HTMLAudioElement | null>(null);
+  const vibrationIntervalRef = useRef<number | null>(null);
+
+  const triggerAlarm = useCallback(() => {
+    setIsAlarmRinging(true);
+    const soundFile = alarmSound === "rain" ? "/rain.mp3.mpeg" : "/forest.mp3.mpeg";
+    if (alarmAudioRef.current) {
+      alarmAudioRef.current.pause();
+      alarmAudioRef.current = null;
+    }
+    const audio = new Audio(soundFile);
+    audio.loop = true;
+    audio.volume = 0.8;
+    audio.play().catch((err) => {
+      console.error("Failed to play alarm audio:", err);
+      toast.error("Failed to play alarm sound. Please check your browser audio permissions.");
+    });
+    alarmAudioRef.current = audio;
+
+    if (navigator.vibrate) {
+      navigator.vibrate([500, 500, 500, 500]);
+      if (vibrationIntervalRef.current) {
+        window.clearInterval(vibrationIntervalRef.current);
+      }
+      vibrationIntervalRef.current = window.setInterval(() => {
+        navigator.vibrate([500, 500, 500, 500]);
+      }, 2000);
+    }
+  }, [alarmSound]);
+
+  const stopAlarm = useCallback(() => {
+    setIsAlarmRinging(false);
+    if (alarmAudioRef.current) {
+      alarmAudioRef.current.pause();
+      alarmAudioRef.current = null;
+    }
+    if (vibrationIntervalRef.current) {
+      window.clearInterval(vibrationIntervalRef.current);
+      vibrationIntervalRef.current = null;
+    }
+    if (navigator.vibrate) {
+      navigator.vibrate(0);
+    }
+  }, []);
+
+  const changeAlarmSound = useCallback((id: string) => {
+    setAlarmSound(id);
+    localStorage.setItem("focus.alarmSound", id);
+  }, []);
 
   const stop = useCallback(() => {
     if (tickRef.current) { window.clearInterval(tickRef.current); tickRef.current = null; }
@@ -110,6 +168,7 @@ export function FocusProvider({ children }: { children: ReactNode }) {
 
         if (remaining === 0) {
           const finalized = sessionsStore.finalize(updated, "completed");
+          triggerAlarm();
           if (updated.kind === "focus") {
             setCompletedSession(finalized);
             setShowCompletionModal(true);
@@ -130,7 +189,7 @@ export function FocusProvider({ children }: { children: ReactNode }) {
       });
     }, 1000);
     return stop;
-  }, [state.isRunning, state.session?.id, stop, user]);
+  }, [state.isRunning, state.session?.id, stop, user, triggerAlarm]);
 
   // Inactivity detection
   useEffect(() => {
@@ -207,12 +266,14 @@ export function FocusProvider({ children }: { children: ReactNode }) {
   }, [state.session]);
 
   const cancel = useCallback(() => {
+    stopAlarm();
     if (state.session) sessionsStore.finalize(state.session, "cancelled");
     setState({ session: null, remaining: 0, isRunning: false });
     setCheckpoint(null);
-  }, [state.session]);
+  }, [state.session, stopAlarm]);
 
   const completeWithFeedback = useCallback((data: Parameters<FocusContextValue["completeWithFeedback"]>[0]) => {
+    stopAlarm();
     if (!completedSession) return;
     const extra = {
       completionStatus: data.status,
@@ -237,7 +298,7 @@ export function FocusProvider({ children }: { children: ReactNode }) {
     }
 
     setCompletedSession(null);
-  }, [completedSession, navigate, requestStart]);
+  }, [completedSession, navigate, requestStart, stopAlarm]);
 
   const dismissCheckpoint = useCallback((action: "continue" | "change" | "pause") => {
     setCheckpoint(null);
@@ -250,6 +311,7 @@ export function FocusProvider({ children }: { children: ReactNode }) {
   }, [pause, state.remaining]);
 
   const dismissCompletion = () => {
+    stopAlarm();
     setShowCompletionModal(false);
     setCompletedSession(null);
   };
@@ -257,6 +319,28 @@ export function FocusProvider({ children }: { children: ReactNode }) {
   const dismissStart = useCallback(() => {
     setShowStartModal(false);
     setPendingStart(null);
+  }, []);
+
+  const snoozeAlarm = useCallback(() => {
+    stopAlarm();
+    start("focus", 5, { taskGoal: "Snooze (5m)" });
+  }, [stopAlarm, start]);
+
+  // Clean up alarm media context on unmount
+  useEffect(() => {
+    return () => {
+      if (alarmAudioRef.current) {
+        alarmAudioRef.current.pause();
+        alarmAudioRef.current = null;
+      }
+      if (vibrationIntervalRef.current) {
+        window.clearInterval(vibrationIntervalRef.current);
+        vibrationIntervalRef.current = null;
+      }
+      if (navigator.vibrate) {
+        navigator.vibrate(0);
+      }
+    };
   }, []);
 
   return (
@@ -281,6 +365,11 @@ export function FocusProvider({ children }: { children: ReactNode }) {
       dismissCompletion,
       checkpoint,
       dismissCheckpoint,
+      isAlarmRinging,
+      alarmSound,
+      changeAlarmSound,
+      stopAlarm,
+      snoozeAlarm,
     }}>
       {children}
     </FocusContext.Provider>

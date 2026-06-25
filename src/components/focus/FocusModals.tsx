@@ -34,6 +34,13 @@ export function FocusModals() {
           onSkip={focus.dismissCompletion}
         />
       )}
+      {focus.isAlarmRinging && (
+        <AlarmRingingModal
+          soundName={focus.alarmSound === "rain" ? "Rain" : "Forest"}
+          onDismiss={focus.stopAlarm}
+          onSnooze={focus.snoozeAlarm}
+        />
+      )}
     </>
   );
 }
@@ -201,5 +208,28 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
         {children}
       </div>
     </div>
+  );
+}
+
+function AlarmRingingModal({ soundName, onDismiss, onSnooze }: {
+  soundName: string;
+  onDismiss: () => void;
+  onSnooze: () => void;
+}) {
+  return (
+    <Modal title="⏰ Alarm Ringing!" onClose={onDismiss}>
+      <p style={{ fontSize: "0.85rem", marginBottom: 16, textAlign: "center", color: "var(--color-foreground)" }}>
+        Your study timer has completed!<br />
+        Alarm sound: <strong>{soundName}</strong>
+      </p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <button className="ss-btn ss-btn-primary" style={{ justifyContent: "center" }} onClick={onDismiss}>
+          Dismiss / Stop
+        </button>
+        <button className="ss-btn ss-btn-outline" style={{ justifyContent: "center" }} onClick={onSnooze}>
+          Snooze (5 mins)
+        </button>
+      </div>
+    </Modal>
   );
 }

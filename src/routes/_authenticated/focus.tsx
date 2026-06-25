@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import { PageTransition } from "../../components/shell/PageTransition";
-import { Play, Pause, X, RotateCcw, Target, Music, ChevronDown, CheckCircle2, Clock, Flame, TrendingUp, SkipForward, Minimize2, Eye, EyeOff } from "lucide-react";
+import { Play, Pause, X, RotateCcw, Target, Music, ChevronDown, CheckCircle2, Clock, Flame, TrendingUp, SkipForward, Minimize2, Eye, EyeOff, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "../../components/ui-kit/Card";
 import { useFocus } from "../../lib/focus/focus-context";
@@ -94,6 +94,7 @@ function FocusPage() {
   // Sound
   const [soundId, setSoundId] = useState("none");
   const [showSounds, setShowSounds] = useState(false);
+  const [showAlarms, setShowAlarms] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Pomodoro cycle tracker
@@ -380,7 +381,7 @@ function FocusPage() {
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <Music size={14} style={{ color: "var(--color-primary)" }} />
               <span style={{ fontSize: "0.85rem", color: "var(--color-foreground)" }}>
-                {SOUNDS.find(s => s.id === soundId)?.emoji} {SOUNDS.find(s => s.id === soundId)?.label}
+                Ambient: {SOUNDS.find(s => s.id === soundId)?.emoji} {SOUNDS.find(s => s.id === soundId)?.label}
               </span>
             </div>
             <ChevronDown size={14} style={{ color: "var(--color-muted-foreground)", transform: showSounds ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
@@ -394,6 +395,36 @@ function FocusPage() {
                     background: soundId === s.id ? "rgba(200,255,0,0.1)" : "transparent",
                     color: soundId === s.id ? "var(--color-primary)" : "var(--color-foreground)" }}>
                   {s.emoji} {s.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── Focus Alarm sound ── */}
+        <div className="ss-card" style={{ marginBottom: 14, padding: "10px 14px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: showAlarms ? 10 : 0, cursor: "pointer" }}
+            onClick={() => setShowAlarms(!showAlarms)}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Volume2 size={14} style={{ color: "var(--color-primary)" }} />
+              <span style={{ fontSize: "0.85rem", color: "var(--color-foreground)" }}>
+                Alarm Sound: {focus.alarmSound === "rain" ? "🌧️ Rain" : "🌲 Forest"}
+              </span>
+            </div>
+            <ChevronDown size={14} style={{ color: "var(--color-muted-foreground)", transform: showAlarms ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+          </div>
+          {showAlarms && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {[
+                { id: "forest", label: "Forest", emoji: "🌲" },
+                { id: "rain", label: "Rain", emoji: "🌧️" },
+              ].map(a => (
+                <button key={a.id} onClick={() => { focus.changeAlarmSound(a.id); setShowAlarms(false); }}
+                  style={{ padding: "6px 12px", borderRadius: 20, fontSize: "0.78rem", cursor: "pointer",
+                    border: `1px solid ${focus.alarmSound === a.id ? "rgba(200,255,0,0.3)" : "var(--color-border)"}`,
+                    background: focus.alarmSound === a.id ? "rgba(200,255,0,0.1)" : "transparent",
+                    color: focus.alarmSound === a.id ? "var(--color-primary)" : "var(--color-foreground)" }}>
+                  {a.emoji} {a.label}
                 </button>
               ))}
             </div>
