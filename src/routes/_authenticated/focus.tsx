@@ -32,10 +32,10 @@ const SUBJECTS = ["Algorithms", "Data Structures", "DBMS", "OS", "Networks", "Ma
 
 const SOUNDS: { id: string; label: string; emoji: string; url: string }[] = [
   { id: "none",   label: "No sound",   emoji: "🔇", url: "" },
-  { id: "lofi",   label: "Lo-fi",      emoji: "🎵", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
-  { id: "rain",   label: "Rain",       emoji: "🌧️", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" },
-  { id: "cafe",   label: "Café",       emoji: "☕", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" },
-  { id: "forest", label: "Forest",     emoji: "🌲", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" },
+  { id: "lofi",   label: "Lo-fi",      emoji: "🎵", url: "/audio/lofi.mp3" },
+  { id: "rain",   label: "Rain",       emoji: "🌧️", url: "/audio/rain.mp3" },
+  { id: "cafe",   label: "Café",       emoji: "☕", url: "/audio/cafe.mp3" },
+  { id: "forest", label: "Forest",     emoji: "🌲", url: "/audio/forest.mp3" },
 ];
 
 const POMODORO_CYCLE = 4; // sessions before long break
