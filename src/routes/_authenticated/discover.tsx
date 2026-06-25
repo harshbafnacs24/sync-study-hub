@@ -832,8 +832,9 @@ function DiscoverPage() {
     try {
       const { file: uploaded } = await api.uploadPostMedia(file);
       setCreatorMediaUrl(`${BACKEND_URL}${uploaded.url}`);
-      setCreatorMediaType(uploaded.mediaType);
-      toast.success(`${uploaded.mediaType} attached successfully!`);
+      const mediaTypeResolved = (uploaded.mediaType || (uploaded as any).kind || "image") as "image" | "video" | "gif";
+      setCreatorMediaType(mediaTypeResolved);
+      toast.success(`${mediaTypeResolved} attached successfully!`);
     } catch (err: any) {
       toast.error(err?.message ?? "Media upload failed");
     } finally {
@@ -864,7 +865,18 @@ function DiscoverPage() {
         toast.success(`${creatorType.toUpperCase()} shared!`);
       },
       onError: (err: any) => {
-        toast.error(err?.message ?? "Failed to share update");
+        let errMsg = err?.message ?? "Failed to share update";
+        if (err?.details?.fieldErrors) {
+          const errors = Object.entries(err.details.fieldErrors)
+            .map(([field, msgs]) => `${field}: ${(msgs as string[]).join(", ")}`)
+            .join("; ");
+          if (errors) {
+            errMsg = `Validation failed - ${errors}`;
+          }
+        } else if (err?.details?.formErrors && err.details.formErrors.length > 0) {
+          errMsg = `Validation failed - ${err.details.formErrors.join(", ")}`;
+        }
+        toast.error(errMsg);
       }
     });
   };

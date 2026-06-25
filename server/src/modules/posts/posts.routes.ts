@@ -91,7 +91,17 @@ const createSchema = z.object({
   path: ["content"],
 });
 postsRouter.post("/", validate(createSchema), asyncHandler(async (req: AuthedRequest, res) => {
-  const { content, mediaUrl, mediaType, type } = req.body as { content?: string; mediaUrl?: string | null; mediaType?: "image" | "video" | "gif" | null; type?: "post" | "story" };
+  let { content, mediaUrl, mediaType, type } = req.body as { content?: string; mediaUrl?: string | null; mediaType?: "image" | "video" | "gif" | null; type?: "post" | "story" };
+  if (mediaUrl && !mediaType) {
+    const ext = mediaUrl.split("?")[0].split(".").pop()?.toLowerCase();
+    if (ext === "gif") {
+      mediaType = "gif";
+    } else if (["mp4", "webm", "mov", "quicktime"].includes(ext || "")) {
+      mediaType = "video";
+    } else {
+      mediaType = "image";
+    }
+  }
   const post = await Post.create({ authorId: req.userId, content: content ?? "", mediaUrl: mediaUrl ?? null, mediaType: mediaType ?? null, type: type ?? "post" });
   res.status(201).json({ post: await serializePost(post, req.userId!) });
 }));

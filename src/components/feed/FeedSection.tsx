@@ -48,7 +48,8 @@ function CreatePostForm() {
     try {
       const { file: uploaded } = await api.uploadPostMedia(file);
       setMediaUrl(`${BACKEND_URL}${uploaded.url}`);
-      setMediaType(uploaded.mediaType);
+      const mediaTypeResolved = (uploaded.mediaType || (uploaded as any).kind || "image") as "image" | "video" | "gif";
+      setMediaType(mediaTypeResolved);
       toast.success("Image attached");
     } catch (err: any) {
       toast.error(err?.message ?? "Upload failed");
@@ -61,9 +62,7 @@ function CreatePostForm() {
     e.preventDefault();
     if (!content.trim() && !mediaUrl) return;
     create.mutate(
-      mediaUrl && mediaType
-        ? { content: content.trim(), mediaUrl, mediaType }
-        : content.trim(),
+      { content: content.trim(), mediaUrl: mediaUrl || undefined, mediaType: mediaType || undefined },
       {
         onSuccess: () => {
           setContent("");
@@ -72,7 +71,20 @@ function CreatePostForm() {
           setOpen(false);
           toast.success("Post shared!");
         },
-        onError: () => toast.error("Failed to create post"),
+        onError: (err: any) => {
+          let errMsg = err?.message ?? "Failed to create post";
+          if (err?.details?.fieldErrors) {
+            const errors = Object.entries(err.details.fieldErrors)
+              .map(([field, msgs]) => `${field}: ${(msgs as string[]).join(", ")}`)
+              .join("; ");
+            if (errors) {
+              errMsg = `Validation failed - ${errors}`;
+            }
+          } else if (err?.details?.formErrors && err.details.formErrors.length > 0) {
+            errMsg = `Validation failed - ${err.details.formErrors.join(", ")}`;
+          }
+          toast.error(errMsg);
+        },
       },
     );
   };

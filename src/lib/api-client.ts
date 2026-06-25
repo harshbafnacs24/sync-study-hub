@@ -39,9 +39,11 @@ const MOCK_USER: AuthUser = {
 
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  details?: any;
+  constructor(message: string, status: number, details?: any) {
     super(message);
     this.status = status;
+    this.details = details;
   }
 }
 
@@ -778,6 +780,7 @@ async function request<T>(
   }
   let res: Response;
   try {
+    console.log(`[API Request] ${rest.method || "GET"} ${path}`, rest.body ? JSON.parse(String(rest.body)) : "");
     res = await fetch(`${API_BASE_URL}${path}`, { ...rest, headers: finalHeaders });
   } catch (err) {
     if (typeof window !== "undefined" && (window.localStorage.getItem("sas.demo_mode") === "true" || window.sessionStorage.getItem("sas.demo_mode") === "true")) {
@@ -789,6 +792,7 @@ async function request<T>(
   }
   const text = await res.text();
   const data = text ? safeJson(text) : null;
+  console.log(`[API Response] ${res.status} for ${path}:`, data);
   if (!res.ok) {
     if (res.status === 401) {
       tokenStore.clear();
@@ -799,8 +803,8 @@ async function request<T>(
     const msg =
       (data && typeof data === "object" && "error" in data && (data as any).error) ||
       `Request failed (${res.status})`;
-    console.error(`[API Response Error] ${res.status} for ${path}:`, msg);
-    throw new ApiError(String(msg), res.status);
+    console.error(`[API Response Error] ${res.status} for ${path}:`, msg, data);
+    throw new ApiError(String(msg), res.status, data && typeof data === "object" && "details" in data ? (data as any).details : undefined);
   }
   return data as T;
 }

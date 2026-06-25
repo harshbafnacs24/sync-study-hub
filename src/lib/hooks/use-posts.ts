@@ -39,7 +39,14 @@ export function useCreatePost() {
     mutationFn: (input: string | { content: string; mediaUrl?: string; mediaType?: "image" | "video" | "gif"; type?: "post" | "story" }) => {
       if (typeof input === "string") return postsStore.create(input);
       const { content, mediaUrl, mediaType, type } = input;
-      return postsStore.create(content, mediaUrl && mediaType ? { mediaUrl, mediaType } : undefined, type);
+      let resolvedMediaType = mediaType;
+      if (mediaUrl && !resolvedMediaType) {
+        const ext = mediaUrl.split("?")[0].split(".").pop()?.toLowerCase();
+        if (ext === "gif") resolvedMediaType = "gif";
+        else if (["mp4", "webm", "mov"].includes(ext || "")) resolvedMediaType = "video";
+        else resolvedMediaType = "image";
+      }
+      return postsStore.create(content, mediaUrl ? { mediaUrl, mediaType: resolvedMediaType || "image" } : undefined, type);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["feed-posts"] });
