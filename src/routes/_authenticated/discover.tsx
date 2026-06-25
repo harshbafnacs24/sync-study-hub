@@ -883,7 +883,7 @@ function DiscoverPage() {
 
 
     createPost.mutate({
-      content: creatorContent.trim(),
+      content: creatorContent.trim() || undefined,
       mediaUrl: creatorMediaUrl || undefined,
       mediaType: creatorMediaType || undefined,
       type: creatorType

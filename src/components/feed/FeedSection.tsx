@@ -62,7 +62,7 @@ function CreatePostForm() {
     e.preventDefault();
     if (!content.trim() && !mediaUrl) return;
     create.mutate(
-      { content: content.trim(), mediaUrl: mediaUrl || undefined, mediaType: mediaType || undefined },
+      { content: content.trim() || undefined, mediaUrl: mediaUrl || undefined, mediaType: mediaType || undefined },
       {
         onSuccess: () => {
           setContent("");

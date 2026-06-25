@@ -86,7 +86,11 @@ const createSchema = z.object({
   mediaUrl: z.string().optional().nullable(),
   mediaType: z.enum(["image", "video", "gif"]).optional().nullable(),
   type: z.enum(["post", "story"]).optional().default("post"),
-}).refine((data) => (data.content && data.content.trim().length > 0) || !!data.mediaUrl, {
+}).refine((data) => {
+  const hasContent = typeof data.content === "string" && data.content.trim().length > 0;
+  const hasMedia = typeof data.mediaUrl === "string" && data.mediaUrl.trim().length > 0;
+  return hasContent || hasMedia;
+}, {
   message: "Either content or mediaUrl is required",
   path: ["content"],
 });
