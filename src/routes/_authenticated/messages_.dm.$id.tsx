@@ -16,7 +16,7 @@ import { usePost } from "../../lib/hooks/use-posts";
 import { timeAgo } from "../../components/messaging/Avatar";
 import { FilePreviewModal } from "../../components/messaging/FilePreviewModal";
 
-export const Route = createFileRoute("/_authenticated/messages/dm/$id")({
+export const Route = createFileRoute("/_authenticated/messages_/dm/$id")({
   head: () => ({ meta: [{ title: "Conversation — Sync & Study" }] }),
   component: DMPage,
 });
@@ -24,7 +24,7 @@ export const Route = createFileRoute("/_authenticated/messages/dm/$id")({
 const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
 function DMPage() {
-  const { id } = useParams({ from: "/_authenticated/messages/dm/$id" });
+  const { id } = useParams({ from: "/_authenticated/messages_/dm/$id" });
   const nav = useNavigate();
   const { user: currentUser } = useAuth();
   const token = tokenStore.get();

@@ -863,8 +863,8 @@ function DiscoverPage() {
         setCreatorOpen(false);
         toast.success(`${creatorType.toUpperCase()} shared!`);
       },
-      onError: () => {
-        toast.error("Failed to share update");
+      onError: (err: any) => {
+        toast.error(err?.message ?? "Failed to share update");
       }
     });
   };
