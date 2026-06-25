@@ -168,6 +168,8 @@ function StoryModal({ stories, onClose }: StoryModalProps) {
   const [index, setIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const story = stories[index];
+  const { user: currentUser } = useAuth();
+  const deletePost = useDeletePost();
 
   useEffect(() => {
     setProgress(0);
@@ -190,6 +192,30 @@ function StoryModal({ stories, onClose }: StoryModalProps) {
   }, [index, stories.length, onClose]);
 
   if (!story) return null;
+
+  const isOwner = currentUser?.id === story.authorId;
+
+  const handleDelete = () => {
+    if (window.confirm("Are you sure you want to delete this story?")) {
+      deletePost.mutate(story.id, {
+        onSuccess: () => {
+          toast.success("Story deleted!");
+          if (stories.length === 1) {
+            onClose();
+          } else {
+            if (index > 0) {
+              setIndex((idx) => idx - 1);
+            } else {
+              setIndex(0);
+            }
+          }
+        },
+        onError: (err: any) => {
+          toast.error(err?.message ?? "Failed to delete story");
+        }
+      });
+    }
+  };
 
   const mediaSrc = story.mediaUrl?.startsWith("http") ? story.mediaUrl : story.mediaUrl ? `${BACKEND_URL}${story.mediaUrl}` : "";
 
@@ -226,6 +252,11 @@ function StoryModal({ stories, onClose }: StoryModalProps) {
             <div style={{ color: "#fff", fontWeight: 700, fontSize: "0.85rem" }}>{story.author.name}</div>
             <div style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.68rem" }}>{timeAgo(story.createdAt)}</div>
           </div>
+          {isOwner && (
+            <button onClick={handleDelete} disabled={deletePost.isPending} style={{ background: "none", border: "none", color: "#ff4d4d", cursor: "pointer", display: "flex", alignItems: "center", padding: "0 8px" }}>
+              <Trash2 size={16} />
+            </button>
+          )}
           <button onClick={onClose} style={{ background: "none", border: "none", color: "#fff", fontSize: "1.5rem", fontWeight: 300, cursor: "pointer", padding: "0 8px" }}>×</button>
         </div>
       </div>

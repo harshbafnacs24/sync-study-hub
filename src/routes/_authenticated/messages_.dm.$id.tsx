@@ -111,7 +111,20 @@ function DMPage() {
         setReplyTo(null);
         socketBus.emit("typing:stop", { userId: currentUser?.id, room: `conv:${id}` });
       },
-      onError: () => toast.error("Failed to send message")
+      onError: (err: any) => {
+        let errMsg = err?.message ?? "Failed to send message";
+        if (err?.details?.fieldErrors) {
+          const errors = Object.entries(err.details.fieldErrors)
+            .map(([field, msgs]) => `${field}: ${(msgs as string[]).join(", ")}`)
+            .join("; ");
+          if (errors) {
+            errMsg = `Validation failed - ${errors}`;
+          }
+        } else if (err?.details?.formErrors && err.details.formErrors.length > 0) {
+          errMsg = `Validation failed - ${err.details.formErrors.join(", ")}`;
+        }
+        toast.error(errMsg);
+      }
     });
   };
 
@@ -141,7 +154,20 @@ function DMPage() {
         setPollOpen(false);
         toast.success("Poll shared!");
       },
-      onError: () => toast.error("Failed to send poll")
+      onError: (err: any) => {
+        let errMsg = err?.message ?? "Failed to send poll";
+        if (err?.details?.fieldErrors) {
+          const errors = Object.entries(err.details.fieldErrors)
+            .map(([field, msgs]) => `${field}: ${(msgs as string[]).join(", ")}`)
+            .join("; ");
+          if (errors) {
+            errMsg = `Validation failed - ${errors}`;
+          }
+        } else if (err?.details?.formErrors && err.details.formErrors.length > 0) {
+          errMsg = `Validation failed - ${err.details.formErrors.join(", ")}`;
+        }
+        toast.error(errMsg);
+      }
     });
   };
 
@@ -163,6 +189,20 @@ function DMPage() {
         onSuccess: () => {
           setReplyTo(null);
           toast.success("File shared successfully");
+        },
+        onError: (err: any) => {
+          let errMsg = err?.message ?? "File upload failed";
+          if (err?.details?.fieldErrors) {
+            const errors = Object.entries(err.details.fieldErrors)
+              .map(([field, msgs]) => `${field}: ${(msgs as string[]).join(", ")}`)
+              .join("; ");
+            if (errors) {
+              errMsg = `Validation failed - ${errors}`;
+            }
+          } else if (err?.details?.formErrors && err.details.formErrors.length > 0) {
+            errMsg = `Validation failed - ${err.details.formErrors.join(", ")}`;
+          }
+          toast.error(errMsg);
         }
       });
     } catch (err: any) {
