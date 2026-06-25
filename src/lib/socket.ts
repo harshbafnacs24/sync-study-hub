@@ -97,6 +97,8 @@ export function disconnectSocket() {
 export const SocketEvents = {
   MessageNew: "message:new",
   MessageRead: "message:read",
+  MessageDeleted: "message:deleted",
+  MessageUpdated: "message:updated",
   TypingStart: "typing:start",
   TypingStop: "typing:stop",
   PresenceOnline: "presence:online",

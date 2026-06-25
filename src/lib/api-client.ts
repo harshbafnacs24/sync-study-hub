@@ -270,24 +270,6 @@ function getDemoPosts(): any[] {
       viewsCount: 1,
       saved: false,
       shared: false
-    },
-    {
-      id: "reel-1",
-      authorId: "riya_id",
-      content: "Sage AI has some suggestions. Study grind on AI models! 🤖✨",
-      mediaUrl: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmtlbjNuZnoxOHl6aThnZTR3cnR5bGVsbGlqZWV4ZXplMW13bzdhOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/13HgwGsXF0aiGY/giphy.gif",
-      mediaType: "gif",
-      type: "reel",
-      createdAt: new Date(Date.now() - 86400000).toISOString(),
-      author: { id: "riya_id", name: "Riya Sharma", avatar: "👩‍🏫", school: "ABC College" },
-      likeCount: 15,
-      liked: false,
-      commentCount: 1,
-      savesCount: 0,
-      sharesCount: 0,
-      viewsCount: 0,
-      saved: false,
-      shared: false
     }
   ];
   window.localStorage.setItem("sas.feed_posts", JSON.stringify(seed));
@@ -387,9 +369,6 @@ function handleOfflineRequest(path: string, init: any): any {
     }
     if (path.includes("/stories")) {
       return { stories: demoPosts.filter((p) => p.type === "story") };
-    }
-    if (path.includes("/reels")) {
-      return { reels: demoPosts.filter((p) => p.type === "reel") };
     }
     if (path.includes("/saved")) {
       return { posts: demoPosts.filter((p) => p.saves?.includes(currentUserId) || p.saved) };
@@ -951,13 +930,10 @@ export const api = {
   getStories: () =>
     request<{ stories: FeedPost[] }>("/api/v1/posts/stories", { auth: true }),
 
-  getReels: () =>
-    request<{ reels: FeedPost[] }>("/api/v1/posts/reels", { auth: true }),
-
   getSavedPosts: () =>
     request<{ posts: FeedPost[] }>("/api/v1/posts/saved", { auth: true }),
 
-  createPost: (content: string = "", media?: { mediaUrl: string; mediaType: "image" | "video" | "gif" }, type?: "post" | "story" | "reel") =>
+  createPost: (content: string = "", media?: { mediaUrl: string; mediaType: "image" | "video" | "gif" }, type?: "post" | "story") =>
     request<{ post: FeedPost }>("/api/v1/posts", {
       method: "POST",
       auth: true,

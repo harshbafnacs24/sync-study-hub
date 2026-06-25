@@ -13,22 +13,29 @@ export function useLiveInbox() {
     const offMsg = socketBus.on(SocketEvents.MessageNew, () => {
       qc.invalidateQueries({ queryKey: ["conversations"] });
     });
+    const offDel = socketBus.on(SocketEvents.MessageDeleted, () => {
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+    });
     const offConv = socketBus.on(SocketEvents.ConversationUpdated, () => {
       qc.invalidateQueries({ queryKey: ["conversations"] });
     });
-    return () => { offMsg(); offConv(); };
+    return () => { offMsg(); offDel(); offConv(); };
   }, [qc]);
 }
 
 export function useLiveDM(conversationId: string) {
   const qc = useQueryClient();
   useEffect(() => {
-    const off = socketBus.on(SocketEvents.MessageNew, (p: { conversationId: string }) => {
-      if (p?.conversationId === conversationId) {
+    const invalidate = (p: { conversationId?: string }) => {
+      if (!p?.conversationId || p.conversationId === conversationId) {
         qc.invalidateQueries({ queryKey: ["dms", conversationId] });
+        qc.invalidateQueries({ queryKey: ["conversations"] });
       }
-    });
-    return off;
+    };
+    const offNew = socketBus.on(SocketEvents.MessageNew, invalidate);
+    const offDel = socketBus.on(SocketEvents.MessageDeleted, invalidate);
+    const offUpd = socketBus.on(SocketEvents.MessageUpdated, invalidate);
+    return () => { offNew(); offDel(); offUpd(); };
   }, [qc, conversationId]);
 }
 

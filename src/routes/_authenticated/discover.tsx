@@ -32,7 +32,6 @@ import {
 import {
   useFeedPosts,
   useStories,
-  useReels,
   useSavedPosts,
   useCreatePost,
   useToggleLike,
@@ -738,7 +737,7 @@ function SuggestedFriendCard({ user, matchText }: { user: any; matchText: string
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
 function DiscoverPage() {
   const [tab, setTab] = useState<DiscoverTab>("feed");
-  const [feedSubTab, setFeedSubTab] = useState<"posts" | "reels" | "saved">("posts");
+  const [feedSubTab, setFeedSubTab] = useState<"posts" | "saved">("posts");
   const [query, setQuery] = useState("");
   const { user: currentUser } = useAuth();
   const navigate = useNavigate();
@@ -779,10 +778,9 @@ function DiscoverPage() {
     return () => { offStart(); offStop(); };
   }, []);
 
-  // --- Posts, Stories & Reels Data ---
+  // --- Posts & Stories Data ---
   const feedPosts = useFeedPosts();
   const stories = useStories();
-  const reels = useReels();
   const savedPosts = useSavedPosts();
 
   const createPost = useCreatePost();
@@ -813,7 +811,7 @@ function DiscoverPage() {
   // --- Post Creator State ---
   const [creatorOpen, setCreatorOpen] = useState(false);
   const [creatorContent, setCreatorContent] = useState("");
-  const [creatorType, setCreatorType] = useState<"post" | "story" | "reel">("post");
+  const [creatorType, setCreatorType] = useState<"post" | "story">("post");
   const [creatorMediaUrl, setCreatorMediaUrl] = useState<string | null>(null);
   const [creatorMediaType, setCreatorMediaType] = useState<"image" | "video" | "gif" | null>(null);
   const [creatorUploading, setCreatorUploading] = useState(false);
@@ -850,11 +848,7 @@ function DiscoverPage() {
       return;
     }
     
-    // Validate reel constraints
-    if (creatorType === "reel" && creatorMediaType !== "video") {
-      toast.error("Reels require a video upload");
-      return;
-    }
+
 
     createPost.mutate({
       content: creatorContent.trim(),
@@ -1054,7 +1048,6 @@ function DiscoverPage() {
             <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
               {([
                 { key: "posts", label: "Posts", icon: Globe },
-                { key: "reels", label: "Reels", icon: Film },
                 { key: "saved", label: "Saved", icon: Bookmark }
               ] as const).map(({ key, label, icon: Icon }) => (
                 <button
@@ -1174,18 +1167,14 @@ function DiscoverPage() {
                     <form onSubmit={handleSharePost} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <div style={{ display: "flex", gap: 4 }}>
-                          {(["post", "story", "reel"] as const).map((t) => (
+                          {(["post", "story"] as const).map((t) => (
                             <button
                               key={t}
                               type="button"
                               onClick={() => {
                                 setCreatorType(t);
-                                if (t === "reel") {
-                                  setCreatorMediaType("video");
-                                } else {
-                                  setCreatorMediaType(null);
-                                  setCreatorMediaUrl(null);
-                                }
+                                setCreatorMediaType(null);
+                                setCreatorMediaUrl(null);
                               }}
                               style={{
                                 padding: "4px 8px", fontSize: "0.65rem", textTransform: "uppercase",
@@ -1205,9 +1194,9 @@ function DiscoverPage() {
                       <textarea
                         value={creatorContent}
                         onChange={(e) => setCreatorContent(e.target.value)}
-                        placeholder={creatorType === "story" ? "Add story caption (optional)..." : creatorType === "reel" ? "Add reel description..." : "What are you studying today?"}
+                        placeholder={creatorType === "story" ? "Add story caption (optional)..." : "What are you studying today?"}
                         rows={3}
-                        required={creatorType === "reel" || (creatorType === "post" && !creatorMediaUrl)}
+                        required={creatorType === "post" && !creatorMediaUrl}
                         style={{
                           width: "100%", background: "var(--bg-3)", border: "1px solid var(--color-border)",
                           borderRadius: 12, padding: 10, color: "#fff", fontSize: "0.8rem", resize: "none", outline: "none"
@@ -1232,7 +1221,7 @@ function DiscoverPage() {
                           <input 
                             ref={fileInputRef} 
                             type="file" 
-                            accept={creatorType === "reel" ? "video/*" : "image/*,video/*,.gif"} 
+                            accept="image/*,video/*,.gif" 
                             style={{ display: "none" }} 
                             onChange={handleFileUpload} 
                           />
@@ -1243,12 +1232,12 @@ function DiscoverPage() {
                             className="ss-btn ss-btn-outline" 
                             style={{ padding: "6px 12px", fontSize: "0.72rem", display: "flex", alignItems: "center", gap: 4 }}
                           >
-                            {creatorType === "reel" ? <Video size={12} /> : <Image size={12} />}
-                            {creatorUploading ? "Uploading…" : creatorType === "reel" ? "Attach Video" : "Attach Photo/Video"}
+                            <Image size={12} />
+                            {creatorUploading ? "Uploading…" : "Attach Photo/Video"}
                           </button>
                         </div>
 
-                        {creatorType !== "reel" && (
+                        {true && (
                           <div style={{ display: "flex", gap: 4, overflowX: "auto" }}>
                             {presets.map((p) => (
                               <button
@@ -1397,131 +1386,6 @@ function DiscoverPage() {
               </div>
             )}
 
-            {/* B. REELS SUB-TAB */}
-            {feedSubTab === "reels" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 360, margin: "0 auto" }}>
-                {reels.isLoading ? (
-                  <div style={{ textAlign: "center", color: "#555", padding: 40 }}>Loading Reels…</div>
-                ) : (reels.data ?? []).length === 0 ? (
-                  <SocialEmptyState 
-                    title="No Reels Available" 
-                    description="Be the first to share a vertical video study reel!" 
-                    activeTab="feed"
-                    setTab={setTab}
-                  />
-                ) : (
-                  (reels.data ?? []).map((reel: any) => {
-                    const mediaSrc = reel.mediaUrl?.startsWith("http") ? reel.mediaUrl : reel.mediaUrl ? `${BACKEND_URL}${reel.mediaUrl}` : "";
-                    
-                    return (
-                      <div 
-                        key={reel.id} 
-                        style={{
-                          position: "relative", width: "100%", height: 500, borderRadius: 16,
-                          overflow: "hidden", background: "#000", border: "1px solid var(--color-border)"
-                        }}
-                      >
-                        {/* Video */}
-                        {mediaSrc ? (
-                          <video 
-                            src={mediaSrc} 
-                            autoPlay 
-                            loop 
-                            muted 
-                            playsInline 
-                            style={{ width: "100%", height: "100%", objectFit: "cover" }} 
-                          />
-                        ) : (
-                          <div style={{
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            height: "100%", padding: 24, textAlign: "center", color: "var(--color-muted-foreground)"
-                          }}>
-                            Study Reel: "{reel.content}"
-                          </div>
-                        )}
-
-                        {/* Top Gradient */}
-                        <div style={{
-                          position: "absolute", top: 0, left: 0, right: 0, height: 60,
-                          background: "linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)", pointerEvents: "none"
-                        }} />
-
-                        {/* Bottom Info & Overlay */}
-                        <div style={{
-                          position: "absolute", bottom: 0, left: 0, right: 0, padding: 16,
-                          background: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)",
-                          display: "flex", flexDirection: "column", gap: 8
-                        }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div style={{
-                              width: 32, height: 32, borderRadius: "50%",
-                              background: avatarGradient(reel.authorId), display: "flex", alignItems: "center",
-                              justifyContent: "center", fontWeight: 800, color: "#0c0c0c", fontSize: "0.8rem"
-                            }}>
-                              {reel.author.avatar && !reel.author.avatar.startsWith("http") ? reel.author.avatar : reel.author.name.slice(0, 2).toUpperCase()}
-                            </div>
-                            <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "#fff" }}>{reel.author.name}</span>
-                          </div>
-                          <p style={{ margin: 0, fontSize: "0.8rem", color: "#fff", lineHeight: 1.4 }}>
-                            {reel.content}
-                          </p>
-                        </div>
-
-                        {/* Right Floating Actions */}
-                        <div style={{
-                          position: "absolute", right: 12, bottom: 80, display: "flex",
-                          flexDirection: "column", gap: 16, alignItems: "center"
-                        }}>
-                          <button 
-                            onClick={() => toggleLike.mutate(reel.id)}
-                            style={{ background: "none", border: "none", color: reel.liked ? "#ff4d6d" : "#fff", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}
-                          >
-                            <div style={{ padding: 10, borderRadius: "50%", background: "rgba(0,0,0,0.5)", display: "flex" }}>
-                              <Heart size={18} fill={reel.liked ? "currentColor" : "none"} />
-                            </div>
-                            <span style={{ fontSize: "0.68rem", fontWeight: "bold" }}>{reel.likeCount}</span>
-                          </button>
-                          
-                          <button 
-                            onClick={() => {
-                              setActiveCommentPostId(reel.id);
-                              setNewCommentText("");
-                            }}
-                            style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}
-                          >
-                            <div style={{ padding: 10, borderRadius: "50%", background: "rgba(0,0,0,0.5)", display: "flex" }}>
-                              <MessageCircle size={18} />
-                            </div>
-                            <span style={{ fontSize: "0.68rem", fontWeight: "bold" }}>{reel.commentCount}</span>
-                          </button>
-
-                          <button 
-                            onClick={() => toggleSave.mutate(reel.id)}
-                            style={{ background: "none", border: "none", color: reel.savedBy?.includes(currentUser?.id) ? "var(--color-primary)" : "#fff", cursor: "pointer" }}
-                          >
-                            <div style={{ padding: 10, borderRadius: "50%", background: "rgba(0,0,0,0.5)", display: "flex" }}>
-                              <Bookmark size={18} fill={reel.savedBy?.includes(currentUser?.id) ? "currentColor" : "none"} />
-                            </div>
-                          </button>
-
-                          <button 
-                            onClick={() => {
-                              toggleShare.mutate(reel.id);
-                              toast.success("Shared Reel link!");
-                            }}
-                            style={{ background: "none", border: "none", color: "#fff", cursor: "pointer" }}
-                          >
-                            <div style={{ padding: 10, borderRadius: "50%", background: "rgba(0,0,0,0.5)", display: "flex" }}>
-                              <Share2 size={18} />
-                            </div>
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
 
             {/* C. SAVED SUB-TAB */}
             {feedSubTab === "saved" && (

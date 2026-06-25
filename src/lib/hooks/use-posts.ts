@@ -25,14 +25,6 @@ export function useStories() {
   });
 }
 
-export function useReels() {
-  return useQuery({
-    queryKey: ["reels"],
-    queryFn: () => postsStore.reels(),
-    staleTime: 0,
-  });
-}
-
 export function useSavedPosts() {
   return useQuery({
     queryKey: ["saved-posts"],
@@ -44,7 +36,7 @@ export function useSavedPosts() {
 export function useCreatePost() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: string | { content: string; mediaUrl?: string; mediaType?: "image" | "video" | "gif"; type?: "post" | "story" | "reel" }) => {
+    mutationFn: (input: string | { content: string; mediaUrl?: string; mediaType?: "image" | "video" | "gif"; type?: "post" | "story" }) => {
       if (typeof input === "string") return postsStore.create(input);
       const { content, mediaUrl, mediaType, type } = input;
       return postsStore.create(content, mediaUrl && mediaType ? { mediaUrl, mediaType } : undefined, type);
@@ -52,7 +44,6 @@ export function useCreatePost() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["feed-posts"] });
       qc.invalidateQueries({ queryKey: ["stories"] });
-      qc.invalidateQueries({ queryKey: ["reels"] });
     },
   });
 }
@@ -72,7 +63,6 @@ export function useToggleLike() {
     mutationFn: (postId: string) => postsStore.toggleLike(postId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["feed-posts"] });
-      qc.invalidateQueries({ queryKey: ["reels"] });
     },
   });
 }
@@ -84,7 +74,6 @@ export function useToggleSave() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["feed-posts"] });
       qc.invalidateQueries({ queryKey: ["saved-posts"] });
-      qc.invalidateQueries({ queryKey: ["reels"] });
     },
   });
 }
@@ -95,7 +84,6 @@ export function useToggleShare() {
     mutationFn: (postId: string) => postsStore.toggleShare(postId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["feed-posts"] });
-      qc.invalidateQueries({ queryKey: ["reels"] });
     },
   });
 }
@@ -116,7 +104,6 @@ export function useAddComment() {
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["post-comments", vars.postId] });
       qc.invalidateQueries({ queryKey: ["feed-posts"] });
-      qc.invalidateQueries({ queryKey: ["reels"] });
     },
   });
 }
@@ -128,7 +115,6 @@ export function useDeletePost() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["feed-posts"] });
       qc.invalidateQueries({ queryKey: ["stories"] });
-      qc.invalidateQueries({ queryKey: ["reels"] });
     },
   });
 }

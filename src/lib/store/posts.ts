@@ -5,9 +5,8 @@ export const postsStore = {
   feed: (page = 1, limit = 15) => api.getFeed(page, limit).then((r) => r.posts ?? []),
   get: (id: string) => api.getPost(id).then((r) => r.post),
   stories: () => api.getStories().then((r) => r.stories ?? []),
-  reels: () => api.getReels().then((r) => r.reels ?? []),
   saved: () => api.getSavedPosts().then((r) => r.posts ?? []),
-  create: (content: string, media?: { mediaUrl: string; mediaType: "image" | "video" | "gif" }, type?: "post" | "story" | "reel") =>
+  create: (content: string, media?: { mediaUrl: string; mediaType: "image" | "video" | "gif" }, type?: "post" | "story") =>
     api.createPost(content, media, type).then((r) => r.post),
   update: (id: string, content: string, media?: { mediaUrl: string | null; mediaType: "image" | "video" | "gif" | null }) =>
     api.updatePost(id, content, media).then((r) => r.post),

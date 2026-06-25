@@ -138,6 +138,6 @@ platformRouter.get("/trending", asyncHandler(async (_req, res) => {
   res.json({
     topics: ["AI/ML", "System Design", "DSA", "Cloud Computing", "Cybersecurity"],
     hackathons: featured.filter((i) => i.type === "hackathon").slice(0, 3).map((i) => ({ id: String(i._id), title: i.title, deadline: i.deadline })),
-    posts: recentPosts.map((p) => ({ id: String(p._id), preview: p.content.slice(0, 80) })),
+    posts: recentPosts.map((p) => ({ id: String(p._id), preview: (p.content || "").slice(0, 80) })),
   });
 }));

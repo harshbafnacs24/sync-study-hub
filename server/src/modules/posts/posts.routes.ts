@@ -85,13 +85,13 @@ const createSchema = z.object({
   content: z.string().max(2000).optional().default(""),
   mediaUrl: z.string().optional().nullable(),
   mediaType: z.enum(["image", "video", "gif"]).optional().nullable(),
-  type: z.enum(["post", "story", "reel"]).optional().default("post"),
+  type: z.enum(["post", "story"]).optional().default("post"),
 }).refine((data) => (data.content && data.content.trim().length > 0) || !!data.mediaUrl, {
   message: "Either content or mediaUrl is required",
   path: ["content"],
 });
 postsRouter.post("/", validate(createSchema), asyncHandler(async (req: AuthedRequest, res) => {
-  const { content, mediaUrl, mediaType, type } = req.body as { content?: string; mediaUrl?: string | null; mediaType?: "image" | "video" | "gif" | null; type?: "post" | "story" | "reel" };
+  const { content, mediaUrl, mediaType, type } = req.body as { content?: string; mediaUrl?: string | null; mediaType?: "image" | "video" | "gif" | null; type?: "post" | "story" };
   const post = await Post.create({ authorId: req.userId, content: content ?? "", mediaUrl: mediaUrl ?? null, mediaType: mediaType ?? null, type: type ?? "post" });
   res.status(201).json({ post: await serializePost(post, req.userId!) });
 }));
@@ -219,13 +219,7 @@ postsRouter.get("/stories", asyncHandler(async (req: AuthedRequest, res) => {
   res.json({ stories: serialized });
 }));
 
-postsRouter.get("/reels", asyncHandler(async (req: AuthedRequest, res) => {
-  const reels = await Post.find({ type: "reel" })
-    .sort({ createdAt: -1 })
-    .limit(50);
-  const serialized = await Promise.all(reels.map((p) => serializePost(p, req.userId!)));
-  res.json({ reels: serialized });
-}));
+
 
 postsRouter.post("/:id/share", asyncHandler(async (req: AuthedRequest, res) => {
   const post = await Post.findById(req.params.id);
