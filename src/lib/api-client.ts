@@ -790,6 +790,12 @@ async function request<T>(
   const text = await res.text();
   const data = text ? safeJson(text) : null;
   if (!res.ok) {
+    if (res.status === 401) {
+      tokenStore.clear();
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
+    }
     const msg =
       (data && typeof data === "object" && "error" in data && (data as any).error) ||
       `Request failed (${res.status})`;

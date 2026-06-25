@@ -51,14 +51,22 @@ const upload = multer({
   storage,
   limits: { fileSize: MAX_FILE_SIZE },
   fileFilter: (_req, file, cb) => {
-    if (ALLOWED_MIME[file.mimetype]) cb(null, true);
-    else cb(new Error("File type not allowed"));
+    const mime = file.mimetype;
+    if (
+      mime.startsWith("image/") ||
+      mime.startsWith("video/") ||
+      ALLOWED_MIME[mime]
+    ) {
+      cb(null, true);
+    } else {
+      cb(new Error("File type not allowed"));
+    }
   },
 });
 
 export const uploadRouter = Router();
 
-uploadRouter.get("/:filename", optionalAuth, asyncHandler(async (req: AuthedRequest, res) => {
+uploadRouter.get("/:filename", requireAuth, asyncHandler(async (req: AuthedRequest, res) => {
   const doc = await SharedFile.findOne({ filename: req.params.filename });
   if (!doc) return res.status(404).json({ error: "File not found" });
 
@@ -112,7 +120,12 @@ uploadRouter.post(
   asyncHandler(async (req: AuthedRequest, res) => {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
-    const kind = ALLOWED_MIME[req.file.mimetype] ?? "file";
+    let kind = ALLOWED_MIME[req.file.mimetype];
+    if (!kind) {
+      if (req.file.mimetype.startsWith("image/")) kind = "image";
+      else if (req.file.mimetype.startsWith("video/")) kind = "video";
+      else kind = "file";
+    }
     if (!["image", "gif", "video"].includes(kind)) {
       fs.unlinkSync(req.file.path);
       return res.status(400).json({ error: "Only images, GIFs, and videos are allowed for posts" });
@@ -159,7 +172,12 @@ uploadRouter.post(
       }
     }
 
-    const kind = ALLOWED_MIME[req.file.mimetype] ?? "file";
+    let kind = ALLOWED_MIME[req.file.mimetype];
+    if (!kind) {
+      if (req.file.mimetype.startsWith("image/")) kind = "image";
+      else if (req.file.mimetype.startsWith("video/")) kind = "video";
+      else kind = "file";
+    }
     const doc = await SharedFile.create({
       uploaderId: req.userId,
       conversationId: conv._id,
@@ -201,7 +219,12 @@ uploadRouter.post(
       return res.status(403).json({ error: "You must join the community to upload files" });
     }
 
-    const kind = ALLOWED_MIME[req.file.mimetype] ?? "file";
+    let kind = ALLOWED_MIME[req.file.mimetype];
+    if (!kind) {
+      if (req.file.mimetype.startsWith("image/")) kind = "image";
+      else if (req.file.mimetype.startsWith("video/")) kind = "video";
+      else kind = "file";
+    }
     const doc = await SharedFile.create({
       uploaderId: req.userId,
       conversationId: null,

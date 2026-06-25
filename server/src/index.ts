@@ -111,8 +111,14 @@ async function main() {
   });
 
   app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    if (err instanceof ZodError) {
-      return res.status(400).json({ error: "Validation failed", details: err.flatten() });
+    if (err instanceof ZodError || err?.message === "Validation failed") {
+      const details = err instanceof ZodError ? err.flatten() : err.details;
+      console.error("[Validation Error] Details:", JSON.stringify(details));
+      return res.status(400).json({
+        error: "Validation failed",
+        message: err.message,
+        details: details
+      });
     }
     const status = typeof err?.status === "number" ? err.status : 500;
     if (status >= 500) console.error(err);

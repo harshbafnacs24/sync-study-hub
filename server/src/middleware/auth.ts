@@ -11,11 +11,19 @@ export function signToken(userId: string): string {
 }
 
 export function requireAuth(req: AuthedRequest, res: Response, next: NextFunction) {
+  let token = "";
   const header = req.headers.authorization ?? "";
-  const [scheme, token] = header.split(" ");
-  if (scheme !== "Bearer" || !token) {
+  const [scheme, schemeToken] = header.split(" ");
+  if (scheme === "Bearer" && schemeToken) {
+    token = schemeToken;
+  } else if (req.query.token && typeof req.query.token === "string") {
+    token = req.query.token;
+  }
+
+  if (!token) {
     return res.status(401).json({ error: "Missing bearer token" });
   }
+
   try {
     const payload = jwt.verify(token, env.jwtSecret) as { sub?: string };
     if (!payload.sub) throw new Error("bad token");

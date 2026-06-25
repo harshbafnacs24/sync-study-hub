@@ -1,5 +1,6 @@
+import { useState, useEffect } from "react";
 import { X, Download, ExternalLink } from "lucide-react";
-import { BACKEND_URL } from "../../lib/api-client";
+import { BACKEND_URL, tokenStore } from "../../lib/api-client";
 
 interface FilePreviewModalProps {
   isOpen: boolean;
@@ -13,25 +14,96 @@ interface FilePreviewModalProps {
 }
 
 export function FilePreviewModal({ isOpen, onClose, file, token }: FilePreviewModalProps) {
-  if (!isOpen || !file) return null;
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const fileUrl = `${BACKEND_URL}${file.url}${token ? `?token=${token}` : ""}`;
-  const downloadUrl = fileUrl.includes("?") ? `${fileUrl}&download=true` : `${fileUrl}?download=true`;
+  useEffect(() => {
+    if (!isOpen || !file) {
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
+      setBlobUrl(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    let active = true;
+    setLoading(true);
+    setError(null);
+
+    const loadFile = async () => {
+      try {
+        const activeToken = token || tokenStore.get();
+        const headers: Record<string, string> = {};
+        if (activeToken) {
+          headers["Authorization"] = `Bearer ${activeToken}`;
+        }
+
+        const res = await fetch(`${BACKEND_URL}${file.url}`, { headers });
+        if (!res.ok) {
+          if (res.status === 401) {
+            tokenStore.clear();
+            if (typeof window !== "undefined") {
+              window.location.href = "/login";
+            }
+            throw new Error("Session expired. Please log in again.");
+          }
+          const errData = await res.json().catch(() => null);
+          throw new Error(errData?.error ?? `Failed to load file (Status ${res.status})`);
+        }
+
+        const blob = await res.blob();
+        if (!active) return;
+
+        const url = URL.createObjectURL(blob);
+        setBlobUrl(url);
+      } catch (err: any) {
+        console.error("Error fetching preview file:", err);
+        if (active) setError(err?.message ?? "Failed to load preview");
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    loadFile();
+
+    return () => {
+      active = false;
+    };
+  }, [isOpen, file, token]);
+
+  // Revoke blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
+    };
+  }, [blobUrl]);
+
+  if (!isOpen || !file) return null;
 
   const isImage = file.kind === "image";
   const isVideo = file.kind === "video";
   const isPdf = file.kind === "pdf";
   const isDoc = ["doc", "docx", "ppt", "pptx", "xls", "xlsx"].includes(file.kind);
 
-  // Google Docs Viewer URL for DOCX/PPTX or PDF fallback
-  const googleViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`;
+  // We still construct a public fallback url for tools like Google Docs Viewer that require it, 
+  // but we warn that it won't work on localhost/without public auth.
+  const fallbackUrl = `${BACKEND_URL}${file.url}${token ? `?token=${token}` : ""}`;
+  const googleViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(fallbackUrl)}&embedded=true`;
+
+  const finalPreviewUrl = blobUrl || fallbackUrl;
+  const downloadUrl = blobUrl || (fallbackUrl.includes("?") ? `${fallbackUrl}&download=true` : `${fallbackUrl}?download=true`);
 
   return (
     <div style={{
       position: "fixed",
       inset: 0,
       zIndex: 9999,
-      background: "rgba(0,0,0,0.9)",
+      background: "rgba(0,0,0,0.85)",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
@@ -85,41 +157,65 @@ export function FilePreviewModal({ isOpen, onClose, file, token }: FilePreviewMo
           position: "relative",
           padding: 8
         }}>
-          {isImage && (
-            <img src={fileUrl} alt={file.name} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
-          )}
-
-          {isVideo && (
-            <video src={fileUrl} controls style={{ maxWidth: "100%", maxHeight: "100%" }} />
-          )}
-
-          {isPdf && (
-            <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
-              <iframe
-                src={fileUrl}
-                style={{ width: "100%", height: "100%", flex: 1, border: "none" }}
-                title="PDF Preview"
-              />
-              <div style={{ fontSize: "0.7rem", color: "var(--color-muted-foreground)", textAlign: "center", marginTop: 8 }}>
-                Cannot view PDF? <a href={googleViewerUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--color-primary)", textDecoration: "underline" }}>Open in Google Docs Viewer</a>
-              </div>
+          {loading && (
+            <div style={{ color: "var(--color-muted-foreground)", textAlign: "center" }}>
+              <div className="ss-mono" style={{ fontSize: "0.8rem", marginBottom: 8 }}>Securing session & fetching file...</div>
+              <div style={{ display: "inline-block", width: 24, height: 24, border: "3px solid rgba(255,255,255,0.1)", borderTopColor: "var(--color-primary)", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
             </div>
           )}
 
-          {isDoc && (
-            <iframe
-              src={googleViewerUrl}
-              style={{ width: "100%", height: "100%", minHeight: 380, border: "none" }}
-              title="Document Preview"
-            />
+          {error && (
+            <div style={{ textAlign: "center", padding: 24, color: "#ff6b6b" }}>
+              <div style={{ fontSize: "1.5rem", marginBottom: 8 }}>⚠️</div>
+              <div style={{ fontSize: "0.85rem", fontWeight: "bold" }}>Failed to load preview</div>
+              <div style={{ fontSize: "0.75rem", marginTop: 4 }}>{error}</div>
+            </div>
           )}
 
-          {!isImage && !isVideo && !isPdf && !isDoc && (
-            <div style={{ textAlign: "center", padding: 24 }}>
-              <div style={{ fontSize: "2rem", marginBottom: 12 }}>📎</div>
-              <div style={{ fontSize: "0.85rem", color: "#fff", marginBottom: 4 }}>{file.name}</div>
-              <div style={{ fontSize: "0.7rem", color: "var(--color-muted-foreground)" }}>Preview not available for this file type.</div>
-            </div>
+          {!loading && !error && (
+            <>
+              {isImage && (
+                <img src={finalPreviewUrl} alt={file.name} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
+              )}
+
+              {isVideo && (
+                <video src={finalPreviewUrl} controls style={{ maxWidth: "100%", maxHeight: "100%" }} />
+              )}
+
+              {isPdf && (
+                <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
+                  <iframe
+                    src={finalPreviewUrl}
+                    style={{ width: "100%", height: "100%", flex: 1, border: "none" }}
+                    title="PDF Preview"
+                  />
+                  <div style={{ fontSize: "0.7rem", color: "var(--color-muted-foreground)", textAlign: "center", marginTop: 8 }}>
+                    Cannot view PDF? <a href={googleViewerUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--color-primary)", textDecoration: "underline" }}>Open in Google Docs Viewer</a>
+                  </div>
+                </div>
+              )}
+
+              {isDoc && (
+                <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 12 }}>
+                  <iframe
+                    src={googleViewerUrl}
+                    style={{ width: "100%", height: "100%", minHeight: 320, border: "none", flex: 1 }}
+                    title="Document Preview"
+                  />
+                  <div style={{ fontSize: "0.7rem", color: "var(--color-muted-foreground)", textAlign: "center" }}>
+                    If document does not load, please download it to view on your device.
+                  </div>
+                </div>
+              )}
+
+              {!isImage && !isVideo && !isPdf && !isDoc && (
+                <div style={{ textAlign: "center", padding: 24 }}>
+                  <div style={{ fontSize: "2rem", marginBottom: 12 }}>📎</div>
+                  <div style={{ fontSize: "0.85rem", color: "#fff", marginBottom: 4 }}>{file.name}</div>
+                  <div style={{ fontSize: "0.7rem", color: "var(--color-muted-foreground)" }}>Preview not available for this file type.</div>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -134,7 +230,7 @@ export function FilePreviewModal({ isOpen, onClose, file, token }: FilePreviewMo
             <Download size={14} /> Download
           </a>
           <a
-            href={fileUrl}
+            href={finalPreviewUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="ss-btn ss-btn-outline"
@@ -151,6 +247,11 @@ export function FilePreviewModal({ isOpen, onClose, file, token }: FilePreviewMo
           </button>
         </div>
       </div>
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
